@@ -1,0 +1,2 @@
+# ADR 디렉터리. 파일명: NNNN-<kebab-title>.md (NNNN=0001부터 0패딩).
+# 모든 의존성·기술 선택마다 ADR 1개 (헌장 §8). 템플릿은 docs/prompts/M1-console.md §2.6 참조.

@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.log
+.DS_Store
+
+# 로컬 툴/에이전트 상태 (커밋 금지)
+.omc/
+.claude/
+
+# env: 실값은 전부 무시, 예시만 추적
+.env
+.env.*
+!.env.example
