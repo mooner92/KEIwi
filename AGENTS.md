@@ -53,8 +53,16 @@ npm run verify     # lint + typecheck + build + check:secrets
 - **M1** 통합 메트릭 콘솔 ← *현재 작업* ([spec](./specs/M1-console/spec.md))
 - **M2** 통합 로그 · **M3** 여유 리소스 뷰 · **M4** 장애 추적 · **M5** 크리티컬 알림
 
-## 5. 안전 규칙 (요약 — 상세는 헌장)
+## 5. ADR 색인 ([`docs/decisions/`](./docs/decisions))
+
+- [0001](./docs/decisions/0001-framework-and-styling.md) — 프레임워크/스타일링: Next.js 16 + Tailwind v4(`@theme`) + CSS 변수 토큰
+- [0002](./docs/decisions/0002-grafana-embed.md) — Grafana 임베드: `<iframe>`(kiosk), 자체 인증 없음
+- [0003](./docs/decisions/0003-inventory-yaml-parser.md) — inventory 파서: `yaml` 패키지(서버 전용)
+- [0004](./docs/decisions/0004-config-validation-zod.md) — env·스키마 검증: `zod`(fail-fast)
+- [0005](./docs/decisions/0005-unit-test-runner.md) — 단위 테스트 러너: `vitest`(US4 불변식 verify 강제)
+
+## 6. 안전 규칙 (요약 — 상세는 헌장)
 
 - 에이전트는 생성, **적용(프로덕션 배포)은 사람**. (§11)
 - 개발 격리: 라이브 `.105` 스택 방해 금지. (§12)
-- 단일 콘솔 = Grafana. **Grafana 재구현 금지.** (§I-2)
+- 단일 콘솔 = Grafana. **Grafana 재구현 금지.** (§2)

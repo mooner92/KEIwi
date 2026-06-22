@@ -1,6 +1,6 @@
 # M1 콘솔 — Spec
 
-- 상태: 제안 (게이트 검토 대기)
+- 상태: 채택 (2단계 게이트 승인 2026-06-22)
 - 날짜: 2026-06-22
 - 권위: 이 spec은 [`Constitution.md`](../../Constitution.md)에 종속된다. 충돌 시 헌장이 이긴다.
 - 빌드 프롬프트: [`docs/prompts/M1-console.md`](../../docs/prompts/M1-console.md)
@@ -110,6 +110,8 @@ M1의 성공은 §수용 기준의 기계 검증으로 정의한다(헌장 §9).
 
 5단계에서 아래 절차로 §8 각 항목을 pass/fail 판정한다.
 
+> **`verify` 구성:** `lint`(eslint — Next 16은 `next lint` 제거, [ADR-0001](../../docs/decisions/0001-framework-and-styling.md)) + `typecheck` + **`test`(vitest, [ADR-0005](../../docs/decisions/0005-unit-test-runner.md))** + `build` + `check:secrets`(+ PROMETHEUS_URL 빌드 산출물 비노출) + `check:no-raw-hex`(src/components). 프롬프트 §6.1 대비 **test·hex·PROMETHEUS_URL** 검사를 보강해 §검증 방법·§보강 검증을 verify로 강제한다.
+
 | §8 기준 | 검증 절차 (관측 신호) |
 |---|---|
 | build/lint/typecheck | `npm run build` exit 0 · `npm run lint` 경고 0 · `tsc --noEmit` 에러 0 |
@@ -121,7 +123,7 @@ M1의 성공은 §수용 기준의 기계 검증으로 정의한다(헌장 §9).
 | check:secrets | `npm run check:secrets` exit 0 |
 | 상태색=시맨틱 토큰만 | `grep -rnP '#[0-9a-fA-F]{3,6}' src/components/` → 0건 (상태 raw hex 부재). `check-no-secrets.sh`는 URL만 검사하므로 이 hex 검사는 별도 |
 | 반응형/포커스/reduced-motion | `globals.css`에 `@media (prefers-reduced-motion: reduce)` 블록 존재(grep) · `:focus-visible` 스타일 존재(grep) · 375px 뷰포트에서 가로 스크롤 없음(수동 또는 Playwright). 자동화 곤란분은 수동 체크로 분리 표기 |
-| 파일 §2 구조 일치 | **프롬프트 §2.2 파일 트리**의 각 경로 존재(`test -f`/`ls`). 누락 0(잉여 파일은 허용) |
+| 파일 §2 구조 일치 | **프롬프트 §2.2 파일 트리**의 각 경로 존재(`test -f`/`ls`). 누락 0(잉여 파일은 허용). 단 `tailwind.config.ts`는 Tailwind v4 채택으로 미생성([ADR-0001](../../docs/decisions/0001-framework-and-styling.md)) — 이 한 경로만 예외 |
 | 아티팩트 존재 | `spec.md`·`inventory.yaml`·`AGENTS.md`·`docs/decisions/*.md` 존재(`test -f`) |
 
 ---
@@ -152,12 +154,14 @@ M1의 성공은 §수용 기준의 기계 검증으로 정의한다(헌장 §9).
 
 ## 의존 결정 (ADR 링크)
 
-3단계(plan)에서 아래 ADR을 작성한다(헌장 §8 — 모든 의존성·기술 선택은 ADR). spec은 이 결정들에 종속됨을 선언한다.
+아래 ADR이 이 spec의 의존성·기술 선택을 정한다(헌장 §8 — 모든 의존성 선택은 ADR). 모두 채택됨(2026-06-22, 3단계).
 
-| ADR | 결정 대상 | 기본 방향(프롬프트 §7) | 파일(예정) |
+| ADR | 결정 | 채택 결과 | 파일 |
 |---|---|---|---|
-| 0001 | 프레임워크 & 스타일링 | Next.js(App Router) + Tailwind + CSS 변수 토큰 | `docs/decisions/0001-framework-and-styling.md` |
-| 0002 | Grafana 임베드 방식 | `GRAFANA_URL`+`UID`로 iframe URL 구성 | `docs/decisions/0002-grafana-embed.md` |
-| 0003 | inventory YAML 파싱 라이브러리 | 지루한 기술 선호(헌장 §6) | `docs/decisions/0003-inventory-yaml-parser.md` |
+| 0001 | 프레임워크 & 스타일링 & 토큰 | **Next.js 16 + Tailwind v4(CSS-first `@theme`) + CSS 변수 토큰**. `tailwind.config.ts` 미생성(§2.2 일탈 1건) | [0001](../../docs/decisions/0001-framework-and-styling.md) |
+| 0002 | Grafana 임베드 방식 | `<iframe>` + `GRAFANA_URL`/`UID`(kiosk). 자체 인증 없음 | [0002](../../docs/decisions/0002-grafana-embed.md) |
+| 0003 | inventory YAML 파서 | `yaml` 패키지(서버 전용) + zod 검증 | [0003](../../docs/decisions/0003-inventory-yaml-parser.md) |
+| 0004 | env·스키마 검증 | `zod`(env fail-fast + inventory 스키마) | [0004](../../docs/decisions/0004-config-validation-zod.md) |
+| 0005 | 단위 테스트 러너 | `vitest`(US4 불변식 verify 강제) | [0005](../../docs/decisions/0005-unit-test-runner.md) |
 
-> 위 파일은 아직 존재하지 않으며 3단계 게이트에서 작성·승인된다. 의존성 추가는 ADR 없이 하지 않는다.
+> 의존성 추가는 ADR 없이 하지 않는다(헌장 §8).
