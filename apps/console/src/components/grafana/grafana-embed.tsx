@@ -25,10 +25,25 @@ export function GrafanaEmbed() {
   }
 
   return (
-    <iframe
-      src={src}
-      title="Grafana 메트릭 대시보드"
-      className="h-[70vh] min-h-[480px] w-full rounded-lg border border-border bg-surface"
-    />
+    <div className="space-y-2">
+      <iframe
+        src={src}
+        title="Grafana 메트릭 대시보드"
+        loading="lazy"
+        className="h-[70vh] min-h-[480px] w-full rounded-lg border border-border bg-surface"
+      />
+      <p className="text-right text-xs text-ink-muted">
+        대시보드가 비어 보이면{" "}
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-info-700 underline underline-offset-2"
+        >
+          새 탭에서 열기
+        </a>{" "}
+        — 인증이 필요할 수 있습니다.
+      </p>
+    </div>
   );
 }

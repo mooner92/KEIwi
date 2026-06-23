@@ -25,6 +25,11 @@ export function Nav() {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
+            aria-label={
+              item.soon
+                ? `${item.label} — 준비 중, ${item.soon}에서 추가 예정`
+                : undefined
+            }
             className={[
               "group inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
               active

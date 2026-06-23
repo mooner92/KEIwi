@@ -125,18 +125,14 @@ body {
   border-radius: 3px;
 }
 
-/* 모션 최소 — 상태 변화 미세 트랜지션만, reduced-motion 존중 */
-@media (prefers-reduced-motion: no-preference) {
-  .status-live {
-    animation: keiwi-pulse 2.4s ease-in-out infinite;
-  }
-}
-@keyframes keiwi-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
+/* 모션 최소 — reduced-motion 존중 (애니메이션/트랜지션 무력화) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

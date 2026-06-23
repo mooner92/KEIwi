@@ -20,14 +20,14 @@ export function NodeCard({ node }: { node: FleetNodeStatus }) {
           <h3 className="font-display text-base font-semibold tracking-tight text-ink">
             {node.id}
           </h3>
-          <span className="text-[11px] uppercase tracking-wide text-ink-subtle">
+          <span className="text-[11px] uppercase tracking-wide text-ink-muted">
             {node.role}
           </span>
         </div>
         <p className="tnum mt-0.5 text-sm text-ink-muted">{node.ip}</p>
         <div className="mt-3 flex items-center justify-between">
           <StatusIndicator status={node.status} />
-          <span className="text-[11px] uppercase tracking-wide text-ink-subtle">
+          <span className="text-[11px] uppercase tracking-wide text-ink-muted">
             {node.os}
           </span>
         </div>

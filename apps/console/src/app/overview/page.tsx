@@ -10,6 +10,7 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-8">
+      <h1 className="sr-only">플릿 Overview</h1>
       <FleetStrip nodes={nodes} />
 
       <section aria-label="메트릭 대시보드">
