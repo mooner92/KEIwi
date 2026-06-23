@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/* ============================================================
+   KEIwi 디자인 토큰 — 단일 소스 (헌장 §17, 프롬프트 §4.1)
+   · 브랜드 램프(green/blue/gray)는 정체성·UI 크롬용
+   · 시맨틱 상태 토큰(success/info/warning/danger/neutral)은 분리
+   · 컴포넌트는 raw hex를 쓰지 않고 이 토큰(유틸/var)만 참조한다
+   ============================================================ */
+@theme {
+  /* 타이포 — display / body / mono 의도적 페어링 (§5) */
+  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* 브랜드 green (primary) — base 500 = #38B38D */
+  --color-green-50: #ecf8f3;
+  --color-green-100: #d2efe4;
+  --color-green-200: #a6dfca;
+  --color-green-300: #72ccac;
+  --color-green-400: #4cbd97;
+  --color-green-500: #38b38d;
+  --color-green-600: #2c9374;
+  --color-green-700: #25765f;
+  --color-green-800: #205e4c;
+  --color-green-900: #1b4d3f;
+
+  /* 브랜드 blue (secondary) — base 500 = #3CA2DF */
+  --color-blue-50: #ecf6fc;
+  --color-blue-100: #cee8f8;
+  --color-blue-200: #a3d6f1;
+  --color-blue-300: #6dbfe9;
+  --color-blue-400: #4cafe3;
+  --color-blue-500: #3ca2df;
+  --color-blue-600: #2f84bb;
+  --color-blue-700: #296b98;
+  --color-blue-800: #265a7d;
+  --color-blue-900: #234b67;
+
+  /* 브랜드 gray/slate (neutral chrome) — base 800 = #343E44 */
+  --color-gray-50: #f5f7f7;
+  --color-gray-100: #e7ebec;
+  --color-gray-200: #ccd4d6;
+  --color-gray-300: #a8b4b8;
+  --color-gray-400: #7c8a8f;
+  --color-gray-500: #5a686e;
+  --color-gray-600: #475358;
+  --color-gray-700: #3a4449;
+  --color-gray-800: #343e44;
+  --color-gray-900: #20262b;
+
+  /* 시맨틱 상태 토큰 — 상태색은 반드시 이걸로만 (브랜드와 분리) */
+  --color-success-50: var(--color-green-50);
+  --color-success-100: var(--color-green-100);
+  --color-success-400: var(--color-green-400);
+  --color-success-500: var(--color-green-500);
+  --color-success-600: var(--color-green-600);
+  --color-success-700: var(--color-green-700);
+
+  --color-info-50: var(--color-blue-50);
+  --color-info-100: var(--color-blue-100);
+  --color-info-500: var(--color-blue-500);
+  --color-info-600: var(--color-blue-600);
+  --color-info-700: var(--color-blue-700);
+
+  /* 브랜드 팔레트가 전부 쿨톤이라 위험/경고는 amber·red 추가 (§17) */
+  --color-warning-50: #fdf6e9;
+  --color-warning-100: #f9e6bf;
+  --color-warning-500: #d98e0c;
+  --color-warning-600: #b3720a;
+  --color-warning-700: #8a5808;
+
+  --color-danger-50: #fdecec;
+  --color-danger-100: #f7cccc;
+  --color-danger-400: #e25c5c;
+  --color-danger-500: #d23a3a;
+  --color-danger-600: #b22d2d;
+  --color-danger-700: #8f2525;
+
+  --color-neutral-50: var(--color-gray-50);
+  --color-neutral-100: var(--color-gray-100);
+  --color-neutral-300: var(--color-gray-300);
+  --color-neutral-400: var(--color-gray-400);
+  --color-neutral-500: var(--color-gray-500);
+  --color-neutral-700: var(--color-gray-700);
+
+  /* UI 크롬 (라이트 운영자 콘솔) */
+  --color-canvas: #f6f8f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef2f2;
+  --color-border: #dde4e5;
+  --color-border-strong: #c4cfd1;
+  --color-ink: var(--color-gray-800);
+  --color-ink-muted: var(--color-gray-500);
+  --color-ink-subtle: var(--color-gray-400);
+  --color-chrome: var(--color-gray-900);
+  --color-chrome-ink: #eef2f2;
+  --color-chrome-muted: #95a1a6;
+  --color-brand: var(--color-green-500);
+  --color-brand-strong: var(--color-green-700);
+}
+
+/* ---- 베이스 ---- */
+html {
+  color-scheme: light;
+}
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 숫자·IP·메트릭은 mono + tabular (§5: 수치는 mono가 잘 읽힘) */
+.tnum {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 키보드 포커스 가시 (품질 바닥) */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* 모션 최소 — 상태 변화 미세 트랜지션만, reduced-motion 존중 */
+@media (prefers-reduced-motion: no-preference) {
+  .status-live {
+    animation: keiwi-pulse 2.4s ease-in-out infinite;
+  }
+}
+@keyframes keiwi-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
