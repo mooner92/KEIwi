@@ -13,11 +13,17 @@ export function resolveFleetStatus(
   nodes: Node[],
   up: UpSeries[],
 ): FleetNodeStatus[] {
-  const byInstance = new Map(up.map((s) => [s.instance, s.value]));
+  // 동일 instance에 복수 series가 올 수 있으므로 값을 모두 모은다(0이 1로 덮어써지지 않게).
+  const byInstance = new Map<string, number[]>();
+  for (const s of up) {
+    const arr = byInstance.get(s.instance);
+    if (arr) arr.push(s.value);
+    else byInstance.set(s.instance, [s.value]);
+  }
   return nodes.map((node) => {
-    const matched = Object.values(node.exporters)
-      .map((endpoint) => byInstance.get(endpoint))
-      .filter((v): v is number => v !== undefined);
+    const matched = Object.values(node.exporters).flatMap(
+      (endpoint) => byInstance.get(endpoint) ?? [],
+    );
     const status: FleetNodeStatus["status"] =
       matched.length === 0
         ? "no-data"

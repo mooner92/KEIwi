@@ -12,7 +12,7 @@ export const NodeSchema = z.object({
   os: OsSchema,
   role: RoleSchema,
   gpu: z.string().nullable().optional(),
-  exporters: z.record(z.string(), z.string()),
+  exporters: z.record(z.string(), z.string().min(1)),
 });
 
 export const InventorySchema = z.object({ nodes: z.array(NodeSchema) });

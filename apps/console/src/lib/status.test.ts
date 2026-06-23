@@ -35,6 +35,14 @@ describe("resolveFleetStatus", () => {
     expect(r[2].status).toBe("no-data");
   });
 
+  it("동일 instance에 복수 series(1과 0)가 와도 0이 덮어써지지 않고 down", () => {
+    const dup: UpSeries[] = [
+      { instance: "192.168.1.1:9100", value: 1 },
+      { instance: "192.168.1.1:9100", value: 0 },
+    ];
+    expect(resolveFleetStatus(nodes, dup)[0].status).toBe("down");
+  });
+
   it("복수 exporter: 모두 1이면 up, 하나라도 0이면 down (이기종 data05)", () => {
     const allUp: UpSeries[] = [
       { instance: "192.168.1.5:9100", value: 1 },

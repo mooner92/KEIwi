@@ -12,8 +12,11 @@ export async function queryUp(): Promise<UpSeries[]> {
   const res = await fetch(`${base}/api/v1/query?query=up`, { cache: "no-store" });
   if (!res.ok) throw new Error(`[prometheus] HTTP ${res.status}`);
   const json: { data?: { result?: PromResult[] } } = await res.json();
-  return (json.data?.result ?? []).map((r) => ({
-    instance: r.metric?.instance ?? "",
-    value: Number(r.value?.[1] ?? "0"),
-  }));
+  return (json.data?.result ?? [])
+    .map((r) => ({
+      instance: r.metric?.instance ?? "",
+      value: Number(r.value?.[1]),
+    }))
+    // instance 누락/비숫자 value series는 버린다 → 매칭 안 되면 no-data로 안전 귀결(US4)
+    .filter((s) => s.instance !== "" && Number.isFinite(s.value));
 }
