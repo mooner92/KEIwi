@@ -4,6 +4,24 @@ import { useState } from "react";
 
 type Dashboard = { uid: string; label: string };
 
+// 임베드 URL 조립: 입력(경로/슬러그/쿼리/전체 URL 무엇이든)을 경로+쿼리로 분해해
+// kiosk(크롬 숨김)·theme=light(콘솔 라이트 매칭)를 올바르게 병합(? 중복 방지).
+// 기존 쿼리(var-*, from/to, refresh 등)는 보존하고 kiosk/theme만 갱신한다.
+function buildEmbedSrc(baseUrl: string, entry: string): string {
+  const base = baseUrl.replace(/\/+$/, "");
+  let e = entry.trim();
+  const dIdx = e.indexOf("/d/");
+  if (dIdx !== -1) e = e.slice(dIdx + 3); // 전체 URL을 붙여넣어도 '/d/' 뒤만 사용
+  const qIdx = e.indexOf("?");
+  const path = (qIdx === -1 ? e : e.slice(0, qIdx)).replace(/^\/+|\/+$/g, "");
+  const existing = qIdx === -1 ? "" : e.slice(qIdx + 1);
+  const params = existing
+    .split("&")
+    .filter((p) => p && !/^kiosk(=|$)/i.test(p) && !/^theme=/i.test(p));
+  params.push("kiosk", "theme=light");
+  return `${base}/d/${path}?${params.join("&")}`;
+}
+
 // 대시보드 개수 가변 — 줄바꿈 탭 바(1개면 탭 숨김). 선택된 대시보드를 kiosk로 임베드.
 export function GrafanaTabs({
   baseUrl,
@@ -13,11 +31,8 @@ export function GrafanaTabs({
   dashboards: Dashboard[];
 }) {
   const [active, setActive] = useState(0);
-  const base = baseUrl.replace(/\/+$/, "");
   const current = dashboards[active] ?? dashboards[0];
-  // kiosk = Grafana 크롬(사이드바/상단/헤더) 숨김 · theme=light = 콘솔(라이트)과 매칭.
-  // current.uid는 '/d/' 뒤 경로(uid 또는 uid/slug) — 슬러그 포함 시 리다이렉트 없이 kiosk 유지.
-  const src = `${base}/d/${current.uid}?kiosk&theme=light`;
+  const src = buildEmbedSrc(baseUrl, current.uid);
 
   return (
     <div className="space-y-2">
