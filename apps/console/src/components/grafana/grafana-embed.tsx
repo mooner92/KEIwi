@@ -1,17 +1,19 @@
 import { getGrafana } from "@/config/env";
+import { GrafanaTabs } from "./grafana-tabs";
 
 // Grafana 대시보드를 iframe으로 임베드 (헌장 §2: 재구현 금지, ADR-0002).
 // 인증은 Cloudflare Access(헌장 §14)가 처리 — 콘솔은 토큰 주입 안 함.
+// 대시보드 개수 가변: env 목록 → 탭(1개면 탭 없이 임베드). env 미설정 시 안내 패널.
 export function GrafanaEmbed() {
-  let src: string | null = null;
+  // 데이터 취득만 try/catch (JSX 렌더는 밖에서 — 렌더 에러를 try로 못 잡으므로)
+  let grafana: ReturnType<typeof getGrafana> | null = null;
   try {
-    const { url, uid } = getGrafana();
-    src = `${url.replace(/\/+$/, "")}/d/${uid}?kiosk`;
+    grafana = getGrafana();
   } catch {
-    src = null; // env 미설정 — 아래 안내 패널로 안전 귀결
+    grafana = null;
   }
 
-  if (!src) {
+  if (!grafana) {
     return (
       <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface-2 p-8 text-center">
         <p className="text-sm font-medium text-ink">Grafana 미연결</p>
@@ -24,26 +26,5 @@ export function GrafanaEmbed() {
     );
   }
 
-  return (
-    <div className="space-y-2">
-      <iframe
-        src={src}
-        title="Grafana 메트릭 대시보드"
-        loading="lazy"
-        className="h-[70vh] min-h-[480px] w-full rounded-lg border border-border bg-surface"
-      />
-      <p className="text-right text-xs text-ink-muted">
-        대시보드가 비어 보이면{" "}
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-info-700 underline underline-offset-2"
-        >
-          새 탭에서 열기
-        </a>{" "}
-        — 인증이 필요할 수 있습니다.
-      </p>
-    </div>
-  );
+  return <GrafanaTabs baseUrl={grafana.url} dashboards={grafana.dashboards} />;
 }

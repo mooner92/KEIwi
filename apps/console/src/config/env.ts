@@ -37,17 +37,34 @@ export function getPrometheusUrl(): string {
   return r.data;
 }
 
-/** GRAFANA — Overview 임베드용. 누락/형식오류 시 fail-fast. */
-export function getGrafana(): { url: string; uid: string } {
+export type GrafanaDashboard = { uid: string; label: string };
+
+/**
+ * GRAFANA — Overview 임베드용. 대시보드 개수 가변(추가 시 env만 수정):
+ *   GRAFANA_DASHBOARD_UID = "uid|라벨" 쉼표 목록 (라벨 생략 시 "대시보드 N").
+ *   예) "abc123|시스템,def456|GPU,ghi789|네트워크"
+ * 누락/형식오류 시 어떤 키인지 명시하며 fail-fast.
+ */
+export function getGrafana(): { url: string; dashboards: GrafanaDashboard[] } {
   const url = urlString.safeParse(process.env.GRAFANA_URL);
-  const uid = z.string().min(1).safeParse(process.env.GRAFANA_DASHBOARD_UID);
+  const dashboards: GrafanaDashboard[] = (process.env.GRAFANA_DASHBOARD_UID ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((entry, i) => {
+      const [uid, ...rest] = entry.split("|");
+      const label = rest.join("|").trim();
+      return { uid: uid.trim(), label: label || `대시보드 ${i + 1}` };
+    })
+    .filter((d) => d.uid.length > 0);
+
   const missing: string[] = [];
   if (!url.success) missing.push("GRAFANA_URL");
-  if (!uid.success) missing.push("GRAFANA_DASHBOARD_UID");
+  if (dashboards.length === 0) missing.push("GRAFANA_DASHBOARD_UID");
   if (missing.length > 0) {
     throw new Error(
       `[env] ${missing.join(", ")} 누락/잘못됨 — apps/console/.env.local에 설정하세요 (.env.example 참고).`,
     );
   }
-  return { url: url.data as string, uid: uid.data as string };
+  return { url: url.data as string, dashboards };
 }
