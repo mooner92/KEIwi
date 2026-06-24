@@ -1,0 +1,42 @@
+# KEIwi 플릿 수집 — Prometheus 설정 (data04·data05만, 권장본)
+#
+# 이 파일은 .105 라이브 스택(/data/monitoring/prometheus.yml)에 적용할 "권장 버전"이다.
+# 에이전트는 생성만, 적용은 사람이 한다(헌장 §11). 라이브는 직접 수정하지 않는다.
+#
+# 핵심: 각 타깃의 instance 라벨을 KEIwi inventory(docs/inventory.yaml)의 exporters
+#       값(ip:port)과 "정확히 일치"시킨다 → 콘솔이 up/down/no-data를 올바로 매칭.
+#   · data05(로컬 컨테이너)        node-exporter:9100  → instance 192.168.1.105:9100
+#                                  dcgm-exporter:9400  → instance 192.168.1.105:9400
+#   · data04(직접 도달 불가, 터널) 172.18.0.1:9104     → instance 192.168.1.104:9100
+#       (호스트 SSH 터널: 172.18.0.1:9104 → data04:9100, keiwi-tunnel-data04.service 참고)
+#   · data01~03                    터널 미설정 → 수집 안 함 → 콘솔에서 no-data(설계된 동작)
+#
+# 적용: 이 내용을 /data/monitoring/prometheus.yml에 반영 후
+#       docker compose -f /data/monitoring/docker-compose.yml restart prometheus
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "gpu-model-exporter"
+    static_configs:
+      - targets: ["172.18.0.1:9836"]
+
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"] # data05 (로컬 컨테이너)
+        labels:
+          instance: "192.168.1.105:9100"
+      - targets: ["172.18.0.1:9104"] # data04 (SSH 터널)
+        labels:
+          instance: "192.168.1.104:9100"
+
+  - job_name: "dcgm-exporter"
+    static_configs:
+      - targets: ["dcgm-exporter:9400"] # data05 GPU
+        labels:
+          instance: "192.168.1.105:9400"
