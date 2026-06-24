@@ -7,10 +7,10 @@
 # 적용:
 #   1) cd /KEIwi/apps/console && cp .env.example .env.local  # 값 채우기
 #   2) (수동 실행 중이면 먼저 종료 — 3105 포트 충돌 방지)
-#   3) sudo cp infra/console/keiwi-console.service /etc/systemd/system/
+#   3) sudo cp /KEIwi/infra/console/keiwi-console.service /etc/systemd/system/   # 절대경로 주의
 #      sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-console
 #      systemctl status keiwi-console
-#   * 코드 갱신 후: cd apps/console && npm ci && npm run build && sudo systemctl restart keiwi-console
+#   * 코드 갱신 후: cd /KEIwi/apps/console && npm ci && npm run build && sudo systemctl restart keiwi-console
 
 [Unit]
 Description=KEIwi console (Next.js, :3105)
@@ -22,8 +22,10 @@ Type=simple
 User=mooner92
 WorkingDirectory=/KEIwi/apps/console
 Environment=NODE_ENV=production
+Environment=HOME=/home/mooner92
 Environment=PATH=/home/mooner92/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/mooner92/.local/bin/npm run start
+# npm 래퍼 대신 next를 node로 직접 실행 (systemd 최소 env에서 더 견고)
+ExecStart=/home/mooner92/.local/bin/node /KEIwi/apps/console/node_modules/.bin/next start -p 3105
 Restart=always
 RestartSec=5
 
