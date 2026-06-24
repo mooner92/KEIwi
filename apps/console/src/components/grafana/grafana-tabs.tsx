@@ -15,7 +15,9 @@ export function GrafanaTabs({
   const [active, setActive] = useState(0);
   const base = baseUrl.replace(/\/+$/, "");
   const current = dashboards[active] ?? dashboards[0];
-  const src = `${base}/d/${current.uid}?kiosk`;
+  // kiosk = Grafana 크롬(사이드바/상단/헤더) 숨김 · theme=light = 콘솔(라이트)과 매칭.
+  // current.uid는 '/d/' 뒤 경로(uid 또는 uid/slug) — 슬러그 포함 시 리다이렉트 없이 kiosk 유지.
+  const src = `${base}/d/${current.uid}?kiosk&theme=light`;
 
   return (
     <div className="space-y-2">

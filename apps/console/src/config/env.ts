@@ -41,8 +41,10 @@ export type GrafanaDashboard = { uid: string; label: string };
 
 /**
  * GRAFANA — Overview 임베드용. 대시보드 개수 가변(추가 시 env만 수정):
- *   GRAFANA_DASHBOARD_UID = "uid|라벨" 쉼표 목록 (라벨 생략 시 "대시보드 N").
- *   예) "abc123|시스템,def456|GPU,ghi789|네트워크"
+ *   GRAFANA_DASHBOARD_UID = "경로|라벨" 쉼표 목록 (라벨 생략 시 "대시보드 N").
+ *   경로 = 대시보드 URL의 '/d/' 뒤 부분 (uid 또는 uid/slug).
+ *   ※ 슬러그까지 넣길 권장 — 없으면 Grafana 리다이렉트로 ?kiosk가 풀려 크롬이 노출됨.
+ *   예) "abc123/system|시스템,def456/gpu|GPU"
  * 누락/형식오류 시 어떤 키인지 명시하며 fail-fast.
  */
 export function getGrafana(): { url: string; dashboards: GrafanaDashboard[] } {
