@@ -1,0 +1,31 @@
+# KEIwi 콘솔 상주 — Next.js production (:3105)
+#
+# 에이전트는 생성, 적용은 사람이(헌장 §11). 라이브 스택과 포트 분리(§12, 3105).
+# env(GRAFANA_URL/GRAFANA_DASHBOARD_UID/PROMETHEUS_URL)는 apps/console/.env.local에서
+# Next가 자동 로드한다 — .env.local을 먼저 만들어야 함(.env.example 참고, 커밋 금지).
+#
+# 적용:
+#   1) cd /KEIwi/apps/console && cp .env.example .env.local  # 값 채우기
+#   2) (수동 실행 중이면 먼저 종료 — 3105 포트 충돌 방지)
+#   3) sudo cp infra/console/keiwi-console.service /etc/systemd/system/
+#      sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-console
+#      systemctl status keiwi-console
+#   * 코드 갱신 후: cd apps/console && npm ci && npm run build && sudo systemctl restart keiwi-console
+
+[Unit]
+Description=KEIwi console (Next.js, :3105)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mooner92
+WorkingDirectory=/KEIwi/apps/console
+Environment=NODE_ENV=production
+Environment=PATH=/home/mooner92/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/mooner92/.local/bin/npm run start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
