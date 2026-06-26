@@ -22,7 +22,7 @@ KEIwi 콘솔은 Prometheus `up`을 [`docs/inventory.yaml`](../../docs/inventory.
 
 2. **Prometheus 설정** — [`prometheus.yml`](./prometheus.yml)의 내용을 `/data/monitoring/prometheus.yml`에 반영 후:
    ```bash
-   docker compose -f /data/monitoring/docker-compose.yml restart prometheus
+   sudo docker restart prometheus      # docker-compose 1.29는 ContainerConfig 버그 → docker restart 권장
    ```
 
 3. **콘솔 `.env.local`** (`apps/console/.env.local`, 직접 채움):
@@ -31,6 +31,31 @@ KEIwi 콘솔은 Prometheus `up`을 [`docs/inventory.yaml`](../../docs/inventory.
    GRAFANA_DASHBOARD_UID=<대시보드 uid>
    PROMETHEUS_URL=http://localhost:9090
    ```
+
+## data04 node-exporter (Phase A — data04 노드에서 실행)
+
+터널이 노출할 대상(데이터)을 data04 자체에 먼저 띄운다 (**data04에서**):
+```bash
+docker run -d --name node-exporter --restart always --net host \
+  -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /:/rootfs:ro \
+  prom/node-exporter:latest \
+  --path.procfs=/host/proc --path.sysfs=/host/sys \
+  --collector.filesystem.mount-points-exclude='^/(sys|proc|dev|host|etc)($|/)'
+```
+그 뒤 .105에서 터널 enable → `prometheus.yml`의 data04 블록 주석 해제 → restart (위 적용 순서 1·2).
+
+## 모델 워크로드 (Phase B — vLLM /metrics → Grafana)
+
+`prometheus.yml`에 **`vllm` 잡** 포함됨(`172.18.0.1:8003`/`8010`). 위 2번으로 반영·restart하면 vLLM 워크로드 메트릭(요청/토큰/지연/KV캐시)이 수집된다. 모델/포트가 늘면 `vllm` 잡 `targets`에 줄만 추가.
+
+**Grafana 대시보드 import** ([`dashboards/model-workload.json`](./dashboards/model-workload.json)):
+- Grafana → Dashboards → New → **Import** → Upload JSON → `model-workload.json` → Prometheus 데이터소스 선택 → Import.
+- import 후 URL의 `/d/` 뒤 경로(`keiwi-model-workload/<slug>`)를 복사.
+
+**콘솔 탭 추가** — `apps/console/.env.local`의 `GRAFANA_DASHBOARD_UID`에 항목 추가 후 `sudo systemctl restart keiwi-console`:
+```
+GRAFANA_DASHBOARD_UID=<기존 시스템 경로>|시스템,<기존 GPU 경로>|GPU,keiwi-model-workload/<slug>|모델 워크로드
+```
 
 ## 검증
 

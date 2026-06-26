@@ -42,3 +42,21 @@ scrape_configs:
       - targets: ["dcgm-exporter:9400"] # data05 GPU
         labels:
           instance: "192.168.1.105:9400"
+
+  # vLLM 추론 서버 메트릭 — 모델 워크로드(요청/토큰/지연/KV캐시).
+  # data05 호스트의 vLLM 포트(0.0.0.0 바인딩)를 도커 브리지 게이트웨이로 스크랩.
+  # 모델/포트가 늘면 targets에 항목만 추가.
+  - job_name: "vllm"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "172.18.0.1:8003" # Qwen3-Coder-30B (GPU0)
+          - "172.18.0.1:8010" # Qwen2.5-VL-7B (GPU1)
+        labels:
+          node: "data05"
+    metric_relabel_configs:
+      # model_name이 전체 경로면 파일명만 남김 (/data/.../Qwen3...AWQ → Qwen3...AWQ)
+      - source_labels: [model_name]
+        regex: ".*/([^/]+)"
+        target_label: model_name
+        replacement: "${1}"
