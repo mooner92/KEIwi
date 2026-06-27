@@ -32,21 +32,30 @@ KEIwi 콘솔은 Prometheus `up`을 [`docs/inventory.yaml`](../../docs/inventory.
    PROMETHEUS_URL=http://localhost:9090
    ```
 
-## data04 node-exporter (Phase A — data04 노드에서 실행)
+## data04 node-exporter (Phase A — data04 노드에서)
 
-터널이 노출할 대상(데이터)을 data04 자체에 먼저 띄운다 (**data04에서**):
+data04엔 docker가 없으니 **apt 패키지**로 (data04에서):
 ```bash
-docker run -d --name node-exporter --restart always --net host \
-  -v /proc:/host/proc:ro -v /sys:/host/sys:ro -v /:/rootfs:ro \
-  prom/node-exporter:latest \
-  --path.procfs=/host/proc --path.sysfs=/host/sys \
-  --collector.filesystem.mount-points-exclude='^/(sys|proc|dev|host|etc)($|/)'
+sudo apt update && sudo apt install -y prometheus-node-exporter
+sudo systemctl enable --now prometheus-node-exporter   # :9100 자동 기동
+ss -tlnp | grep :9100                                  # 확인
 ```
-그 뒤 .105에서 터널 enable → `prometheus.yml`의 data04 블록 주석 해제 → restart (위 적용 순서 1·2).
+**전제(.105 터널용)**: .105의 `mooner92` 공개키가 data04의 `mhchoi:~/.ssh/authorized_keys`에 등록돼야 함(유닛이 `mhchoi@192.168.1.104`로 접속). 등록:
+```bash
+# .105에서
+ssh-copy-id mhchoi@192.168.1.104    # 또는 mooner92의 ~/.ssh/id_*.pub를 수동 등록
+```
+그다음 .105에서 터널 enable → `prometheus.yml`의 data04 블록 주석 해제 → `sudo docker restart prometheus`.
 
 ## 모델 워크로드 (Phase B — vLLM /metrics → Grafana)
 
 `prometheus.yml`에 **`vllm` 잡** 포함됨(`172.18.0.1:8003`/`8010`). 위 2번으로 반영·restart하면 vLLM 워크로드 메트릭(요청/토큰/지연/KV캐시)이 수집된다. 모델/포트가 늘면 `vllm` 잡 `targets`에 줄만 추가.
+
+> ⚠️ **방화벽(ufw)**: Prometheus 컨테이너(브리지 `172.18.0.0/16`)가 호스트의 vLLM 포트에 닿아야 한다. ufw가 active면 **포트별로 열어야** 함(안 열면 타깃 down/timeout — gpu-model-exporter 9836만 열려있던 게 원인):
+> ```bash
+> sudo ufw allow from 172.18.0.0/16 to any port 8003 proto tcp
+> sudo ufw allow from 172.18.0.0/16 to any port 8010 proto tcp
+> ```
 
 **Grafana 대시보드 import** ([`dashboards/model-workload.json`](./dashboards/model-workload.json)):
 - Grafana → Dashboards → New → **Import** → Upload JSON → `model-workload.json` → Prometheus 데이터소스 선택 → Import.

@@ -24,7 +24,7 @@ ExecStart=/usr/bin/ssh -N \
   -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
   -o StrictHostKeyChecking=accept-new \
   -L 172.18.0.1:9104:localhost:9100 \
-  data04
+  mhchoi@192.168.1.104
 Restart=always
 RestartSec=10
 
