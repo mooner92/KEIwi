@@ -40,10 +40,12 @@
 - [ ] T042 묶음 C 구현
 - [ ] T043 `check:no-krds-primitive` lint 신설
 
-## Phase 4 — 화면 ⬜
-- [ ] T050 Overview KRDS 조립 검수
+## Phase 4 — 화면
+- [x] T050 Overview KRDS 조립 검수(브레드크럼·페이지헤더)
 - [ ] T051 `/servers/[id]` 노드 상세(#2 드릴다운 발전형)
-- [ ] T052 풀폭 반응형 적용(max-w 제거)
+- [x] T052 풀폭 반응형 적용(max-w 제거)
+- [x] T053 KRDS 표준 레이아웃 재설계 — 좌측 사이드메뉴 셸 + 브레드크럼 + 페이지헤더 + 유틸바(통합검색 자리표시). 워크플로 3안 심사로 선정
+- [ ] T054 모바일 드로어(현재는 가로 폴백 nav) · 글자크기 토글 연결
 
 ## Phase 5 — 검증·문서 ⬜
 - [ ] T060 자동 대비 검사(매직넘버) CI
@@ -51,6 +53,6 @@
 - [ ] T062 README(토큰 커스터마이즈·테마·라이선스)
 
 ## 백로그 (별도 게이트)
-- [ ] B01 다크 ↔ Grafana iframe `theme=dark` 동기화(임베드 구조 불변)
+- [x] B01 다크 ↔ Grafana iframe `theme=dark` 동기화(임베드 구조 불변) — buildEmbedSrc theme 파라미터 + useTheme
 - [ ] B02 브랜드 green/blue ramp KRDS 11단계 재정렬 + 매직넘버 대비 검증(ADR-0007 후속)
 - [ ] B03 KRDS PC 타입 스케일(--text-*) 전면 적용(본문 17px)

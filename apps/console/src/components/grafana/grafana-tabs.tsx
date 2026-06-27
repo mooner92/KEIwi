@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "@/lib/use-theme";
 
 type Dashboard = { uid: string; label: string };
 
 // 임베드 URL 조립: 입력(경로/슬러그/쿼리/전체 URL 무엇이든)을 경로+쿼리로 분해해
-// kiosk(크롬 숨김)·theme=light(콘솔 라이트 매칭)를 올바르게 병합(? 중복 방지).
+// kiosk(크롬 숨김)·theme(콘솔 테마 매칭 — 다크 동기화)를 올바르게 병합(? 중복 방지).
 // 기존 쿼리(var-*, from/to, refresh 등)는 보존하고 kiosk/theme만 갱신한다.
 // instance가 주어지면 노드 드릴다운 — 기존 var-instance를 치환해 해당 노드로 고정.
-function buildEmbedSrc(baseUrl: string, entry: string, instance?: string): string {
+function buildEmbedSrc(
+  baseUrl: string,
+  entry: string,
+  instance?: string,
+  theme: "light" | "dark" = "light",
+): string {
   const base = baseUrl.replace(/\/+$/, "");
   let e = entry.trim();
   const dIdx = e.indexOf("/d/");
@@ -26,7 +32,7 @@ function buildEmbedSrc(baseUrl: string, entry: string, instance?: string): strin
         !(instance && /^var-instance=/i.test(p)),
     );
   if (instance) params.push(`var-instance=${encodeURIComponent(instance)}`);
-  params.push("kiosk", "theme=light");
+  params.push("kiosk", `theme=${theme}`);
   return `${base}/d/${path}?${params.join("&")}`;
 }
 
@@ -49,12 +55,13 @@ export function GrafanaTabs({
   selectedInstance?: string;
 }) {
   const systemTab = findSystemTab(dashboards);
+  const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
   // 노드가 선택된 채 진입하면 시스템 탭부터 보여 드릴다운이 바로 보이게 한다.
   const [active, setActive] = useState(selectedInstance ? systemTab : 0);
   const current = dashboards[active] ?? dashboards[0];
   const applyInstance =
     selectedInstance && active === systemTab ? selectedInstance : undefined;
-  const src = buildEmbedSrc(baseUrl, current.uid, applyInstance);
+  const src = buildEmbedSrc(baseUrl, current.uid, applyInstance, theme);
 
   return (
     <div className="flex h-full flex-col gap-2">

@@ -1,33 +1,17 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-
-// 테마의 단일 진실 = <html data-theme>(인라인 스크립트가 페인트 전 설정).
-// DOM을 외부 스토어로 구독 → setState/effect 없이 SSR·하이드레이션 안전 (layout.spec §5).
-function subscribe(onChange: () => void) {
-  const obs = new MutationObserver(onChange);
-  obs.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme"],
-  });
-  return () => obs.disconnect();
-}
-function getSnapshot(): "light" | "dark" {
-  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-}
-function getServerSnapshot(): "light" | "dark" {
-  return "light";
-}
+import { useTheme } from "@/lib/use-theme";
 
 // 라이트/다크(선명한 화면) 토글 — data-theme + 쿠키 + localStorage 3중 기록 (layout.spec §5c).
+// 테마 상태는 useTheme(DOM data-theme 구독)에서 — Grafana 임베드와 동일 소스.
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const theme = useTheme();
   const isDark = theme === "dark";
 
   function toggle() {
     const next = isDark ? "light" : "dark";
     const el = document.documentElement;
-    el.dataset.theme = next; // MutationObserver → useSyncExternalStore 재렌더
+    el.dataset.theme = next; // MutationObserver → useTheme 재렌더
     el.style.colorScheme = next;
     try {
       localStorage.setItem("keiwi-theme", next);

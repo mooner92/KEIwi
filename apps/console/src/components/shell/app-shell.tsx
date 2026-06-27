@@ -1,5 +1,6 @@
-import { IdentifierBanner } from "./identifier-banner";
 import { TopBar } from "./top-bar";
+import { SideNav } from "./side-nav";
+import { MobileNav } from "./mobile-nav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -10,15 +11,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         본문으로 건너뛰기
       </a>
-      <IdentifierBanner />
       <TopBar />
-      <main
-        id="main"
-        tabIndex={-1}
-        className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 flex-col overflow-y-auto px-4 py-4 outline-none sm:px-6"
-      >
-        {children}
-      </main>
+      <MobileNav />
+      <div className="flex min-h-0 flex-1">
+        <SideNav />
+        <main
+          id="main"
+          tabIndex={-1}
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 py-4 outline-none sm:px-6"
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

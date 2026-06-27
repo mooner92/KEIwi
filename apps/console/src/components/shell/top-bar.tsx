@@ -1,11 +1,10 @@
 import { BrandMark } from "./brand-mark";
-import { Nav } from "./nav";
-import { ThemeToggle } from "./theme-toggle";
+import { UtilBar } from "./util-bar";
 
 export function TopBar() {
   return (
     <header className="border-b border-border bg-surface text-ink">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex items-center gap-2.5">
           <BrandMark className="h-7 w-7 shrink-0" />
           <span className="font-display text-lg font-semibold tracking-tight">
@@ -15,10 +14,7 @@ export function TopBar() {
             관제 콘솔
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Nav />
-          <ThemeToggle />
-        </div>
+        <UtilBar />
       </div>
     </header>
   );

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getFleetStatus } from "@/lib/status";
 import { FleetStrip } from "@/components/fleet/fleet-strip";
 import { GrafanaEmbed } from "@/components/grafana/grafana-embed";
+import { Breadcrumb } from "@/components/shell/breadcrumb";
+import { PageHeader } from "@/components/shell/page-header";
 
 // 플릿 상태/대시보드는 요청 시점에 (정적 프리렌더 금지 — env/네트워크 의존)
 export const dynamic = "force-dynamic";
@@ -23,8 +25,11 @@ export default async function OverviewPage({
     : undefined;
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <h1 className="sr-only">플릿 Overview</h1>
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <Breadcrumb />
+        <PageHeader title="플릿 Overview" />
+      </div>
       <FleetStrip nodes={nodes} selectedNodeId={selectedNode?.id} />
 
       <section
