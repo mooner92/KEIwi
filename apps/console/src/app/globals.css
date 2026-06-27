@@ -19,6 +19,23 @@
   --radius-lg: 10px;
   --radius-xl: 12px;
 
+  /* 타입 스케일 — KRDS PC(typography.spec). 본문 17px, 줄간격 ≥1.5.
+     ※ 16px 루트에서 KRDS px 의도를 rem으로 재선언(루트 62.5%는 Tailwind rem 유틸 붕괴). */
+  --text-xs: 0.8125rem;   /* 13 body-xsmall */
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.9375rem;   /* 15 body-small */
+  --text-sm--line-height: 1.55;
+  --text-base: 1.0625rem; /* 17 body-medium (기본) */
+  --text-base--line-height: 1.6;
+  --text-lg: 1.1875rem;   /* 19 body-large / heading-small */
+  --text-lg--line-height: 1.55;
+  --text-xl: 1.5rem;      /* 24 heading-medium */
+  --text-xl--line-height: 1.4;
+  --text-2xl: 2rem;       /* 32 heading-large */
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 2.5rem;     /* 40 heading-xlarge */
+  --text-3xl--line-height: 1.3;
+
   /* 브랜드 green (primary 정체성) — base 500 = #38B38D (ADR-0007 확장형) */
   --color-green-50: #ecf8f3;
   --color-green-100: #d2efe4;
@@ -102,14 +119,18 @@
   --color-chrome: var(--krds-color-light-gray-90);
   --color-chrome-ink: var(--krds-color-light-gray-5);
   --color-chrome-muted: var(--krds-color-light-gray-40);
-  --color-brand: var(--color-green-500);
-  --color-brand-strong: var(--color-green-700);
+  --color-brand: var(--krds-color-light-primary-50); /* KRDS 정부 블루 #256ef4 (표준형, ADR-0007 개정) */
+  --color-brand-strong: var(--krds-color-light-primary-60);
 }
 
 /* ---- 다크(선명한 화면 = KRDS high-contrast) — 시맨틱/크롬/뉴트럴만 오버라이드 ----
    전경(텍스트/아이콘)은 -20/-30으로 반전, 면(배경/보더)은 -90/-95 (tokens.spec §4·§5). */
 :root[data-theme="dark"] {
   color-scheme: dark;
+
+  /* Primary(브랜드) — 다크에선 밝은 정부 블루(전경 대비) */
+  --color-brand: var(--krds-color-high-contrast-primary-30);
+  --color-brand-strong: var(--krds-color-high-contrast-primary-20);
 
   /* gray 램프(직접 사용분) */
   --color-gray-50: var(--krds-color-high-contrast-gray-95);
@@ -176,6 +197,8 @@ body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 1.0625rem; /* KRDS 본문 17px */
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

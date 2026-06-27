@@ -1,3 +1,4 @@
+import { IdentifierBanner } from "./identifier-banner";
 import { TopBar } from "./top-bar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -9,6 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         본문으로 건너뛰기
       </a>
+      <IdentifierBanner />
       <TopBar />
       <main
         id="main"

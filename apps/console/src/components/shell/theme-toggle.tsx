@@ -44,7 +44,7 @@ export function ThemeToggle() {
       aria-pressed={isDark}
       aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
       title={isDark ? "라이트 모드" : "다크 모드"}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-chrome-ink/80 outline-none transition-colors hover:bg-white/10 hover:text-chrome-ink focus-visible:ring-2 focus-visible:ring-white/60"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-muted outline-none transition-colors hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand"
     >
       {isDark ? (
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

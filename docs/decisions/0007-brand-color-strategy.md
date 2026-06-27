@@ -1,41 +1,35 @@
-# 0007. 브랜드↔KRDS 색 전략 (확장형 유지)
+# 0007. 브랜드↔KRDS 색 전략 (표준형 — 정부 블루)
 
-- 상태: 채택
+- 상태: 채택 (개정 2026-06-27 — 확장형→**표준형** 전환)
 - 날짜: 2026-06-27
 
 ## 맥락
 
-KRDS 디자인 시스템 채택(Phase 0)으로 콘솔의 색 토큰을 KRDS primitive(`--krds-*`) 기반으로 재정렬한다([[tokens.spec]] / `design-system/spec/tokens.json`). 이때 기존 KEIwi 브랜드 색을 어떻게 처리할지 결정해야 한다.
+KRDS 채택([0006](0006-krds-adoption.md)) 시 브랜드 처리를 결정한다. **초기엔 확장형(KEIwi green을 Primary로 유지)을 채택**했으나, 구현 후 **원본 KRDS(krds.go.kr)와 직접 대조**한 결과 KRDS의 핵심 시각 시그니처 — **정부 블루 Primary·흰 헤더·정부 공식 식별 배너** — 가 모두 빠져 "토큰은 KRDS, 인상은 비-KRDS"가 됐다. 사용자가 원본 비교 후 **표준형**을 선택했다(정부 블루 전환, 식별 배너 추가, 본문 17px).
 
-- 현행 브랜드: **green(primary, base `#38B38D`)·blue(secondary, `#3CA2DF`)** — 쿨톤. 제품명 KEIwi(KEI + kiwi)·브랜드마크(green 키위 단면)의 정체성.
-- KRDS Primary = **`#256ef4`(정부 블루)**, Secondary = `#346fb2`(light)/`#268097`(고대비 teal).
-- 헌장 **§17:** 브랜드 램프와 시맨틱 상태 토큰(success/info/warning/danger/neutral)을 **분리**한다.
-- 사용자 지시: "기존 브랜드를 KRDS Primary로 **흡수**할지, **확장형**으로 별도 유지할지 결정 근거를 ADR-0007에 남겨라. 어느 쪽이든 매직넘버 대비는 준수."
-- KEI = 한국환경연구원(정부 출연 연구기관). 대상은 **공개 정부 포털이 아니라 내부 연구 플릿 관제 콘솔**.
-
-두 선택지: **(A) 흡수** — 브랜드를 KRDS Primary(블루)로 대체. **(B) 확장형** — 브랜드 green/blue를 KRDS 확장 팔레트로 유지하고 상태·크롬만 KRDS.
+- 헌장 **§17**(브랜드/시맨틱 분리). KEI=환경연구원(green 정체성).
+- KRDS Primary = `#256ef4`(정부 블루), 본문 17px, 흰 배경 + 운영기관 식별자 + 정부 식별 배너.
 
 ## 결정
 
-**(B) 확장형 유지를 채택한다.**
+**표준형을 채택한다(이전 확장형 결정을 번복).**
 
-- KEIwi 브랜드 green/blue를 KRDS **확장형(extended)** primitive `--krds-ext-brand-*`(green)·`--krds-ext-brand2-*`(blue)로 둔다. KRDS와 동일하게 **11단계(5~95)** 구조 + **매직넘버 대비**를 만족하도록 재정렬한다(구현·검증은 Phase 2).
-- 브랜드 색은 **식별·주조색 역할에만** 쓴다: 브랜드마크, 포커스 링, Primary 액션·링크·선택 강조. **상태색(success/danger/warning/information)으로는 절대 사용하지 않는다**(§17).
-- 모든 **상태·크롬 색은 KRDS**(System color + gray)로 간다([[tokens.spec]] §4·§5). 브랜드와 독립.
-- 우리 `info` 상태 = KRDS `information`. 브랜드 blue(`#3CA2DF`)는 **secondary 식별 전용** — "정보" 의미에는 KRDS information만 사용(혼동 금지).
+- **Primary = KRDS 정부 블루.** `--color-brand` → `--krds-color-light-primary-50`(#256ef4), `--color-brand-strong` → `primary-60`(#0b50d0). 버튼·링크·활성 탭·포커스·내비 활성에 사용.
+- **KEIwi green은 로고/액센트로 강등.** BrandMark(키위)·소량 포인트에만 유지. **Primary·상태색 어디에도 green을 쓰지 않는다**(§17).
+- **헤더 = 흰 배경**(`surface`/`ink`/`border`), 다크 모드에선 토큰이 자동으로 어두워짐. 상단에 **정부 공식 식별 배너** 추가(KRDS 아이덴티티 필수 요소).
+- **상태색 = KRDS System** 유지(success/danger/warning/information, [tokens.spec](../../design-system/spec/tokens.spec.md) §4).
+- **타이포 = KRDS 스케일**(본문 17px, 16px 루트에서 재선언 — 루트 62.5%는 Tailwind rem 유틸을 깨므로 미적용, 동일 결과).
+- **컴포넌트 = 자체 구현 유지**(tokens-only, [0006](0006-krds-adoption.md)). krds-react 미도입.
 
 ## 고려한 대안
 
-- **(A) KRDS Primary로 흡수** — 브랜드를 정부 블루(`#256ef4`)로 통일. 장점: KRDS 충실도·"하나의 정부 서비스" 일관성(KRDS 원칙 3) 최대. 단점: (1) KEIwi/키위·**환경(green)** 정체성 상실 — KEI(환경연구원)에 green은 주제적으로도 적합하다. (2) 대상이 **내부 관제 콘솔**이라 공개 포털 수준의 정부블루 통일이 과하다. (3) 헌장 §17은 브랜드/시맨틱 **분리**를 요구하는데, 흡수는 브랜드를 KRDS Primary(=링크/포커스 등 광범위 역할)에 종속시켜 정체성 레버를 잃는다. → **기각.**
-- **(A′) 부분 절충(브랜드는 로고만, 인터랙션 primary는 KRDS 블루)** — 식별성과 일관성 절충안이나, 화면 주조색이 블루가 되어 브랜드 green이 로고에서 고립(이질감). → 기각.
-- **(B에서 매직넘버 무시하고 현행 green 그대로 사용)** — `#38B38D`는 흰 배경 대비 ≈2.3:1로 **-50(4.5:1) 미달**. 텍스트/링크 primary로 쓰면 AC2.1 위배. → 기각(그래서 (B)는 단계 재정렬 + 대비 검증을 동반).
+- **확장형(green Primary 유지)** — 정체성은 강하나 원본 KRDS 대비 "KRDS답지 않은" 인상. 사용자 검증에서 "변화가 작다"로 기각. (초기 결정이었으나 번복.)
+- **루트 62.5%(10px)로 KRDS rem 네이티브** — Tailwind `max-w-*`/`--container-*`/기본 type 스케일이 전부 0.625× 축소돼 레이아웃 붕괴. → 기각, 16px 루트에서 KRDS 스케일 재선언으로 동일 결과.
+- **krds-react 채택** — 1MB CSS·신생·React19 미검증 리스크([0006](0006-krds-adoption.md)). → 미도입 유지.
 
 ## 결과
 
-- **정체성 유지** + **§17(브랜드/시맨틱 분리) 강화**(브랜드는 KRDS System과 물리적으로 분리된 확장 ramp).
-- 상태·크롬은 KRDS의 접근성(System 대비·고대비 모드)을 **상속**한다.
-- **부채/후속:**
-  - 브랜드 green/blue ramp를 KRDS 11단계 + 매직넘버에 맞춰 **재산출·대비 검증**(Phase 2). 현행 `#38B38D`는 **-40 등급**으로 내리고, 텍스트/링크 primary는 더 어두운 green(-70급 `#25765f` 등)을 쓴다. 포커스 링은 인접 대비 ≥3:1.
-  - 브랜드 blue vs KRDS information(blue) **의미 분리 규칙**을 color.spec·리뷰로 강제.
-- ADR-0001(Tailwind v4 `@theme` 토큰)을 **보완**한다(대체 아님): 브랜드/시맨틱 분리 구조는 유지하되, 시맨틱·크롬의 *값 출처*가 KRDS primitive로 바뀐다.
-- 참조: [[tokens.spec]], `design-system/spec/color.spec.md`, [0001](0001-framework-and-styling.md), 헌장 §17, Phase 0 결정(`krds-redesign-decisions`).
+- 원본 KRDS와 거의 동일한 인상(흰 헤더·정부 블루·식별 배너·17px). KEIwi 정체성은 키위 로고 + green 액센트로 잔존.
+- **후속:** 탭/버튼/내비를 KRDS 네이비 스타일로, 컴포넌트 KRDS화(Phase 3). 브랜드 green ramp는 로고용으로만 유지.
+- 영향 문서 동기화: [color.spec](../../design-system/spec/color.spec.md) §2, [tokens.spec](../../design-system/spec/tokens.spec.md) §6, [tokens.json](../../design-system/spec/tokens.json) brand, [tasks.md](../../specs/krds-redesign/tasks.md).
+- 참조: [0006](0006-krds-adoption.md), [0001](0001-framework-and-styling.md), 헌장 §17.

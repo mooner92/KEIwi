@@ -33,13 +33,13 @@ export function Nav() {
             className={[
               "group inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
               active
-                ? "bg-white/10 text-chrome-ink"
-                : "text-chrome-muted hover:text-chrome-ink hover:bg-white/5",
+                ? "bg-surface-2 font-semibold text-brand"
+                : "text-ink-muted hover:bg-surface-2 hover:text-ink",
             ].join(" ")}
           >
             <span>{item.label}</span>
             {item.soon && (
-              <span className="rounded border border-white/15 px-1 text-[10px] font-medium tracking-wide text-chrome-muted">
+              <span className="rounded border border-border px-1 text-[10px] font-medium tracking-wide text-ink-subtle">
                 {item.soon}
               </span>
             )}
