@@ -1,18 +1,25 @@
 @import "tailwindcss";
 
 /* ============================================================
-   KEIwi 디자인 토큰 — 단일 소스 (헌장 §17, 프롬프트 §4.1)
-   · 브랜드 램프(green/blue/gray)는 정체성·UI 크롬용
-   · 시맨틱 상태 토큰(success/info/warning/danger/neutral)은 분리
-   · 컴포넌트는 raw hex를 쓰지 않고 이 토큰(유틸/var)만 참조한다
+   KEIwi 디자인 토큰 — KRDS primitive 참조 (Phase 2)
+   · L0 primitive = krds_tokens.css(layout.tsx에서 import, --krds-*) — KRDS 소유, 참조만
+   · L2 @theme = 시맨틱(라이트). 다크는 아래 :root[data-theme="dark"]에서 오버라이드
+   · 브랜드(green/blue)는 확장형 정체성(ADR-0007) — 상태색과 분리(§17)
+   · 매핑 근거: design-system/spec/tokens.spec.md §4·§5, tokens.json
    ============================================================ */
 @theme {
-  /* 타이포 — display / body / mono 의도적 페어링 (§5) */
-  --font-display: var(--font-space-grotesk);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* 서체 — Pretendard GOV 단일(typography.spec) */
+  --font-sans: var(--font-pretendard-gov);
+  --font-display: var(--font-pretendard-gov);
+  --font-mono: var(--font-pretendard-gov);
 
-  /* 브랜드 green (primary) — base 500 = #38B38D */
+  /* radius — KRDS 5단계 px (shape.spec §1) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* 브랜드 green (primary 정체성) — base 500 = #38B38D (ADR-0007 확장형) */
   --color-green-50: #ecf8f3;
   --color-green-100: #d2efe4;
   --color-green-200: #a6dfca;
@@ -24,7 +31,7 @@
   --color-green-800: #205e4c;
   --color-green-900: #1b4d3f;
 
-  /* 브랜드 blue (secondary) — base 500 = #3CA2DF */
+  /* 브랜드 blue (secondary 정체성) — base 500 = #3CA2DF */
   --color-blue-50: #ecf6fc;
   --color-blue-100: #cee8f8;
   --color-blue-200: #a3d6f1;
@@ -36,73 +43,135 @@
   --color-blue-800: #265a7d;
   --color-blue-900: #234b67;
 
-  /* 브랜드 gray/slate (neutral chrome) — base 800 = #343E44 */
-  --color-gray-50: #f5f7f7;
-  --color-gray-100: #e7ebec;
-  --color-gray-200: #ccd4d6;
-  --color-gray-300: #a8b4b8;
-  --color-gray-400: #7c8a8f;
-  --color-gray-500: #5a686e;
-  --color-gray-600: #475358;
-  --color-gray-700: #3a4449;
-  --color-gray-800: #343e44;
-  --color-gray-900: #20262b;
+  /* gray (크롬 뉴트럴) → KRDS light gray */
+  --color-gray-50: var(--krds-color-light-gray-5);
+  --color-gray-100: var(--krds-color-light-gray-10);
+  --color-gray-200: var(--krds-color-light-gray-20);
+  --color-gray-300: var(--krds-color-light-gray-30);
+  --color-gray-400: var(--krds-color-light-gray-40);
+  --color-gray-500: var(--krds-color-light-gray-50);
+  --color-gray-600: var(--krds-color-light-gray-60);
+  --color-gray-700: var(--krds-color-light-gray-70);
+  --color-gray-800: var(--krds-color-light-gray-80);
+  --color-gray-900: var(--krds-color-light-gray-90);
 
-  /* 시맨틱 상태 토큰 — 상태색은 반드시 이걸로만 (브랜드와 분리) */
-  --color-success-50: var(--color-green-50);
-  --color-success-100: var(--color-green-100);
-  --color-success-400: var(--color-green-400);
-  --color-success-500: var(--color-green-500);
-  --color-success-600: var(--color-green-600);
-  --color-success-700: var(--color-green-700);
+  /* 시맨틱 상태 — KRDS System (라이트). 스텝 매핑 50→5/100→10/400→40/500→50/600→60/700→70 */
+  --color-success-50: var(--krds-color-light-success-5);
+  --color-success-100: var(--krds-color-light-success-10);
+  --color-success-400: var(--krds-color-light-success-40);
+  --color-success-500: var(--krds-color-light-success-50);
+  --color-success-600: var(--krds-color-light-success-60);
+  --color-success-700: var(--krds-color-light-success-70);
 
-  --color-info-50: var(--color-blue-50);
-  --color-info-100: var(--color-blue-100);
-  --color-info-500: var(--color-blue-500);
-  --color-info-600: var(--color-blue-600);
-  --color-info-700: var(--color-blue-700);
+  --color-info-50: var(--krds-color-light-information-5);
+  --color-info-100: var(--krds-color-light-information-10);
+  --color-info-500: var(--krds-color-light-information-50);
+  --color-info-600: var(--krds-color-light-information-60);
+  --color-info-700: var(--krds-color-light-information-70);
 
-  /* 브랜드 팔레트가 전부 쿨톤이라 위험/경고는 amber·red 추가 (§17) */
-  --color-warning-50: #fdf6e9;
-  --color-warning-100: #f9e6bf;
-  --color-warning-500: #d98e0c;
-  --color-warning-600: #b3720a;
-  --color-warning-700: #8a5808;
+  /* warning: base는 vivid -40(매직넘버 — color.spec §2/warning 특례) */
+  --color-warning-50: var(--krds-color-light-warning-5);
+  --color-warning-100: var(--krds-color-light-warning-10);
+  --color-warning-500: var(--krds-color-light-warning-40);
+  --color-warning-600: var(--krds-color-light-warning-60);
+  --color-warning-700: var(--krds-color-light-warning-70);
 
-  --color-danger-50: #fdecec;
-  --color-danger-100: #f7cccc;
-  --color-danger-400: #e25c5c;
-  --color-danger-500: #d23a3a;
-  --color-danger-600: #b22d2d;
-  --color-danger-700: #8f2525;
+  --color-danger-50: var(--krds-color-light-danger-5);
+  --color-danger-100: var(--krds-color-light-danger-10);
+  --color-danger-400: var(--krds-color-light-danger-40);
+  --color-danger-500: var(--krds-color-light-danger-50);
+  --color-danger-600: var(--krds-color-light-danger-60);
+  --color-danger-700: var(--krds-color-light-danger-70);
 
-  --color-neutral-50: var(--color-gray-50);
-  --color-neutral-100: var(--color-gray-100);
-  --color-neutral-300: var(--color-gray-300);
-  --color-neutral-400: var(--color-gray-400);
-  --color-neutral-500: var(--color-gray-500);
-  --color-neutral-700: var(--color-gray-700);
+  --color-neutral-50: var(--krds-color-light-gray-5);
+  --color-neutral-100: var(--krds-color-light-gray-10);
+  --color-neutral-300: var(--krds-color-light-gray-30);
+  --color-neutral-400: var(--krds-color-light-gray-40);
+  --color-neutral-500: var(--krds-color-light-gray-50);
+  --color-neutral-700: var(--krds-color-light-gray-70);
 
-  /* UI 크롬 (라이트 운영자 콘솔) */
-  --color-canvas: #f6f8f8;
-  --color-surface: #ffffff;
-  --color-surface-2: #eef2f2;
-  --color-border: #dde4e5;
-  --color-border-strong: #c4cfd1;
-  --color-ink: var(--color-gray-800);
-  --color-ink-muted: var(--color-gray-500);
-  --color-ink-subtle: var(--color-gray-400);
-  --color-chrome: var(--color-gray-900);
-  --color-chrome-ink: #eef2f2;
-  --color-chrome-muted: #95a1a6;
+  /* UI 크롬 → KRDS gray 역할 (라이트) */
+  --color-canvas: var(--krds-color-light-gray-5);
+  --color-surface: var(--krds-color-light-gray-0);
+  --color-surface-2: var(--krds-color-light-gray-10);
+  --color-border: var(--krds-color-light-gray-20);
+  --color-border-strong: var(--krds-color-light-gray-30);
+  --color-ink: var(--krds-color-light-gray-90);
+  --color-ink-muted: var(--krds-color-light-gray-70);
+  --color-ink-subtle: var(--krds-color-light-gray-50);
+  --color-chrome: var(--krds-color-light-gray-90);
+  --color-chrome-ink: var(--krds-color-light-gray-5);
+  --color-chrome-muted: var(--krds-color-light-gray-40);
   --color-brand: var(--color-green-500);
   --color-brand-strong: var(--color-green-700);
 }
 
-/* ---- 베이스 ---- */
-html {
-  color-scheme: light;
+/* ---- 다크(선명한 화면 = KRDS high-contrast) — 시맨틱/크롬/뉴트럴만 오버라이드 ----
+   전경(텍스트/아이콘)은 -20/-30으로 반전, 면(배경/보더)은 -90/-95 (tokens.spec §4·§5). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* gray 램프(직접 사용분) */
+  --color-gray-50: var(--krds-color-high-contrast-gray-95);
+  --color-gray-100: var(--krds-color-high-contrast-gray-90);
+  --color-gray-200: var(--krds-color-high-contrast-gray-80);
+  --color-gray-300: var(--krds-color-high-contrast-gray-70);
+  --color-gray-400: var(--krds-color-high-contrast-gray-60);
+  --color-gray-500: var(--krds-color-high-contrast-gray-50);
+  --color-gray-600: var(--krds-color-high-contrast-gray-40);
+  --color-gray-700: var(--krds-color-high-contrast-gray-30);
+  --color-gray-800: var(--krds-color-high-contrast-gray-20);
+  --color-gray-900: var(--krds-color-high-contrast-gray-10);
+
+  /* 상태 — KRDS high-contrast */
+  --color-success-50: var(--krds-color-high-contrast-success-95);
+  --color-success-100: var(--krds-color-high-contrast-success-90);
+  --color-success-400: var(--krds-color-high-contrast-success-40);
+  --color-success-500: var(--krds-color-high-contrast-success-50);
+  --color-success-600: var(--krds-color-high-contrast-success-30);
+  --color-success-700: var(--krds-color-high-contrast-success-20);
+
+  --color-info-50: var(--krds-color-high-contrast-information-95);
+  --color-info-100: var(--krds-color-high-contrast-information-90);
+  --color-info-500: var(--krds-color-high-contrast-information-50);
+  --color-info-600: var(--krds-color-high-contrast-information-30);
+  --color-info-700: var(--krds-color-high-contrast-information-20);
+
+  --color-warning-50: var(--krds-color-high-contrast-warning-95);
+  --color-warning-100: var(--krds-color-high-contrast-warning-90);
+  --color-warning-500: var(--krds-color-high-contrast-warning-30);
+  --color-warning-600: var(--krds-color-high-contrast-warning-30);
+  --color-warning-700: var(--krds-color-high-contrast-warning-20);
+
+  --color-danger-50: var(--krds-color-high-contrast-danger-95);
+  --color-danger-100: var(--krds-color-high-contrast-danger-90);
+  --color-danger-400: var(--krds-color-high-contrast-danger-40);
+  --color-danger-500: var(--krds-color-high-contrast-danger-50);
+  --color-danger-600: var(--krds-color-high-contrast-danger-30);
+  --color-danger-700: var(--krds-color-high-contrast-danger-20);
+
+  --color-neutral-50: var(--krds-color-high-contrast-gray-90);
+  --color-neutral-100: var(--krds-color-high-contrast-gray-80);
+  --color-neutral-300: var(--krds-color-high-contrast-gray-60);
+  --color-neutral-400: var(--krds-color-high-contrast-gray-50);
+  --color-neutral-500: var(--krds-color-high-contrast-gray-40);
+  --color-neutral-700: var(--krds-color-high-contrast-gray-20);
+
+  /* 크롬 */
+  --color-canvas: var(--krds-color-high-contrast-gray-95);
+  --color-surface: var(--krds-color-high-contrast-gray-90);
+  --color-surface-2: var(--krds-color-high-contrast-gray-80);
+  --color-border: var(--krds-color-high-contrast-gray-80);
+  --color-border-strong: var(--krds-color-high-contrast-gray-70);
+  --color-ink: var(--krds-color-high-contrast-gray-5);
+  --color-ink-muted: var(--krds-color-high-contrast-gray-20);
+  --color-ink-subtle: var(--krds-color-high-contrast-gray-30);
+  --color-chrome: var(--krds-color-high-contrast-gray-100);
+  --color-chrome-ink: var(--krds-color-high-contrast-gray-5);
+  --color-chrome-muted: var(--krds-color-high-contrast-gray-40);
 }
+
+/* ---- 베이스 ---- */
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
@@ -111,21 +180,20 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* 숫자·IP·메트릭은 mono + tabular (§5: 수치는 mono가 잘 읽힘) */
+/* 숫자·IP·메트릭 — Pretendard GOV tabular (typography.spec §3) */
 .tnum {
-  font-family: var(--font-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
-/* 키보드 포커스 가시 (품질 바닥) */
+/* 키보드 포커스 가시 (shape.spec §3 — radius small) */
 :focus-visible {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
-/* 모션 최소 — reduced-motion 존중 (애니메이션/트랜지션 무력화) */
+/* 모션 최소 — reduced-motion 존중 */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

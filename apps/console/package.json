@@ -15,6 +15,7 @@
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check:secrets && npm run check:no-raw-hex"
   },
   "dependencies": {
+    "krds-uiux": "^1.1.0",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",

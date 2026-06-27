@@ -11,6 +11,7 @@ import { mkdir } from "node:fs/promises";
 const BASE = process.env.SCREENSHOT_URL ?? "http://127.0.0.1:3105";
 const OUT = process.env.SCREENSHOT_OUT ?? "./screenshots";
 const PATHS = (process.env.SCREENSHOT_PATHS ?? "/overview").split(",");
+const THEME = process.env.SCREENSHOT_THEME; // "light" | "dark" — keiwi-theme 쿠키로 다크 검증
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "laptop", width: 1366, height: 768 },
@@ -26,6 +27,11 @@ for (const route of PATHS) {
     const ctx = await browser.newContext({
       viewport: { width: vp.width, height: vp.height },
     });
+    if (THEME) {
+      await ctx.addCookies([
+        { name: "keiwi-theme", value: THEME, url: BASE },
+      ]);
+    }
     const page = await ctx.newPage();
     try {
       await page.goto(`${BASE}${route}`, {
@@ -44,7 +50,7 @@ for (const route of PATHS) {
     const overflow = m.scrollH > m.innerH + 2;
     const strict = vp.name !== "mobile";
     if (overflow && strict) anyOverflow = true;
-    const tag = `${route.replace(/\W+/g, "_").replace(/^_|_$/g, "") || "root"}-${vp.name}`;
+    const tag = `${route.replace(/\W+/g, "_").replace(/^_|_$/g, "") || "root"}-${vp.name}${THEME ? `-${THEME}` : ""}`;
     const file = `${OUT}/${tag}.png`;
     await page.screenshot({ path: file, fullPage: false });
     console.log(

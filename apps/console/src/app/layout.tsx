@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
+import "krds-uiux/resources/css/token/krds_tokens.css"; // L0 primitive(--krds-*) — KRDS 소유
 import "./globals.css";
+import { pretendardGov } from "./fonts";
 import { AppShell } from "@/components/shell/app-shell";
-
-const sans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const mono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const display = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "KEIwi — 관제 콘솔",
   description: "KEI 연구 서버 플릿 모니터링 콘솔",
 };
+
+// 다크 FOUC 방지 — 페인트 전 동기 실행: 쿠키 → localStorage → 시스템 선호 (layout.spec §5b)
+const THEME_INIT = `(function(){try{` +
+  `var m=document.cookie.match(/(?:^|; )keiwi-theme=(light|dark)/);` +
+  `var t=m?m[1]:(localStorage.getItem('keiwi-theme')||` +
+  `(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));` +
+  `var e=document.documentElement;e.dataset.theme=t;e.style.colorScheme=t;` +
+  `}catch(_){}})();`;
 
 export default function RootLayout({
   children,
@@ -22,8 +23,13 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${sans.variable} ${mono.variable} ${display.variable} h-full antialiased`}
+      data-theme="light"
+      suppressHydrationWarning
+      className={`${pretendardGov.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body className="min-h-full">
         <AppShell>{children}</AppShell>
       </body>

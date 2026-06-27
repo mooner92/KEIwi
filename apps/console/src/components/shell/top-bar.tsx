@@ -1,5 +1,6 @@
 import { BrandMark } from "./brand-mark";
 import { Nav } from "./nav";
+import { ThemeToggle } from "./theme-toggle";
 
 export function TopBar() {
   return (
@@ -14,7 +15,10 @@ export function TopBar() {
             관제 콘솔
           </span>
         </div>
-        <Nav />
+        <div className="flex items-center gap-2">
+          <Nav />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
