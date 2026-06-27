@@ -9,20 +9,25 @@ export default async function OverviewPage() {
   const nodes = await getFleetStatus();
 
   return (
-    <div className="space-y-8">
+    <div className="flex h-full flex-col gap-4">
       <h1 className="sr-only">플릿 Overview</h1>
       <FleetStrip nodes={nodes} />
 
-      <section aria-label="메트릭 대시보드">
-        <header className="mb-3">
-          <h2 className="font-display text-lg font-semibold tracking-tight text-ink">
+      <section
+        aria-label="메트릭 대시보드"
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <header className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-base font-semibold tracking-tight text-ink">
             메트릭
           </h2>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            시스템·GPU 메트릭은 Grafana에서. 콘솔은 임베드만 합니다.
+          <p className="hidden text-xs text-ink-muted sm:block">
+            시스템·GPU 메트릭은 Grafana 임베드 (콘솔은 재구현하지 않음)
           </p>
         </header>
-        <GrafanaEmbed />
+        <div className="min-h-0 flex-1">
+          <GrafanaEmbed />
+        </div>
       </section>
     </div>
   );

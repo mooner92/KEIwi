@@ -15,7 +15,7 @@ export function GrafanaEmbed() {
 
   if (!grafana) {
     return (
-      <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface-2 p-8 text-center">
+      <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface-2 p-8 text-center">
         <p className="text-sm font-medium text-ink">Grafana 미연결</p>
         <p className="mt-1.5 max-w-sm text-sm leading-6 text-ink-muted">
           <span className="tnum">apps/console/.env.local</span>의{" "}

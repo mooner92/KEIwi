@@ -35,9 +35,13 @@ export function GrafanaTabs({
   const src = buildEmbedSrc(baseUrl, current.uid);
 
   return (
-    <div className="space-y-2">
+    <div className="flex h-full flex-col gap-2">
       {dashboards.length > 1 && (
-        <div role="tablist" aria-label="대시보드" className="flex flex-wrap gap-1">
+        <div
+          role="tablist"
+          aria-label="대시보드"
+          className="flex shrink-0 flex-wrap gap-1"
+        >
           {dashboards.map((d, i) => {
             const selected = i === active;
             return (
@@ -65,7 +69,7 @@ export function GrafanaTabs({
         src={src}
         title={`Grafana — ${current.label}`}
         loading="lazy"
-        className="h-[70vh] min-h-[480px] w-full rounded-lg border border-border bg-surface"
+        className="min-h-[240px] w-full flex-1 rounded-lg border border-border bg-surface"
       />
       <p className="text-right text-xs text-ink-muted">
         대시보드가 비어 보이면{" "}
