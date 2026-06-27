@@ -42,11 +42,13 @@ cd apps/console
 npm install
 cp .env.example .env.local   # 값은 직접 채움 (커밋 금지)
 npm run dev        # http://localhost:3105
-npm run verify     # lint + typecheck + build + check:secrets
+npm run verify     # lint + typecheck + test + build + check:secrets + check:no-raw-hex
+npm run screenshot # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
 ```
 
 - 환경변수는 `src/config/env.ts`에서 zod로 검증해 한 곳에서만 읽는다.
 - `.env.local`·시크릿은 **절대 커밋하지 않는다.** (헌장 §13)
+- **테스트/시각 QA**: [`docs/testing.md`](./docs/testing.md) — UI 작업은 끝에 Playwright 스크린샷으로 눈으로 확인.
 
 ## 4. 마일스톤
 

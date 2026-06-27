@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 시각 QA 스크린샷 출력 (산출물)
+screenshots/
