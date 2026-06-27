@@ -22,6 +22,7 @@
 | `specs/<milestone>/spec.md` | 마일스톤 스펙 (WHAT + WHY) |
 | `infra/` | 관제 스택(Prometheus/Grafana/ELK 등) — **범위 밖, 함부로 생성·수정 금지** |
 | `apps/console/` | KEIwi 콘솔 (Next.js) — M1 deliverable |
+| `design-system/spec/` | 디자인 시스템 스펙 (KRDS 리스킨, SDD) — ADR 0006/0007 |
 
 ## 2. 워크플로 (SDD)
 
@@ -62,6 +63,8 @@ npm run screenshot # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
 - [0003](./docs/decisions/0003-inventory-yaml-parser.md) — inventory 파서: `yaml` 패키지(서버 전용)
 - [0004](./docs/decisions/0004-config-validation-zod.md) — env·스키마 검증: `zod`(fail-fast)
 - [0005](./docs/decisions/0005-unit-test-runner.md) — 단위 테스트 러너: `vitest`(US4 불변식 verify 강제)
+- [0006](./docs/decisions/0006-krds-adoption.md) — KRDS 디자인 시스템 채택(콘솔 크롬만, tokens-only, 시계열은 Grafana 유지)
+- [0007](./docs/decisions/0007-brand-color-strategy.md) — 브랜드↔KRDS 색 전략: 확장형 유지(green/blue 브랜드, 상태색은 KRDS)
 
 ## 6. 안전 규칙 (요약 — 상세는 헌장)
 
