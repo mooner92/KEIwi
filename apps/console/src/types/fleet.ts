@@ -32,4 +32,9 @@ export type FleetNodeStatus = {
   os: Os;
   role: Role;
   status: NodeStatus;
+  /**
+   * node-exporter 엔드포인트(ip:9100) — 노드 드릴다운(Grafana var-instance) 대상.
+   * node exporter가 없는 노드(예: windows)는 undefined → 드릴다운 불가.
+   */
+  nodeInstance?: string;
 };

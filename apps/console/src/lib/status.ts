@@ -30,7 +30,14 @@ export function resolveFleetStatus(
         : matched.some((v) => v === 0)
           ? "down"
           : "up";
-    return { id: node.id, ip: node.ip, os: node.os, role: node.role, status };
+    return {
+      id: node.id,
+      ip: node.ip,
+      os: node.os,
+      role: node.role,
+      status,
+      nodeInstance: node.exporters.node,
+    };
   });
 }
 

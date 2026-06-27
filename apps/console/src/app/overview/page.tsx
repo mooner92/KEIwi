@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getFleetStatus } from "@/lib/status";
 import { FleetStrip } from "@/components/fleet/fleet-strip";
 import { GrafanaEmbed } from "@/components/grafana/grafana-embed";
@@ -5,13 +6,26 @@ import { GrafanaEmbed } from "@/components/grafana/grafana-embed";
 // 플릿 상태/대시보드는 요청 시점에 (정적 프리렌더 금지 — env/네트워크 의존)
 export const dynamic = "force-dynamic";
 
-export default async function OverviewPage() {
-  const nodes = await getFleetStatus();
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ node?: string }>;
+}) {
+  const [nodes, params] = await Promise.all([getFleetStatus(), searchParams]);
+
+  // ?node=<id> → 데이터 있는 노드만 유효한 선택으로 인정. 그 노드의 node-exporter
+  // instance(ip:9100)를 Grafana 시스템 임베드에 var-instance로 주입한다.
+  const selectedNode = params.node
+    ? nodes.find(
+        (n) =>
+          n.id === params.node && n.nodeInstance && n.status !== "no-data",
+      )
+    : undefined;
 
   return (
     <div className="flex h-full flex-col gap-4">
       <h1 className="sr-only">플릿 Overview</h1>
-      <FleetStrip nodes={nodes} />
+      <FleetStrip nodes={nodes} selectedNodeId={selectedNode?.id} />
 
       <section
         aria-label="메트릭 대시보드"
@@ -21,12 +35,27 @@ export default async function OverviewPage() {
           <h2 className="font-display text-base font-semibold tracking-tight text-ink">
             메트릭
           </h2>
-          <p className="hidden text-xs text-ink-muted sm:block">
-            시스템·GPU 메트릭은 Grafana 임베드 (콘솔은 재구현하지 않음)
-          </p>
+          {selectedNode ? (
+            <p className="text-xs text-ink-muted">
+              <span className="tnum font-medium text-ink">
+                {selectedNode.id}
+              </span>{" "}
+              노드 메트릭 ·{" "}
+              <Link
+                href="/overview"
+                className="text-info-700 underline underline-offset-2"
+              >
+                전체 보기
+              </Link>
+            </p>
+          ) : (
+            <p className="hidden text-xs text-ink-muted sm:block">
+              노드 카드를 누르면 해당 노드 메트릭으로 이동 · Grafana 임베드
+            </p>
+          )}
         </header>
         <div className="min-h-0 flex-1">
-          <GrafanaEmbed />
+          <GrafanaEmbed selectedInstance={selectedNode?.nodeInstance} />
         </div>
       </section>
     </div>

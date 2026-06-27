@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { FleetNodeStatus, NodeStatus } from "@/types/fleet";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 
@@ -8,9 +9,21 @@ const ACCENT: Record<NodeStatus, string> = {
   "no-data": "bg-neutral-300",
 };
 
-export function NodeCard({ node }: { node: FleetNodeStatus }) {
-  return (
-    <article className="relative overflow-hidden rounded-lg border border-border bg-surface transition-colors hover:border-border-strong">
+/**
+ * 플릿 노드 카드. `href`가 있으면 클릭 가능한 링크(해당 노드 메트릭으로 드릴다운),
+ * 없으면 정적 카드(예: 데이터 없음 / node-exporter 없는 windows 노드).
+ */
+export function NodeCard({
+  node,
+  href,
+  selected = false,
+}: {
+  node: FleetNodeStatus;
+  href?: string;
+  selected?: boolean;
+}) {
+  const body = (
+    <>
       <span
         aria-hidden
         className={`absolute inset-y-0 left-0 w-1 ${ACCENT[node.status]}`}
@@ -32,6 +45,30 @@ export function NodeCard({ node }: { node: FleetNodeStatus }) {
           </span>
         </div>
       </div>
-    </article>
+    </>
+  );
+
+  const base = "relative block overflow-hidden rounded-lg border bg-surface";
+
+  if (!href) {
+    return <article className={`${base} border-border`}>{body}</article>;
+  }
+
+  return (
+    <Link
+      href={href}
+      aria-label={`${node.id} 메트릭 보기`}
+      aria-current={selected ? "true" : undefined}
+      className={[
+        base,
+        "outline-none transition-colors hover:border-border-strong",
+        "focus-visible:ring-2 focus-visible:ring-info-700",
+        selected
+          ? "border-info-700 ring-1 ring-info-700"
+          : "border-border",
+      ].join(" ")}
+    >
+      {body}
+    </Link>
   );
 }

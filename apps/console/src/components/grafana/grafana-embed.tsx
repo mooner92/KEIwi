@@ -4,7 +4,8 @@ import { GrafanaTabs } from "./grafana-tabs";
 // Grafana 대시보드를 iframe으로 임베드 (헌장 §2: 재구현 금지, ADR-0002).
 // 인증은 Cloudflare Access(헌장 §14)가 처리 — 콘솔은 토큰 주입 안 함.
 // 대시보드 개수 가변: env 목록 → 탭(1개면 탭 없이 임베드). env 미설정 시 안내 패널.
-export function GrafanaEmbed() {
+// selectedInstance: 플릿 노드 드릴다운(var-instance) 대상 — 시스템 탭에만 적용.
+export function GrafanaEmbed({ selectedInstance }: { selectedInstance?: string }) {
   // 데이터 취득만 try/catch (JSX 렌더는 밖에서 — 렌더 에러를 try로 못 잡으므로)
   let grafana: ReturnType<typeof getGrafana> | null = null;
   try {
@@ -26,5 +27,13 @@ export function GrafanaEmbed() {
     );
   }
 
-  return <GrafanaTabs baseUrl={grafana.url} dashboards={grafana.dashboards} />;
+  // selectedInstance 변경 시 remount → 활성 탭이 시스템 탭으로 재설정되어 드릴다운이 즉시 반영.
+  return (
+    <GrafanaTabs
+      key={selectedInstance ?? "__all__"}
+      baseUrl={grafana.url}
+      dashboards={grafana.dashboards}
+      selectedInstance={selectedInstance}
+    />
+  );
 }

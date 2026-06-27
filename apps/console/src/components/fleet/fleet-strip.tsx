@@ -5,8 +5,14 @@ function count(nodes: FleetNodeStatus[], status: NodeStatus): number {
   return nodes.filter((n) => n.status === status).length;
 }
 
-/** 플릿 한눈 상태 — 콘솔의 시그니처 뷰 (US1). */
-export function FleetStrip({ nodes }: { nodes: FleetNodeStatus[] }) {
+/** 플릿 한눈 상태 — 콘솔의 시그니처 뷰 (US1). 데이터 있는 노드는 클릭→메트릭 드릴다운. */
+export function FleetStrip({
+  nodes,
+  selectedNodeId,
+}: {
+  nodes: FleetNodeStatus[];
+  selectedNodeId?: string;
+}) {
   const up = count(nodes, "up");
   const down = count(nodes, "down");
   const noData = count(nodes, "no-data");
@@ -31,9 +37,25 @@ export function FleetStrip({ nodes }: { nodes: FleetNodeStatus[] }) {
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {nodes.map((node) => (
-            <NodeCard key={node.id} node={node} />
-          ))}
+          {nodes.map((node) => {
+            // 드릴다운 가능: node-exporter 엔드포인트가 있고 데이터가 실제로 들어오는 노드.
+            const drillable =
+              Boolean(node.nodeInstance) && node.status !== "no-data";
+            const selected = drillable && node.id === selectedNodeId;
+            const href = drillable
+              ? selected
+                ? "/overview" // 선택된 카드 재클릭 → 전체(선택 해제)
+                : `/overview?node=${encodeURIComponent(node.id)}`
+              : undefined;
+            return (
+              <NodeCard
+                key={node.id}
+                node={node}
+                href={href}
+                selected={selected}
+              />
+            );
+          })}
         </div>
       )}
     </section>
