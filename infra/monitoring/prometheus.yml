@@ -31,11 +31,10 @@ scrape_configs:
       - targets: ["node-exporter:9100"] # data05 (로컬 컨테이너)
         labels:
           instance: "192.168.1.105:9100"
-      # data04 — keiwi-tunnel-data04(SSH 터널)가 active 된 뒤 아래 주석 해제.
-      # 터널 없이 켜면 connect refused → up=0 → 콘솔에 'down'으로 오표시되므로 기본은 비활성.
-      # - targets: ["172.18.0.1:9104"]
-      #   labels:
-      #     instance: "192.168.1.104:9100"
+      # data04 — SSH 터널(keiwi-tunnel-data04, 포트 764) 경유. 터널이 active여야 함.
+      - targets: ["172.18.0.1:9104"]
+        labels:
+          instance: "192.168.1.104:9100"
 
   - job_name: "dcgm-exporter"
     static_configs:
