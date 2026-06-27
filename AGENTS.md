@@ -20,6 +20,7 @@
 | `docs/decisions/` | ADR (`NNNN-*.md`) — 모든 의존성·기술 선택 근거 |
 | `docs/prompts/` | 마일스톤별 빌드 프롬프트 |
 | `specs/<milestone>/spec.md` | 마일스톤 스펙 (WHAT + WHY) |
+| `specs/krds-redesign/` | KRDS 리디자인 — 전체 SDD 삼분(`spec`·`plan`·`tasks`·`research`) |
 | `infra/` | 관제 스택(Prometheus/Grafana/ELK 등) — **범위 밖, 함부로 생성·수정 금지** |
 | `apps/console/` | KEIwi 콘솔 (Next.js) — M1 deliverable |
 | `design-system/spec/` | 디자인 시스템 스펙 (KRDS 리스킨, SDD) — ADR 0006/0007 |
