@@ -40,12 +40,18 @@ sudo apt update && sudo apt install -y prometheus-node-exporter
 sudo systemctl enable --now prometheus-node-exporter   # :9100 자동 기동
 ss -tlnp | grep :9100                                  # 확인
 ```
-**전제(.105 터널용)**: .105의 `mooner92` 공개키가 data04의 `mhchoi:~/.ssh/authorized_keys`에 등록돼야 함(유닛이 `mhchoi@192.168.1.104`로 접속). 등록:
+**전제(.105 터널용)**: data04 sshd는 **포트 764**. .105의 `mooner92` 공개키를 data04 `mhchoi`에 등록:
 ```bash
-# .105에서
-ssh-copy-id mhchoi@192.168.1.104    # 또는 mooner92의 ~/.ssh/id_*.pub를 수동 등록
+# .105에서 (포트 764!)
+ssh-copy-id -p 764 mhchoi@192.168.1.104    # mhchoi 비번 1회
 ```
-그다음 .105에서 터널 enable → `prometheus.yml`의 data04 블록 주석 해제 → `sudo docker restart prometheus`.
+그다음 터널 enable → **Prometheus 컨테이너가 9104에 닿게 ufw 개방**(8003/8010과 동일 이유) → data04 블록 주석 해제 → restart:
+```bash
+sudo systemctl enable --now keiwi-tunnel-data04
+sudo ufw allow from 172.18.0.0/16 to any port 9104 proto tcp
+# /data/monitoring/prometheus.yml 의 data04 블록 주석 해제
+sudo docker restart prometheus
+```
 
 ## 모델 워크로드 (Phase B — vLLM /metrics → Grafana)
 
