@@ -78,18 +78,16 @@
         ]
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
         "orientation": "horizontal",
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "textMode": "value_and_name",
         "justifyMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [], "timeField": "@timestamp" },
-        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [], "timeField": "@timestamp" },
-        { "refId": "C", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category", "alias": "활성 서비스", "metrics": [ { "id": "1", "type": "cardinality", "field": "service" } ], "bucketAggs": [], "timeField": "@timestamp" },
-        { "refId": "D", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category", "alias": "수집 노드", "metrics": [ { "id": "1", "type": "cardinality", "field": "fleet_node" } ], "bucketAggs": [], "timeField": "@timestamp" }
+        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" },
+        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" }
       ]
     },
     {
