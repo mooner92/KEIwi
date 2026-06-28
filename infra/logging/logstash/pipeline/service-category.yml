@@ -1,0 +1,35 @@
+# KEIwi 통합 로그 — service(systemd.unit) → category 매핑 사전 (ADR-0010)
+# =============================================================================
+# Logstash translate 필터가 읽는 외부 regex 사전. logs.conf §3b 의 translate 블록이
+#   source=service, target=category, regex=true, exact=true, fallback="unknown" 로 사용.
+#
+# 에이전트는 생성, 사람은 적용(§11). 이 디렉터리(./logstash/pipeline)는 compose 가
+#   /usr/share/logstash/pipeline:ro 로 마운트하므로 추가 마운트 없이 반영된다.
+#   path.config 는 logs.conf 단일 지정이라 이 .yml 은 파이프라인으로 오로딩되지 않는다.
+#
+# 규칙(중요): translate 의 사전 키 순회는 비결정적이다. 패턴이 절대 겹치지 않게
+#   **anchored & 상호배타** 로 작성한다. 평가 순서가 아니라 패턴 배타성으로 결정성을 만든다.
+#   값은 6종(gpu·web·infra·system·user-session)만. 미매칭은 translate fallback=unknown.
+#
+# 신규 서비스 추가: 아래에 anchored regex 한 줄. (P1: 유닛화한 ^jupyter-/^openfoam- 추가)
+# =============================================================================
+
+# --- gpu : GPU/AI 추론·연산 서비스 ---
+"^vllm-.*": "gpu"            # vllm-qwen25-coder-32b-awq.service, vllm-ocr-8010.service 등 신규 모델 자동 흡수
+"^vllm$": "gpu"             # 파일 입력 경로(service_source=vllm)
+"^ollama\\.service$": "gpu"
+
+# --- web : 웹 애플리케이션 ---
+"^(open-webui|dev-booth-dashboard)\\.service$": "web"
+
+# --- infra : 관측·네트워크·컨테이너 스택 자체 ---
+"^(cloudflared|containerd|docker|rsyslog|grafana|grafana-server|prometheus|node_exporter|node-exporter|filebeat|logstash)\\.service$": "infra"
+
+# --- user-session : 대화형/사용자 세션(개별 유닛명 없음 — jupyter/OpenFOAM이 여기 묻힘) ---
+"^user@[0-9]+\\.service$": "user-session"
+"^session-[0-9]+\\.scope$": "user-session"
+
+# --- system : OS/배포판 하우스키핑 ---
+"^(init\\.scope|systemd-.*|cron\\.service|ssh\\.service|sshd\\.service|dbus\\.service|secureboot-db.*|fwupd.*|motd-news.*|packagekit\\.service|apt-daily.*|unattended-upgrades.*|polkit\\.service|networkd-dispatcher\\.service|getty.*)$": "system"
+
+# 미매칭 → (translate fallback) "unknown"  — 완전 신규 앱/도구. 주기적 사람 리뷰 후 위에 등록.

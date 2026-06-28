@@ -37,7 +37,9 @@
                                               ▼
                                        KEIwi 콘솔 /logs (임베드)
 ```
-**필드 표준(Logstash 보장):** `@timestamp` · `fleet_node`(data04|data05) · `log_level`(error|warn|info|debug) · `service` · `message` · `host_name`. → Grafana 변수 `node`(fleet_node)·`level`(log_level)로 필터(spec UL2).
+**필드 표준(Logstash 보장):** `@timestamp` · `fleet_node`(data04|data05) · `log_level`(error|warn|info|debug) · `service`(systemd.unit) · `message` · `host_name` · **`category`**(gpu·web·infra·system·user-session·unknown, [ADR-0010](../../docs/decisions/0010-log-taxonomy.md)) · **`log_level_source`**(body|priority|default, 계측용). → Grafana 변수 `node`·`level`·`category`로 필터(spec UL2/UL6).
+
+> ⚠️ 저장소는 [ADR-0008 개정](../../docs/decisions/0008-log-pipeline.md)으로 **OpenSearch**(ES 7.10 호환). Grafana는 **grafana-opensearch-datasource** 플러그인(내장 elasticsearch가 v13에서 깨짐, [ADR-0010](../../docs/decisions/0010-log-taxonomy.md)). 운영 절차는 [infra/logging/README](../../infra/logging/README.md).
 
 ## 4. 인프라 산출물 (infra/, 에이전트 생성·사람 적용)
 - `infra/logging/docker-compose.yml` — ES(단일노드)+Logstash (data05).
@@ -62,11 +64,19 @@
 |---|---|---|
 | 0 정렬 | 4결정(뷰/수집기/배포/범위) | ✅ |
 | 1 스펙 | spec.md | ✅ |
-| 2 설계·설정 | plan + ADR + infra 설정 + 콘솔 배선 | 진행 |
-| 3 스택 기동 | ES+Logstash(사람) | ⬜ |
-| 4 에이전트 | Filebeat(Ansible) | ⬜ |
-| 5 뷰 | Grafana 대시보드 + 콘솔 검증 | ⬜ |
-| 6 검증 | 수집 확인·필터·a11y·README | ⬜ |
+| 2 설계·설정 | plan + ADR + infra 설정 + 콘솔 배선 | ✅ |
+| 3 스택 기동 | OpenSearch+Logstash(사람) | ✅ |
+| 4 에이전트 | Filebeat(Ansible, data04·05) | ✅ |
+| 5 뷰 | Grafana(OpenSearch ds) + 콘솔 `/logs` | ✅ |
+| 6 검증 | 수집 확인·필터·README | ✅ |
+| 7 분류·교정 | category 사전 + log_level 교정 + ISM([ADR-0010](../../docs/decisions/0010-log-taxonomy.md)) | 진행(게이트) |
+
+**Phase 7 (서비스 인지형 — measure-first 게이트).** 산출물은 생성됨(사람이 적용):
+1. `infra/logging/logstash/pipeline/service-category.yml` — service→category 사전(생성됨).
+2. `infra/logging/elasticsearch/keiwi-logs-template.json` — `category`·`log_level_source` keyword 추가(생성됨) → 사람이 PUT 먼저.
+3. `infra/logging/elasticsearch/keiwi-logs-ism.json` — 30일 보존(생성됨) → 사람이 PUT.
+4. `logs.conf` §3b translate + §4 grok 교정 + `log_level_source` — [README](../../infra/logging/README.md)에 정확한 코드. **measure-first**: rubydebug로 user@ 필드보존·error 인플레 계측 후 적용(priority 다운그레이드는 계측 후 결정).
+- 대화형(jupyter/OpenFOAM): 유닛화 권장(P1). 포트 디스커버리: 거절/보조(P2). 상세 [ADR-0010](../../docs/decisions/0010-log-taxonomy.md).
 
 ## 8. 검증 전략
 - 콘솔 `npm run verify` + `/logs` 임베드 스크린샷(KRDS 셸·한 화면).

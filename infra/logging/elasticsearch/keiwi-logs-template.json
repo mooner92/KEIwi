@@ -11,11 +11,13 @@
         "@timestamp": { "type": "date" },
         "fleet_node": { "type": "keyword" },
         "log_level": { "type": "keyword" },
+        "log_level_source": { "type": "keyword" },
         "service": { "type": "keyword" },
+        "category": { "type": "keyword" },
         "host_name": { "type": "keyword" },
         "message": { "type": "text" }
       }
     }
   },
-  "_meta": { "managed-by": "KEIwi M2 (ADR-0008)" }
+  "_meta": { "managed-by": "KEIwi M2 (ADR-0008, ADR-0010)" }
 }
