@@ -39,17 +39,9 @@ export function getPrometheusUrl(): string {
 
 export type GrafanaDashboard = { uid: string; label: string };
 
-/**
- * GRAFANA — Overview 임베드용. 대시보드 개수 가변(추가 시 env만 수정):
- *   GRAFANA_DASHBOARD_UID = "경로|라벨" 쉼표 목록 (라벨 생략 시 "대시보드 N").
- *   경로 = 대시보드 URL의 '/d/' 뒤 부분 (uid 또는 uid/slug).
- *   ※ 슬러그까지 넣길 권장 — 없으면 Grafana 리다이렉트로 ?kiosk가 풀려 크롬이 노출됨.
- *   예) "abc123/system|시스템,def456/gpu|GPU"
- * 누락/형식오류 시 어떤 키인지 명시하며 fail-fast.
- */
-export function getGrafana(): { url: string; dashboards: GrafanaDashboard[] } {
-  const url = urlString.safeParse(process.env.GRAFANA_URL);
-  const dashboards: GrafanaDashboard[] = (process.env.GRAFANA_DASHBOARD_UID ?? "")
+/** "경로|라벨" 쉼표 목록 → 대시보드 배열. 경로 = '/d/' 뒤 부분(uid 또는 uid/slug). */
+function parseDashboards(raw: string | undefined): GrafanaDashboard[] {
+  return (raw ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
@@ -59,14 +51,36 @@ export function getGrafana(): { url: string; dashboards: GrafanaDashboard[] } {
       return { uid: uid.trim(), label: label || `대시보드 ${i + 1}` };
     })
     .filter((d) => d.uid.length > 0);
+}
 
+/** GRAFANA_URL + 지정 UID env → {url, dashboards}. 누락/형식오류 시 fail-fast. */
+function grafanaFrom(
+  uidEnvName: string,
+  uidRaw: string | undefined,
+): { url: string; dashboards: GrafanaDashboard[] } {
+  const url = urlString.safeParse(process.env.GRAFANA_URL);
+  const dashboards = parseDashboards(uidRaw);
   const missing: string[] = [];
   if (!url.success) missing.push("GRAFANA_URL");
-  if (dashboards.length === 0) missing.push("GRAFANA_DASHBOARD_UID");
+  if (dashboards.length === 0) missing.push(uidEnvName);
   if (missing.length > 0) {
     throw new Error(
       `[env] ${missing.join(", ")} 누락/잘못됨 — apps/console/.env.local에 설정하세요 (.env.example 참고).`,
     );
   }
   return { url: url.data as string, dashboards };
+}
+
+/**
+ * GRAFANA — Overview(메트릭) 임베드용. 대시보드 개수 가변(추가 시 env만 수정):
+ *   GRAFANA_DASHBOARD_UID = "경로|라벨" 쉼표 목록. ※ 슬러그까지 권장(없으면 kiosk 풀림).
+ *   예) "abc123/system|시스템,def456/gpu|GPU"
+ */
+export function getGrafana(): { url: string; dashboards: GrafanaDashboard[] } {
+  return grafanaFrom("GRAFANA_DASHBOARD_UID", process.env.GRAFANA_DASHBOARD_UID);
+}
+
+/** GRAFANA(로그) — /logs 임베드용. GRAFANA_LOGS_DASHBOARD_UID = "uid/slug|라벨"(M2 ELK 로그 대시보드). */
+export function getGrafanaLogs(): { url: string; dashboards: GrafanaDashboard[] } {
+  return grafanaFrom("GRAFANA_LOGS_DASHBOARD_UID", process.env.GRAFANA_LOGS_DASHBOARD_UID);
 }

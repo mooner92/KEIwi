@@ -65,7 +65,9 @@ npm run screenshot # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
 - [0004](./docs/decisions/0004-config-validation-zod.md) — env·스키마 검증: `zod`(fail-fast)
 - [0005](./docs/decisions/0005-unit-test-runner.md) — 단위 테스트 러너: `vitest`(US4 불변식 verify 강제)
 - [0006](./docs/decisions/0006-krds-adoption.md) — KRDS 디자인 시스템 채택(콘솔 크롬만, tokens-only, 시계열은 Grafana 유지)
-- [0007](./docs/decisions/0007-brand-color-strategy.md) — 브랜드↔KRDS 색 전략: 확장형 유지(green/blue 브랜드, 상태색은 KRDS)
+- [0007](./docs/decisions/0007-brand-color-strategy.md) — 브랜드↔KRDS 색 전략: 표준형(정부 블루 Primary, green은 로고/액센트)
+- [0008](./docs/decisions/0008-log-pipeline.md) — M2 로그 파이프라인: Filebeat→Logstash→Elasticsearch→Grafana(콘솔 임베드)
+- [0009](./docs/decisions/0009-ansible-config-mgmt.md) — 에이전트·설정 배포: Ansible(k8s 미채택)
 
 ## 6. 안전 규칙 (요약 — 상세는 헌장)
 
