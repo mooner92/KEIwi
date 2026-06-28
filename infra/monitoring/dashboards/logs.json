@@ -17,7 +17,7 @@
         "name": "node",
         "label": "서버 (fleet_node)",
         "type": "query",
-        "datasource": { "type": "elasticsearch", "uid": "keiwi-logs-es" },
+        "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
         "query": "{\"find\": \"terms\", \"field\": \"fleet_node\"}",
         "refresh": 2,
         "sort": 1,
@@ -53,7 +53,7 @@
       "id": 1,
       "type": "timeseries",
       "title": "로그 볼륨 (레벨별)",
-      "datasource": { "type": "elasticsearch", "uid": "keiwi-logs-es" },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -79,7 +79,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "elasticsearch", "uid": "keiwi-logs-es" },
+          "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
           "query": "fleet_node:$node AND log_level:$level",
           "alias": "",
           "metrics": [ { "id": "1", "type": "count" } ],
@@ -95,7 +95,7 @@
       "id": 2,
       "type": "logs",
       "title": "로그 스트림",
-      "datasource": { "type": "elasticsearch", "uid": "keiwi-logs-es" },
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
       "gridPos": { "h": 20, "w": 24, "x": 0, "y": 7 },
       "options": {
         "showTime": true,
@@ -110,7 +110,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "elasticsearch", "uid": "keiwi-logs-es" },
+          "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
           "query": "fleet_node:$node AND log_level:$level",
           "alias": "",
           "metrics": [ { "id": "1", "type": "logs", "settings": { "limit": "500" } } ],
