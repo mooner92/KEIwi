@@ -7,13 +7,13 @@
 #   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-tunnel-data04
 #
 # 전제:
-#   · data04에 node-exporter가 localhost:9100에 떠 있어야 함.
+#   · data04에 node-exporter(localhost:9100) + DCGM exporter(localhost:9400)가 떠 있어야 함.
 #   · .105에서 'ssh data04'가 키 인증으로 동작해야 함(~/.ssh/config의 Host data04, 또는
 #     아래 ExecStart의 data04를 mooner92@192.168.1.104로 교체).
 #   · 172.18.0.1 바인딩이 막히면 0.0.0.0:9104로 바꾸고 Prometheus 타깃도 172.18.0.1:9104 유지.
 
 [Unit]
-Description=KEIwi SSH tunnel (data04 node-exporter -> 172.18.0.1:9104)
+Description=KEIwi SSH tunnel (data04 node-exporter:9104 + DCGM:9404)
 After=network-online.target
 Wants=network-online.target
 
@@ -25,6 +25,7 @@ ExecStart=/usr/bin/ssh -N \
   -o StrictHostKeyChecking=accept-new \
   -p 764 \
   -L 172.18.0.1:9104:localhost:9100 \
+  -L 172.18.0.1:9404:localhost:9400 \
   mhchoi@192.168.1.104
 Restart=always
 RestartSec=10

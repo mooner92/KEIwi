@@ -30,12 +30,16 @@ function buildEmbedSrc(
         p &&
         !/^kiosk(=|$)/i.test(p) &&
         !/^theme=/i.test(p) &&
-        !(instance && /^var-instance=/i.test(p)) &&
+        !(instance && /^var-(instance|node|host)=/i.test(p)) &&
         !(nodeName && /^var-nodename=/i.test(p)),
     );
-  // Nodename이 부모 변수(Instance가 종속)라 드릴다운은 var-nodename이 핵심.
   if (nodeName) params.push(`var-nodename=${encodeURIComponent(nodeName)}`);
-  if (instance) params.push(`var-instance=${encodeURIComponent(instance)}`);
+  if (instance) {
+    // 인스턴스 변수 이름이 대시보드마다 instance/node/host 중 무엇인지 달라
+    // 후보를 모두 설정한다(대시보드에 없는 변수는 Grafana가 무시).
+    const v = encodeURIComponent(instance);
+    params.push(`var-instance=${v}`, `var-node=${v}`, `var-host=${v}`);
+  }
   params.push("kiosk", `theme=${theme}`);
   return `${base}/d/${path}?${params.join("&")}`;
 }

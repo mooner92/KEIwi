@@ -38,9 +38,10 @@ nodes:
     hostname: "data04lx"          # node_uname_info nodename — Grafana var-nodename 드릴다운용
     os: ubuntu
     role: target
-    gpu: null
+    gpu: "Quadro RTX 6000 x2"    # 각 24GB (nvidia-smi 확인)
     exporters:
       node: "192.168.1.104:9100"
+      dcgm: "192.168.1.104:9400"   # DCGM exporter — data04에 설치 필요(아래 서버 단계) + 터널 9404
 
   - id: data05
     ip: 192.168.1.105

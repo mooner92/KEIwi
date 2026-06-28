@@ -38,9 +38,13 @@ scrape_configs:
 
   - job_name: "dcgm-exporter"
     static_configs:
-      - targets: ["dcgm-exporter:9400"] # data05 GPU
+      - targets: ["dcgm-exporter:9400"] # data05 GPU (A40 x2)
         labels:
           instance: "192.168.1.105:9400"
+      # data04 GPU(Quadro RTX 6000 x2) — SSH 터널(keiwi-tunnel-data04) 경유 172.18.0.1:9404
+      - targets: ["172.18.0.1:9404"]
+        labels:
+          instance: "192.168.1.104:9400"
 
   # vLLM 추론 서버 메트릭 — 모델 워크로드(요청/토큰/지연/KV캐시).
   # data05 호스트의 vLLM 포트(0.0.0.0 바인딩)를 도커 브리지 게이트웨이로 스크랩.
