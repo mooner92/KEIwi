@@ -1,0 +1,4 @@
+# Logstash 파이프라인(*.conf) 배치 위치 — 이 디렉터리가 컨테이너의
+# /usr/share/logstash/pipeline 로 마운트된다(docker-compose.yml).
+# 실제 파이프라인 정의(beats:5044 input → filter → ES output)는 별도 산출물로 추가된다.
+# 이 .gitkeep 은 마운트 경로가 항상 존재하도록 디렉터리를 추적하기 위한 placeholder.

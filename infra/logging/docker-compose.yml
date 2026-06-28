@@ -1,0 +1,142 @@
+# =============================================================================
+# KEIwi M2 통합 로그 — ELK 스택 (data05) · "권장본"
+# -----------------------------------------------------------------------------
+# 에이전트가 레포에 **생성**하고, data05에서 **기동(적용)은 사람**이 한다. (헌장 §11/§12)
+# 라이브 모니터링 스택(/data/monitoring/docker-compose.yml: prometheus/grafana/
+# node-exporter/dcgm-exporter)은 건드리지 않는다 — 이 ELK는 **별도 compose**다.
+#
+# 구성:  Filebeat(각 서버) → Logstash(data05:5044) → Elasticsearch(data05) → Grafana(ES 데이터소스)
+# 이 파일의 책임:  Elasticsearch(단일노드) + Logstash(파이프라인 마운트, beats:5044).
+#                  Filebeat는 각 노드(Ansible) / Logstash 파이프라인은 별도 파일(아래 마운트).
+#
+# ─ 시크릿 없음(헌장 §13): xpack.security.enabled=false. 내부망 + Cloudflare Access 뒤.
+#                          따라서 비번/토큰 placeholder도 불필요. 외부 노출 금지 전제.
+#
+# ── 적용 절차 (data05에서, 사람이) ───────────────────────────────────────────
+#  0) 사전 (호스트 커널, ES 8.x 필수):
+#       sudo sysctl -w vm.max_map_count=262144
+#       echo 'vm.max_map_count=262144' | sudo tee /etc/sysctl.d/99-keiwi-elk.conf   # 영속
+#  1) 환경값:  cp .env.example .env   →  값 확인(특히 MONITORING_NETWORK).  .env 커밋 금지.
+#  2) 공유 네트워크 확인 — Grafana가 'elasticsearch:9200'을 컨테이너명으로 찾으려면
+#     기존 모니터링 스택(grafana)이 붙은 외부 도커망에 ES도 합류해야 한다:
+#       docker inspect grafana --format '{{json .NetworkSettings.Networks}}'   # 네트워크명 확인
+#       # 그 이름을 .env 의 MONITORING_NETWORK 에 기입 (예: monitoring_default)
+#  3) Logstash 파이프라인 배치 — ./logstash/pipeline/*.conf (별도 산출물). 비어있으면 no-op.
+#  4) 기동:
+#       docker compose -f infra/logging/docker-compose.yml --env-file infra/logging/.env up -d
+#  4.5) 인덱스 템플릿 적용 (필수 — 표준필드를 keyword로 매핑해야 Grafana 변수/집계 동작):
+#       curl -s -X PUT 'http://localhost:9200/_index_template/keiwi-logs' \
+#         -H 'Content-Type: application/json' \
+#         -d @infra/logging/elasticsearch/keiwi-logs-template.json     # {"acknowledged":true}
+#  5) 검증(호스트):
+#       curl -s localhost:9200/_cluster/health | grep -o '"status":"[a-z]*"'     # green/yellow
+#       curl -s 'localhost:9200/_cat/indices/keiwi-logs-*?v'                       # 인덱스 생성 확인
+#  6) Grafana 데이터소스: name=keiwi-logs-es, url=http://elasticsearch:9200,
+#     index=keiwi-logs-*, timeField=@timestamp  (infra/monitoring/grafana/ 산출물 참고)
+#
+# ── 네트워크 메모 ────────────────────────────────────────────────────────────
+#  · elk(내부 전용)      : Elasticsearch ↔ Logstash 통신.
+#  · monitoring(외부 공유): Grafana 컨테이너가 ES를 컨테이너명으로 접근(읽기 전용).
+#                          이 망에 ES만 합류시킨다(Logstash는 불필요).
+#  · 대안(공유망 안 쓸 때): monitoring 네트워크 블록을 주석 처리하고, ES 포트를 도커
+#                          브리지 게이트웨이에 노출 후 Grafana url 을 http://<host>:9200 으로.
+#
+# ── 볼륨/메모리 메모 ─────────────────────────────────────────────────────────
+#  · esdata(named volume): ES 데이터 영속. compose down 으로 안 지워짐(영속).
+#                          완전 삭제는 'docker compose down -v'(주의: 로그 전손실).
+#  · ES heap 1g(보수적, ES_JAVA_OPTS). 호스트 RAM 여유에 맞춰 .env 에서 조정.
+#  · Logstash heap 512m(LS_JAVA_OPTS). 모니터링 스택과 메모리 경합 주의.
+# =============================================================================
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:-8.15.3}
+    container_name: keiwi-elasticsearch
+    restart: unless-stopped
+    environment:
+      # 단일노드(헌장 범위: 단순/지루한 기술 §6) — 클러스터 디스커버리 비활성
+      - discovery.type=single-node
+      # 보안 끔: 내부망 + Cloudflare Access 뒤, 레포에 시크릿 두지 않음(§13)
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      # 자체 모니터링 인덱스 수집 비활성(불필요한 부하 절감)
+      - xpack.monitoring.collection.enabled=false
+      # 보수적 힙(.env 로 조정). 컨테이너 메모리의 ~50% 이하 권장.
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS:--Xms1g -Xmx1g}
+      # 메모리 락(스왑 방지) — 아래 ulimits memlock 과 함께 동작
+      - bootstrap.memory_lock=true
+      - cluster.name=keiwi-logs
+      - node.name=keiwi-es-data05
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      # 호스트 검증용으로 localhost 에만 노출(외부 비노출). Grafana 는 공유 도커망 사용.
+      - "${ES_HOST_BIND:-127.0.0.1}:${ES_HTTP_PORT:-9200}:9200"
+    networks:
+      - elk
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${STACK_VERSION:-8.15.3}
+    container_name: keiwi-logstash
+    restart: unless-stopped
+    # ES 컨테이너 시작 후 기동(헬스 게이팅 안 함 — 헬스체크 실패로 영구 대기 방지).
+    # Logstash의 ES output이 ES 준비될 때까지 자체 재시도하므로 안전.
+    depends_on:
+      - elasticsearch
+    environment:
+      - LS_JAVA_OPTS=${LS_JAVA_OPTS:--Xms512m -Xmx512m}
+      # 자체 모니터링 끔(보안 off 환경에서 불필요한 연결 시도 방지)
+      - XPACK_MONITORING_ENABLED=false
+      # 파이프라인에서 ES 주소를 참조할 때 사용(별도 파이프라인 파일이 ${ES_HOSTS} 로 읽음)
+      - ES_HOSTS=http://elasticsearch:9200
+    volumes:
+      # 파이프라인 정의(별도 산출물). 디렉터리 내 *.conf 자동 로드.
+      # data04/05 Filebeat → 5044 수신, log_level/fleet_node/service/host_name 정규화,
+      # output → elasticsearch index keiwi-logs-%{+YYYY.MM.dd}
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      # 전역 설정 + 파이프라인 정의(pipeline.yml → config/pipelines.yml 복수형으로 마운트).
+      - ./logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline.yml:/usr/share/logstash/config/pipelines.yml:ro
+    ports:
+      # Beats(Filebeat) 입력. 원격 노드(data04 등)가 data05:5044 로 전송 → 0.0.0.0 노출.
+      - "${LOGSTASH_BEATS_PORT:-5044}:5044"
+    networks:
+      - elk
+    # 헬스체크(정보용). 이미지에 curl 없으면 unhealthy일 수 있어 depends_on은 게이팅하지 않음.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9600' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+volumes:
+  esdata:
+    # 영속 볼륨(로그 데이터). 보존정책/디스크 용량은 운영에서 관리.
+    driver: local
+
+networks:
+  # 내부 전용: ES ↔ Logstash. 이 compose 가 생성/소유.
+  elk:
+    driver: bridge
+  # 외부 공유: 기존 모니터링 스택(grafana)이 만든 네트워크에 합류.
+  # .env 의 MONITORING_NETWORK 로 이름 지정. up 전에 그 네트워크가 존재해야 함.
+  # (공유망을 쓰지 않으려면 이 블록과 위 elasticsearch.networks 의 'monitoring' 을 함께 제거)
+  monitoring:
+    external: true
+    name: ${MONITORING_NETWORK:-monitoring_default}

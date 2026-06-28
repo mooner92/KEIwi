@@ -1,0 +1,22 @@
+{
+  "_comment": "KEIwi M2 — keiwi-logs-* 컴포저블 인덱스 템플릿. 에이전트 생성, 사람 적용(§11). 표준필드를 keyword로 매핑해야 Grafana terms 집계(node 변수)·필터가 동작한다. 적용: curl -X PUT localhost:9200/_index_template/keiwi-logs -H 'Content-Type: application/json' -d @이파일",
+  "index_patterns": ["keiwi-logs-*"],
+  "priority": 200,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "fleet_node": { "type": "keyword" },
+        "log_level": { "type": "keyword" },
+        "service": { "type": "keyword" },
+        "host_name": { "type": "keyword" },
+        "message": { "type": "text" }
+      }
+    }
+  },
+  "_meta": { "managed-by": "KEIwi M2 (ADR-0008)" }
+}
