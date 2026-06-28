@@ -52,7 +52,7 @@
     {
       "id": 10,
       "type": "stat",
-      "title": "에러 우선 — 현재 시간범위 (UFW 노이즈 제외)",
+      "title": "에러 우선 — 현재 시간범위 (UFW·rsyslog 노이즈 제외)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -67,8 +67,8 @@
         "orientation": "horizontal", "colorMode": "value", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error AND NOT message:\"UFW BLOCK\"", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" },
-        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn AND NOT message:\"UFW BLOCK\"", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" }
+        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error AND NOT message:\"UFW BLOCK\" AND NOT service:\"rsyslog.service\"", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" },
+        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn AND NOT message:\"UFW BLOCK\" AND NOT service:\"rsyslog.service\"", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" }
       ]
     },
     {
@@ -91,7 +91,7 @@
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\"",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\" AND NOT service:\"rsyslog.service\"",
           "alias": "",
           "metrics": [ { "id": "1", "type": "count" } ],
           "bucketAggs": [
@@ -114,7 +114,7 @@
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\"",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\" AND NOT service:\"rsyslog.service\"",
           "alias": "",
           "metrics": [ { "id": "1", "type": "count" } ],
           "bucketAggs": [ { "id": "2", "type": "terms", "field": "service", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_count", "size": "15" } } ],
@@ -128,12 +128,12 @@
       "title": "로그 (선택 레벨, 기본 에러·경고 — 노이즈 제외)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
       "gridPos": { "h": 12, "w": 24, "x": 0, "y": 11 },
-      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "exact", "sortOrder": "Descending" },
+      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "signature", "sortOrder": "Descending" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\"",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\" AND NOT service:\"rsyslog.service\"",
           "alias": "",
           "metrics": [ { "id": "1", "type": "logs", "settings": { "limit": "500" } } ],
           "bucketAggs": [],
