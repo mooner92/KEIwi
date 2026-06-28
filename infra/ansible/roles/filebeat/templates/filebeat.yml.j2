@@ -1,0 +1,54 @@
+# {{ ansible_managed }}
+# /etc/filebeat/filebeat.yml — KEIwi M2 통합 로그 수집기 설정
+#
+# 에이전트가 생성(Ansible 템플릿)하고 사람이 적용한다(헌장 §11). 시크릿 없음(§13).
+# 이 파일은 Ansible이 관리한다 — 직접 수정 말 것(다음 실행에서 덮어써짐). 변경은 레포 템플릿에서.
+#
+# 계약: journald(시스템 로그) [+ 선택 파일 입력] → data05 Logstash(beats:5044).
+#       add_fields로 fleet_node 주입(서버 식별). 정규화는 Logstash가 보장.
+#       fleet_node = {{ fleet_node }}
+
+# === 입력 ===
+filebeat.inputs:
+  # 시스템 로그(systemd journal)
+  - type: journald
+    id: keiwi-journald
+    enabled: true
+{% if filebeat_extra_log_paths | length > 0 %}
+
+  # 선택 파일 로그(예: vLLM 등 앱 로그)
+  - type: filestream
+    id: keiwi-extra-logs
+    enabled: true
+    paths:
+{% for path in filebeat_extra_log_paths %}
+      - {{ path }}
+{% endfor %}
+{% endif %}
+
+# === 프로세서: 계약 필드 주입 ===
+processors:
+  # fleet_node를 이벤트 루트에 추가(data04|data05). Logstash가 최종 정규화.
+  - add_fields:
+      target: ""
+      fields:
+        fleet_node: "{{ fleet_node }}"
+  # host.name(→ Logstash가 host_name으로 정규화) 등 호스트 메타.
+  - add_host_metadata:
+      netinfo.enabled: false
+
+# === 출력: data05 Logstash(beats input) ===
+# 보안은 내부망 + Cloudflare Access 뒤(§13) — TLS/시크릿 없음(계약과 일치).
+output.logstash:
+  hosts: ["{{ logstash_host }}:{{ logstash_port }}"]
+
+# === Filebeat 자체 로깅 ===
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: "0640"
+
+# Elasticsearch 직결/Kibana 미사용(단일 콘솔=Grafana, 계약). 출력은 Logstash만.

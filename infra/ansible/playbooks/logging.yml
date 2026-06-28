@@ -1,0 +1,19 @@
+---
+# infra/ansible/playbooks/logging.yml — KEIwi M2 통합 로그: Filebeat 배포
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+#
+# 무엇: 플릿 각 서버(data04·data05 우선)에 Filebeat를 멱등 설치/설정/기동한다.
+#       journald(시스템 로그) → data05의 Logstash(beats:5044) → ES → Grafana.
+#
+# 실행(data05을 control로, infra/ansible/ 에서):
+#   ansible-playbook -i inventory.ini playbooks/logging.yml
+#   # 사전 점검:  ansible-playbook -i inventory.ini playbooks/logging.yml --check
+#   # 특정 노드:  ansible-playbook -i inventory.ini playbooks/logging.yml --limit data04
+
+- name: KEIwi 플릿 로그 수집기(Filebeat) 배포
+  hosts: logging
+  become: true
+  gather_facts: true
+  roles:
+    - role: filebeat

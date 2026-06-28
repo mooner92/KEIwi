@@ -1,0 +1,12 @@
+---
+# roles/filebeat/handlers/main.yml — Filebeat 핸들러
+#
+# 에이전트 생성, 사람 적용(헌장 §11).
+# 설정(filebeat.yml) 변경 시에만 restart 된다(멱등 — 변경 없으면 재시작 안 함).
+
+- name: restart filebeat
+  ansible.builtin.systemd:
+    name: filebeat
+    state: restarted
+    enabled: true
+    daemon_reload: true
