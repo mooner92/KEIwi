@@ -43,6 +43,12 @@ cd /KEIwi/infra/logging
 curl -s -X PUT 'http://localhost:9200/_index_template/keiwi-logs' \
   -H 'Content-Type: application/json' -d @elasticsearch/keiwi-logs-template.json   # {"acknowledged":true}
 
+# ①b 오늘 인덱스(이미 생성됨)는 템플릿 소급 안 됨 → category 문서가 들어오기 전에(=②보다 먼저)
+#     매핑을 직접 선반영해 text 동적매핑을 막는다. (안 하면 오늘 분만 category.keyword 로 조회해야 함)
+curl -s -X PUT "http://localhost:9200/keiwi-logs-$(date +%Y.%m.%d)/_mapping" \
+  -H 'Content-Type: application/json' \
+  -d '{"properties":{"category":{"type":"keyword"},"log_level_source":{"type":"keyword"}}}'
+
 # ② 갱신된 파이프라인 + 사전을 컨테이너로 (compose 마운트가 :ro라 cp 사용)
 docker cp logstash/pipeline/logs.conf            keiwi-logstash:/usr/share/logstash/pipeline/logs.conf
 docker cp logstash/pipeline/service-category.yml keiwi-logstash:/usr/share/logstash/pipeline/service-category.yml
