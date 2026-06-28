@@ -1,11 +1,11 @@
 {
   "uid": "keiwi-logs",
   "title": "KEIwi 통합 로그",
-  "description": "M2 통합 로그 뷰. Filebeat→Logstash→Elasticsearch(keiwi-logs-*) 를 Grafana ES 데이터소스(keiwi-logs-es)로 surface. 변수 node(fleet_node)·level(log_level) + 시간범위로 검색·필터. 에이전트 생성, 사람 적용(헌장 §11) — 라이브 직접수정 금지(§12). 콘솔에 kiosk 임베드 가능.",
+  "description": "M2 통합 로그 뷰. Filebeat→Logstash→OpenSearch(keiwi-logs-*) 를 Grafana OpenSearch 데이터소스(keiwi-logs-es)로 surface. 변수 node(fleet_node)·category(서비스 범주)·level(log_level) + 시간범위. 에러 우선 패널로 장애 주체(서비스)에 빠르게 도달(spec UL6, ADR-0010). 에이전트 생성·사람 적용(§11). 콘솔 kiosk 임베드.",
   "tags": ["keiwi", "logs", "m2"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {
@@ -19,6 +19,21 @@
         "type": "query",
         "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
         "query": "{\"find\": \"terms\", \"field\": \"fleet_node\"}",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": "*",
+        "hide": 0,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "options": []
+      },
+      {
+        "name": "category",
+        "label": "범주 (category)",
+        "type": "query",
+        "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
+        "query": "{\"find\": \"terms\", \"field\": \"category\"}",
         "refresh": 2,
         "sort": 1,
         "multi": true,
@@ -50,11 +65,39 @@
   },
   "panels": [
     {
+      "id": 10,
+      "type": "stat",
+      "title": "에러 우선 — 현재 시간범위",
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [], "timeField": "@timestamp" },
+        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [], "timeField": "@timestamp" },
+        { "refId": "C", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category", "alias": "활성 서비스", "metrics": [ { "id": "1", "type": "cardinality", "field": "service" } ], "bucketAggs": [], "timeField": "@timestamp" },
+        { "refId": "D", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category", "alias": "수집 노드", "metrics": [ { "id": "1", "type": "cardinality", "field": "fleet_node" } ], "bucketAggs": [], "timeField": "@timestamp" }
+      ]
+    },
+    {
       "id": 1,
       "type": "timeseries",
       "title": "로그 볼륨 (레벨별)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 4 },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -80,7 +123,7 @@
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND log_level:$level",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level",
           "alias": "",
           "metrics": [ { "id": "1", "type": "count" } ],
           "bucketAggs": [
@@ -92,11 +135,33 @@
       ]
     },
     {
+      "id": 11,
+      "type": "table",
+      "title": "에러·경고 상위 서비스",
+      "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 4 },
+      "description": "현재 시간범위에서 error·warn 이 가장 많은 서비스 — 장애 주체 추적(spec UL6).",
+      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
+          "query": "fleet_node:$node AND category:$category AND log_level:(error OR warn)",
+          "alias": "",
+          "metrics": [ { "id": "1", "type": "count" } ],
+          "bucketAggs": [
+            { "id": "2", "type": "terms", "field": "service", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_count", "size": "15" } }
+          ],
+          "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
       "id": 2,
       "type": "logs",
       "title": "로그 스트림",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-      "gridPos": { "h": 20, "w": 24, "x": 0, "y": 7 },
+      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 12 },
       "options": {
         "showTime": true,
         "showLabels": false,
@@ -111,7 +176,7 @@
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND log_level:$level",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level",
           "alias": "",
           "metrics": [ { "id": "1", "type": "logs", "settings": { "limit": "500" } } ],
           "bucketAggs": [],
