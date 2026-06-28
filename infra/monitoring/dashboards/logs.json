@@ -1,16 +1,14 @@
 {
   "uid": "keiwi-logs",
   "title": "KEIwi 통합 로그",
-  "description": "M2 통합 로그 뷰. Filebeat→Logstash→OpenSearch(keiwi-logs-*) 를 Grafana OpenSearch 데이터소스(keiwi-logs-es)로 surface. 변수 node(fleet_node)·category(서비스 범주)·level(log_level) + 시간범위. 에러 우선 패널로 장애 주체(서비스)에 빠르게 도달(spec UL6, ADR-0010). 에이전트 생성·사람 적용(§11). 콘솔 kiosk 임베드.",
+  "description": "M2 통합 로그 — 신호 우선(signal-first) 뷰. 기본 레벨=error+warn 로 루틴 노이즈(접근로그·/metrics·하트비트=info) 자동 제외, UFW BLOCK 쿼리 제외. 요약→추세/상위서비스→문제 로그 순, 전체 raw 는 접힌 행. 변수 node·category·level. spec UL6, ADR-0010. 에이전트 생성·사람 적용(§11).",
   "tags": ["keiwi", "logs", "m2"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
-  "timepicker": {
-    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
-  },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"] },
   "templating": {
     "list": [
       {
@@ -19,12 +17,7 @@
         "type": "query",
         "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
         "query": "{\"find\": \"terms\", \"field\": \"fleet_node\"}",
-        "refresh": 2,
-        "sort": 1,
-        "multi": true,
-        "includeAll": true,
-        "allValue": "*",
-        "hide": 0,
+        "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": "*", "hide": 0,
         "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
         "options": []
       },
@@ -34,12 +27,7 @@
         "type": "query",
         "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
         "query": "{\"find\": \"terms\", \"field\": \"category\"}",
-        "refresh": 2,
-        "sort": 1,
-        "multi": true,
-        "includeAll": true,
-        "allValue": "*",
-        "hide": 0,
+        "refresh": 2, "sort": 1, "multi": true, "includeAll": true, "allValue": "*", "hide": 0,
         "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
         "options": []
       },
@@ -48,15 +36,12 @@
         "label": "레벨 (log_level)",
         "type": "custom",
         "query": "error,warn,info,debug",
-        "multi": true,
-        "includeAll": true,
-        "allValue": "*",
-        "hide": 0,
-        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "multi": true, "includeAll": true, "allValue": "*", "hide": 0,
+        "current": { "selected": true, "text": ["error", "warn"], "value": ["error", "warn"] },
         "options": [
-          { "selected": true, "text": "All", "value": "$__all" },
-          { "selected": false, "text": "error", "value": "error" },
-          { "selected": false, "text": "warn", "value": "warn" },
+          { "selected": false, "text": "All", "value": "$__all" },
+          { "selected": true, "text": "error", "value": "error" },
+          { "selected": true, "text": "warn", "value": "warn" },
           { "selected": false, "text": "info", "value": "info" },
           { "selected": false, "text": "debug", "value": "debug" }
         ]
@@ -67,7 +52,7 @@
     {
       "id": 10,
       "type": "stat",
-      "title": "에러 우선 — 현재 시간범위",
+      "title": "에러 우선 — 현재 시간범위 (UFW 노이즈 제외)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
       "fieldConfig": {
@@ -79,33 +64,21 @@
       },
       "options": {
         "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
-        "orientation": "horizontal",
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "value_and_name",
-        "justifyMode": "auto"
+        "orientation": "horizontal", "colorMode": "value", "graphMode": "area", "textMode": "value_and_name", "justifyMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" },
-        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" }
+        { "refId": "A", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:error AND NOT message:\"UFW BLOCK\"", "alias": "에러", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" },
+        { "refId": "B", "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" }, "query": "fleet_node:$node AND category:$category AND log_level:warn AND NOT message:\"UFW BLOCK\"", "alias": "경고", "metrics": [ { "id": "1", "type": "count" } ], "bucketAggs": [ { "id": "2", "type": "date_histogram", "field": "@timestamp", "settings": { "interval": "auto", "min_doc_count": "0", "trimEdges": "0" } } ], "timeField": "@timestamp" }
       ]
     },
     {
       "id": 1,
       "type": "timeseries",
-      "title": "로그 볼륨 (레벨별)",
+      "title": "로그 추세 (선택 레벨, 기본 에러·경고)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 4 },
+      "gridPos": { "h": 7, "w": 16, "x": 0, "y": 4 },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "stacking": { "mode": "normal", "group": "A" },
-            "lineWidth": 0
-          }
-        },
+        "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 70, "stacking": { "mode": "normal", "group": "A" }, "lineWidth": 0 } },
         "overrides": [
           { "matcher": { "id": "byName", "options": "error" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
           { "matcher": { "id": "byName", "options": "warn" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
@@ -113,15 +86,12 @@
           { "matcher": { "id": "byName", "options": "debug" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "gray" } } ] }
         ]
       },
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND category:$category AND log_level:$level",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\"",
           "alias": "",
           "metrics": [ { "id": "1", "type": "count" } ],
           "bucketAggs": [
@@ -135,21 +105,19 @@
     {
       "id": 11,
       "type": "table",
-      "title": "에러·경고 상위 서비스",
+      "title": "상위 서비스 (선택 레벨)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 4 },
-      "description": "현재 시간범위에서 error·warn 이 가장 많은 서비스 — 장애 주체 추적(spec UL6).",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 4 },
+      "description": "현재 레벨·범주에서 로그가 많은 서비스 — 장애 주체 추적(spec UL6). UFW 노이즈 제외.",
       "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false } },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND category:$category AND log_level:(error OR warn)",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\"",
           "alias": "",
           "metrics": [ { "id": "1", "type": "count" } ],
-          "bucketAggs": [
-            { "id": "2", "type": "terms", "field": "service", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_count", "size": "15" } }
-          ],
+          "bucketAggs": [ { "id": "2", "type": "terms", "field": "service", "settings": { "min_doc_count": "1", "order": "desc", "orderBy": "_count", "size": "15" } } ],
           "timeField": "@timestamp"
         }
       ]
@@ -157,28 +125,47 @@
     {
       "id": 2,
       "type": "logs",
-      "title": "로그 스트림",
+      "title": "로그 (선택 레벨, 기본 에러·경고 — 노이즈 제외)",
       "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 12 },
-      "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": true,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
-      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 11 },
+      "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "exact", "sortOrder": "Descending" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
-          "query": "fleet_node:$node AND category:$category AND log_level:$level",
+          "query": "fleet_node:$node AND category:$category AND log_level:$level AND NOT message:\"UFW BLOCK\"",
           "alias": "",
           "metrics": [ { "id": "1", "type": "logs", "settings": { "limit": "500" } } ],
           "bucketAggs": [],
           "timeField": "@timestamp"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "전체 로그 (원문 · 모든 레벨 · 노이즈 포함) — 펼치기",
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "panels": [
+        {
+          "id": 21,
+          "type": "logs",
+          "title": "전체 로그 스트림 (raw — 진단용)",
+          "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
+          "gridPos": { "h": 18, "w": 24, "x": 0, "y": 24 },
+          "options": { "showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending" },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "grafana-opensearch-datasource", "uid": "keiwi-logs-es" },
+              "query": "fleet_node:$node AND category:$category",
+              "alias": "",
+              "metrics": [ { "id": "1", "type": "logs", "settings": { "limit": "500" } } ],
+              "bucketAggs": [],
+              "timeField": "@timestamp"
+            }
+          ]
         }
       ]
     }
