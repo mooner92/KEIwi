@@ -126,8 +126,33 @@ curl -s 'localhost:9200/_plugins/_ism/explain/keiwi-logs-*?pretty'
 - **권장:** `systemd-run --user --unit=jupyter-$USER --collect jupyter lab ...` 또는 운영자가 `jupyter@.service`·`openfoam-run@.service` 템플릿 + 래퍼(`krun`) 배포. 고유 `_SYSTEMD_UNIT` 생성 → 2.1 사전에 키만 추가하면 분류됨(+ cgroup 자원회계 보너스).
 - **선행 게이트(P1 착수 전):** `logs.conf` output의 `stdout { codec => rubydebug }`를 1회 켜서 user@ 이벤트의 필드 보존을 라이브 재확인.
 
-## 6. 트러블슈팅
+## 6. 신호 우선(signal-first) 대시보드 — ADR-0011
 
-- **콘솔 /logs "Datasource not found":** Grafana 내장 elasticsearch 플러그인 깨짐. `grafana-opensearch-datasource` 사용 확인(ADR-0010). `docker exec grafana ls /var/lib/grafana/plugins/`.
+`infra/monitoring/dashboards/logs.json`(v3, uid `keiwi-logs`). 첫 화면이 raw firehose가 되지 않도록 "문제 먼저" 구조.
+
+- **레벨 변수 기본값 = `error,warn`** — `info` 홍수(접근로그 `[GIN]`·`/metrics` 스크레이프·`devbooth-sync` 하트비트)가 기본 화면에서 자동 제외. 드롭다운에서 `All`/`info` 추가 가능.
+- 레이아웃(위→아래):
+  1. **에러 우선 stat** — 에러·경고 카운트 + 스파크라인(UFW·rsyslog 노이즈 제외).
+  2. **로그 추세**(timeseries) + **상위 서비스**(table) — 어떤 서비스가 깨지는지(spec UL6).
+  3. **로그(메인)** — 선택 레벨·범주의 문제 로그. `dedupStrategy: signature`로 반복 자동 접기.
+  4. **전체 로그(접힌 행)** — `collapsed row`. 평소 숨김, 펼치면 모든 레벨·노이즈 포함 raw 스트림(진단용).
+- 변수: `node`(fleet_node) · `category`(범주) · `level`(레벨, 기본 error+warn).
+- 적용(라이브 Grafana는 provisioning 미바인드): `docker cp logs.json grafana:/etc/grafana/provisioning/dashboards/keiwi/logs.json && docker restart grafana`.
+
+## 7. 노이즈 정책 — ADR-0011
+
+신호 패널 쿼리에 `AND NOT service:"rsyslog.service" AND NOT message:"UFW BLOCK"`로 제외. **파이프라인 `log_class` 분류는 보류**(단일 서비스 노이즈엔 과설계). 노이즈 추가 시:
+
+- **제외는 `service`(keyword) 기준으로.** `message`는 분석된 `text`라 토큰화 의존 — 예: `message:"omfile"`은 토큰이 안 잡혀 매칭 실패(실측: `match_phrase omfile`=0, `wildcard *omfile*`=25k). 메시지 기반 제외는 `GET /_analyze`로 토큰 존재를 확인한 뒤에만.
+- **새 노이즈 서비스**가 신호를 덮으면 `logs.json` 신호 패널 5곳 쿼리에 `AND NOT service:"<svc>"` 추가 → import. (whack-a-mole가 임계 넘으면 ADR로 `log_class` 파이프라인 분류 전환.)
+- **근본은 발생원 차단.** 노이즈가 호스트 오작동이면(예: rsyslog 도배) 호스트를 고치는 게 우선 → [런북](../../docs/runbooks/rsyslog-omfile-flood.md).
+- **vLLM ERROR 노이즈**: 전체기간 error 다수가 vLLM이 ERROR 레벨로 뱉는 앱 로그(파이프라인 오분류 아님). `category=gpu`로 필터하거나, 줄이려면 앱 verbosity 조정(파이프라인 밖).
+
+## 8. 트러블슈팅
+
+- **rsyslog `omfile suspended` 로그 도배:** 한 노드가 error/warn 폭주. → **[런북](../../docs/runbooks/rsyslog-omfile-flood.md)**(진단·`disable`·`_delete_by_query` 정리). data04 사례 2026-06-28.
+- **콘솔 /logs "Datasource not found":** Grafana 내장 elasticsearch 플러그인이 v13에서 깨짐. `grafana-opensearch-datasource` 사용 확인(ADR-0010). `docker exec grafana ls /var/lib/grafana/plugins/`.
+- **대시보드 패널 "invalid query, missing metrics and aggregations":** OpenSearch 데이터소스는 빈 `bucketAggs`를 거부. count 메트릭엔 `date_histogram`(또는 terms) 버킷을 주고 stat은 `reduce=sum`.
+- **category terms 집계 실패(text 매핑):** 그날 인덱스가 템플릿 PUT보다 먼저 category 문서를 받으면 text로 동적매핑. → README §2.5 reindex, 또는 다음 일자 인덱스부터 정상.
 - **docker-compose v1.29.2 `ContainerConfig` KeyError:** recreate 버그. `docker ps -aq --filter name=<svc> | xargs -r docker rm -f` 후 `up -d`(신규 생성).
 - **인덱스 템플릿 PUT 400:** OpenSearch는 `_comment` 등 루트 필드 거부 — 표준 키만.

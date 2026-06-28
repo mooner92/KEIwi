@@ -69,7 +69,8 @@
 | 4 에이전트 | Filebeat(Ansible, data04·05) | ✅ |
 | 5 뷰 | Grafana(OpenSearch ds) + 콘솔 `/logs` | ✅ |
 | 6 검증 | 수집 확인·필터·README | ✅ |
-| 7 분류·교정 | category 사전 + log_level 교정 + ISM([ADR-0010](../../docs/decisions/0010-log-taxonomy.md)) | 진행(게이트) |
+| 7 분류·교정 | category 사전 + log_level 교정(priority 버그 수정) + ISM([ADR-0010](../../docs/decisions/0010-log-taxonomy.md)) | ✅ |
+| 8 신호 우선·노이즈 | 신호 우선 대시보드 + 노이즈 제외 + rsyslog 근본수정([ADR-0011](../../docs/decisions/0011-signal-first-log-ux.md)) | ✅ |
 
 **Phase 7 (서비스 인지형 — measure-first 게이트).** 산출물은 생성됨(사람이 적용):
 1. `infra/logging/logstash/pipeline/service-category.yml` — service→category 사전(생성됨).

@@ -61,12 +61,13 @@
 - [ ] 단일 콘솔 원칙(§I-2) 준수 — 로그 뷰는 Grafana 임베드(콘솔 재구현 아님).
 - [ ] **분류** — `category`(gpu·web·infra·system·user-session·unknown) terms 집계가 실측 유닛대로 갈린다(스캔 없이 systemd.unit 기반). 미분류는 `unknown`/`user-session`으로 노출(에러 위장 금지).
 - [ ] **보존** — `keiwi-logs-*`에 ISM 정책이 부착되어 보존 기간이 강제된다(`_plugins/_ism/explain`로 확인).
+- [ ] **신호 우선** — `/logs` 첫 화면이 raw firehose가 아니라 에러·경고 중심(레벨 기본 error+warn, 노이즈 제외, 전체 raw는 접힌 행). 평소 신호 0~소수, 장애 시 부각([ADR-0011](../../docs/decisions/0011-signal-first-log-ux.md)).
 
 ---
 
 ## 미해결 질문 (openQuestions)
 
-1. **log_level 다운그레이드** — 🔬 *계측 중*. `log_level_source` 계측기를 배포했다(repo logs.conf). `log_level:error AND log_level_source:priority` 분포를 본 뒤 PRIORITY=3→warn 다운그레이드를 결정(본문 ERROR 승격은 유지). 측정 전 선커밋 금지.
+1. **log_level 다운그레이드** — ✅ *해소(2026-06-28): 불필요*. 계측 결과 priority 추출 버그(`[log][syslog][priority]` 경로) 수정 후 가동 — error/warn은 진짜(vLLM body ERROR + rsyslog의 정당한 priority=4 warn)라 인플레가 아님. PRIORITY→warn 다운그레이드는 진짜 신호를 숨길 위험이라 미적용. 노이즈는 [ADR-0011](../../docs/decisions/0011-signal-first-log-ux.md)로 대시보드 제외·발생원 차단.
 2. **대화형 워크로드(jupyter/OpenFOAM)** — ✅ *결정(2026-06-28): 현재 불필요*. 유닛화 표준화·command_line 분류 모두 보류. `user-session`에 정직하게 둔다(필요해지면 유닛화, [ADR-0010](../../docs/decisions/0010-log-taxonomy.md)).
 3. **GPU 가속 simulation** — ✅ *결정(2026-06-28): 현재 고려 안 함*. 단일 `category`로 가고 누락 수용. 필요 시 boolean 교차 플래그 재검토.
 4. **보존 기간** — ✅ *결정(2026-06-28): 365일*(디스크 여유 확인). `keiwi-logs-ism.json` `min_index_age=365d`. 줄이려면 한 줄.
