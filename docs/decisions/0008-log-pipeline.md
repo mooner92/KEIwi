@@ -1,7 +1,12 @@
-# 0008. M2 로그 파이프라인 (Filebeat → Logstash → Elasticsearch → Grafana)
+# 0008. M2 로그 파이프라인 (Filebeat → Logstash → OpenSearch → Grafana)
 
-- 상태: 채택
+- 상태: 채택 (개정 2026-06-28 — 저장 엔진 ES→OpenSearch, 레지스트리 제약)
 - 날짜: 2026-06-28
+
+> ⚠️ **개정(2026-06-28):** 저장 엔진을 Elasticsearch → **OpenSearch**(ES의 Apache-2.0 포크, ES-API 호환)로 변경.
+> **이유:** data05에서 `docker.elastic.co`(Cloudflare R2)가 ES 이미지의 큰 레이어 전송을 매번 reset(작은 요청·Docker Hub·연결 자체는 정상, IP·MSS 클램프 무관) → ES 이미지 입수 불가. OpenSearch는 Docker Hub에서 정상 입수.
+> **정합:** 헌장 §I-3는 "검색 특화 저장소(Elasticsearch)"를 의도 — OpenSearch가 이를 충족(ES 7.10 포크). 데이터흐름·표준필드·인덱스 템플릿·콘솔·Logstash 정규화는 **동일**. Grafana는 Elasticsearch 데이터소스를 **OpenSearch 호환 모드**(`compatibility.override_main_response_version=true` → ES 7.10 보고)로 그대로 사용. Logstash는 OpenSearch output 플러그인. 라이선스도 Apache-2.0로 단순화(Elastic License 회피).
+> **후속:** elastic.co 입수 가능해지면 ES 복귀 재검토 가능(설정 호환).
 
 ## 맥락
 

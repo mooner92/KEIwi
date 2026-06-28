@@ -28,8 +28,8 @@ datasources:
     uid: keiwi-logs-es
     type: elasticsearch
     access: proxy
-    # 컨테이너망 기준. 호스트에서 직접 테스트 시 http://localhost:9200 으로 교체.
-    url: http://elasticsearch:9200
+    # OpenSearch(ES 호환 모드). 컨테이너망 기준. 호스트 테스트 시 http://localhost:9200.
+    url: http://opensearch:9200
     isDefault: false
     # 프로비저닝으로 관리 → UI 편집 잠금(드리프트 방지). 필요 시 true 로.
     editable: false
@@ -37,8 +37,9 @@ datasources:
       # 단일노드·단순 인덱스. 일자 롤오버 와일드카드.
       index: "keiwi-logs-*"
       timeField: "@timestamp"
-      # ES 8.x. (구버전 Grafana는 esVersion 숫자 대신 문자열 권장)
-      esVersion: "8.0.0"
+      # OpenSearch 호환 모드(compatibility.override_main_response_version=true → ES 7.10 보고).
+      # Grafana Elasticsearch 데이터소스가 OpenSearch에 그대로 붙는다. (안 붙으면 grafana-opensearch-datasource 플러그인 검토)
+      esVersion: "7.10.0"
       # 로그 패널 표준 필드(공유 계약): message / log_level
       logMessageField: message
       logLevelField: log_level
