@@ -63,6 +63,7 @@ export default async function OverviewPage({
           <GrafanaEmbed
             selectedInstance={selectedNode?.nodeInstance}
             selectedNodeName={selectedNode?.nodeName}
+            selectedDcgm={selectedNode?.nodeDcgm}
           />
         </div>
       </section>

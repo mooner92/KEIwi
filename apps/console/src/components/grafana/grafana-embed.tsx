@@ -8,9 +8,11 @@ import { GrafanaTabs } from "./grafana-tabs";
 export function GrafanaEmbed({
   selectedInstance,
   selectedNodeName,
+  selectedDcgm,
 }: {
   selectedInstance?: string;
   selectedNodeName?: string;
+  selectedDcgm?: string;
 }) {
   // 데이터 취득만 try/catch (JSX 렌더는 밖에서 — 렌더 에러를 try로 못 잡으므로)
   let grafana: ReturnType<typeof getGrafana> | null = null;
@@ -41,6 +43,7 @@ export function GrafanaEmbed({
       dashboards={grafana.dashboards}
       selectedInstance={selectedInstance}
       selectedNodeName={selectedNodeName}
+      selectedDcgm={selectedDcgm}
     />
   );
 }

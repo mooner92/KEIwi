@@ -39,4 +39,6 @@ export type FleetNodeStatus = {
   nodeInstance?: string;
   /** OS hostname(node_uname_info nodename) — Grafana var-nodename 드릴다운용. inventory hostname. */
   nodeName?: string;
+  /** DCGM exporter 엔드포인트(ip:9400) — GPU 탭 드릴다운(var-instance)용. inventory exporters.dcgm. */
+  nodeDcgm?: string;
 };

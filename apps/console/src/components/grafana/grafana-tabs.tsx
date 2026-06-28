@@ -51,6 +51,11 @@ function findSystemTab(dashboards: Dashboard[]): number {
   return i === -1 ? 0 : i;
 }
 
+// GPU 탭 추정: 라벨에 gpu 포함 첫 탭(없으면 -1). GPU 탭은 DCGM instance(ip:9400)로 드릴다운.
+function findGpuTab(dashboards: Dashboard[]): number {
+  return dashboards.findIndex((d) => /gpu/i.test(d.label));
+}
+
 // 대시보드 개수 가변 — 줄바꿈 탭 바(1개면 탭 숨김). 선택된 대시보드를 kiosk로 임베드.
 // selectedInstance: 노드 드릴다운 대상(ip:9100) — 시스템 탭에서만 var-instance로 주입.
 export function GrafanaTabs({
@@ -58,20 +63,29 @@ export function GrafanaTabs({
   dashboards,
   selectedInstance,
   selectedNodeName,
+  selectedDcgm,
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
   selectedInstance?: string;
   selectedNodeName?: string;
+  selectedDcgm?: string;
 }) {
   const systemTab = findSystemTab(dashboards);
+  const gpuTab = findGpuTab(dashboards);
   const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
   // 노드가 선택된 채 진입하면 시스템 탭부터 보여 드릴다운이 바로 보이게 한다.
   const [active, setActive] = useState(selectedInstance ? systemTab : 0);
   const current = dashboards[active] ?? dashboards[0];
+  // 탭별로 다른 instance를 주입: 시스템=node-exporter(9100)+nodename, GPU=DCGM(9400).
   const onSystem = active === systemTab;
-  const applyInstance = selectedInstance && onSystem ? selectedInstance : undefined;
-  const applyNodeName = selectedNodeName && onSystem ? selectedNodeName : undefined;
+  const onGpu = gpuTab >= 0 && active === gpuTab;
+  const applyInstance = onSystem
+    ? selectedInstance
+    : onGpu
+      ? selectedDcgm
+      : undefined;
+  const applyNodeName = onSystem ? selectedNodeName : undefined;
   const src = buildEmbedSrc(baseUrl, current.uid, applyInstance, applyNodeName, theme);
 
   return (

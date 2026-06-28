@@ -38,6 +38,7 @@ export function resolveFleetStatus(
       status,
       nodeInstance: node.exporters.node,
       nodeName: node.hostname,
+      nodeDcgm: node.exporters.dcgm,
     };
   });
 }
