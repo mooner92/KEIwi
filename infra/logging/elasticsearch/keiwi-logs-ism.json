@@ -1,13 +1,13 @@
 {
   "policy": {
-    "description": "KEIwi 통합 로그 보존 — 일자 인덱스 30일 후 삭제. ADR-0010. vLLM 대용량 대비 디스크 예산 점검 필요.",
+    "description": "KEIwi 통합 로그 보존 — 일자 인덱스 365일 후 삭제. ADR-0010. 디스크 여유 확인됨(사용자 결정 2026-06-28). 단기로 줄이려면 min_index_age 한 줄 변경.",
     "default_state": "hot",
     "states": [
       {
         "name": "hot",
         "actions": [],
         "transitions": [
-          { "state_name": "delete", "conditions": { "min_index_age": "30d" } }
+          { "state_name": "delete", "conditions": { "min_index_age": "365d" } }
         ]
       },
       {

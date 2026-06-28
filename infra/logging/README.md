@@ -26,33 +26,36 @@
 ```
 적용: 사전 파일을 컨테이너에 반영(아래 디렉터리는 이미 compose 볼륨 마운트됨) → Logstash가 `refresh_interval`(300s)로 자동 리로드.
 
-### 2.2 logs.conf에 translate 블록 추가 (사람이 적용 — measure-first 게이트)
-`infra/logging/logstash/pipeline/logs.conf` **§3(service 정규화) 직후**에 삽입:
-```ruby
-# §3b) service → category (외부 regex 사전, ADR-0010)
-translate {
-  id => "translate-category"
-  source => "service"
-  target => "category"
-  dictionary_path => "/usr/share/logstash/pipeline/service-category.yml"
-  regex => true
-  exact => true
-  fallback => "unknown"
-  refresh_interval => 300
-}
-```
+### 2.2 logs.conf §3b translate 블록 — **이미 repo에 반영됨, 적용만**
+`logs.conf` §3(service 정규화) 직후에 `translate-category` 블록이 **이미 추가돼 있다**(`source=service → target=category`, 사전 `service-category.yml`, `regex/exact/fallback=unknown`).
 - `docker-compose.yml`이 `./logstash/pipeline` 전체를 `/usr/share/logstash/pipeline:ro`로 마운트하므로 사전 파일은 자동 반영(추가 마운트 불필요). `pipeline.yml`의 `path.config`는 `logs.conf` 단일 지정이라 `.yml` 사전이 파이프라인으로 오로딩되지 않음(안전).
 - **선결 확인:** `docker exec keiwi-logstash bin/logstash-plugin list | grep translate` (OSS 이미지 번들 여부).
-- **적용 전 필수(§12):** `docker exec keiwi-logstash bin/logstash -t -f /usr/share/logstash/pipeline/logs.conf` 로 구성검증. `config.reload.automatic`이 켜져 있어 잘못된 저장은 라이브를 즉시 깨뜨린다.
+- **적용:** §2.3 통합 절차 참조. `config.reload.automatic`이 켜져 있어 잘못된 저장은 라이브를 즉시 깨뜨리므로 `bin/logstash -t` 선검증 필수(§12).
 - §6 정리 블록의 `remove_field`가 `category`를 지우지 않게 둘 것(현재 안 지움).
 
-### 2.3 인덱스 템플릿 선적용 (순서 중요)
-`category`·`log_level_source`는 신설 keyword다. `manage_template=false`라 선적용 안 하면 동적매핑이 text로 만들어 Grafana terms·변수가 깨진다. **사전·logs.conf 적용 전에** 먼저:
+### 2.3 통합 적용 절차 (data05, 사람 — 순서 중요)
+`category`·`log_level_source`는 신설 keyword다. `manage_template=false`라 **템플릿 선적용**을 안 하면 동적매핑이 text로 만들어 Grafana terms·변수가 깨진다. 반드시 ① 템플릿 → ② 파이프라인 순.
+
 ```bash
+cd /KEIwi/infra/logging
+
+# ① 인덱스 템플릿 선적용 (category·log_level_source keyword) — 신규 일자 인덱스부터 반영
 curl -s -X PUT 'http://localhost:9200/_index_template/keiwi-logs' \
-  -H 'Content-Type: application/json' -d @infra/logging/elasticsearch/keiwi-logs-template.json
+  -H 'Content-Type: application/json' -d @elasticsearch/keiwi-logs-template.json   # {"acknowledged":true}
+
+# ② 갱신된 파이프라인 + 사전을 컨테이너로 (compose 마운트가 :ro라 cp 사용)
+docker cp logstash/pipeline/logs.conf            keiwi-logstash:/usr/share/logstash/pipeline/logs.conf
+docker cp logstash/pipeline/service-category.yml keiwi-logstash:/usr/share/logstash/pipeline/service-category.yml
+
+# ③ 구성 검증 (반드시 — config.reload.automatic 이라 잘못된 저장은 라이브를 깸, §12)
+docker exec keiwi-logstash bin/logstash --path.settings /usr/share/logstash/config \
+  -t -f /usr/share/logstash/pipeline/logs.conf      # "Config Validation Result: OK"
+
+# ④ 리로드: config.reload.automatic 이 15s 내 자동 반영. 즉시 원하면:
+docker exec keiwi-logstash sh -c 'kill -SIGHUP 1' || docker restart keiwi-logstash
 ```
-→ **신규 일자 인덱스부터** 반영(과거 인덱스 소급 안 됨 — 자연 소멸).
+- translate 플러그인 부재로 ③이 실패하면: `docker exec keiwi-logstash bin/logstash-plugin install logstash-filter-translate` 후 재시도.
+- 과거 인덱스는 keyword 소급 안 됨(자연 소멸). category/log_level_source는 **신규 일자 인덱스부터**.
 
 ### 2.4 검증
 ```bash
@@ -66,20 +69,22 @@ curl -s 'localhost:9200/keiwi-logs-*/_search?size=0' -H 'Content-Type: applicati
 
 **실측 결과:** `error` 22%의 상당수는 **진짜 vLLM/torch ERROR 로그**(앱 verbosity)다 — stderr→PRIORITY 인플레가 아님. 따라서:
 - **하지 말 것:** 모든 priority=3을 무작정 warn으로 내리기(진짜 에러를 숨김).
-- **할 것 (P0, 안전):**
-  1. `logs.conf` grok-level 본문 패턴에 `INFO|NOTICE` 추가, bare-token(L133 `\b(ERROR|WARNING|...)\b`)을 구조화형(`[ERROR]`·`level=error`)·줄머리 앵커로 좁혀 `0 errors`·스택프레임 오탐 축소. **본문 명시 ERROR는 계속 error 승격**(진짜 에러 보존).
-  2. `log_level_source`(body|priority|default) keyword 신설 — 이게 계측기.
+- **구현됨 (repo `logs.conf`, §2.3로 적용):**
+  1. grok bare-token에 `INFO|INFORMATION|NOTICE` 추가 — vLLM의 bare `INFO 06-28 ...` 줄이 PRIORITY 폴백이 아니라 **본문으로 정확히 info** 분류된다. **bare-token은 일부러 좁히지 않았다**(대문자 `\b(ERROR|...)\b` 유지) — vLLM의 `ERROR` 줄은 진짜 ERROR라 그대로 error 보존. 공격적 narrowing은 진짜 에러를 숨길 위험이라 보류.
+  2. `log_level_source`(body|priority|default) keyword 신설 — **계측기**.
      ```bash
-     # stderr 인플레 규모 정량화
+     # stderr→priority 인플레 규모 정량화 (적용 후 실행)
      curl -s 'localhost:9200/keiwi-logs-*/_search?size=0' -H 'Content-Type: application/json' \
        -d '{"query":{"bool":{"must":[{"term":{"log_level":"error"}},{"term":{"log_level_source":"priority"}}]}}}'
+     # body 출처 error(진짜 본문 ERROR) 대비:
+     #   ...{"term":{"log_level_source":"body"}}... 로도 카운트해 body:priority 비율 확인
      ```
-  3. 위 분포를 본 뒤에만 PRIORITY=3→warn 다운그레이드를 결정(openQuestion).
-- **앱 노이즈(vLLM ERROR) 자체 줄이기**는 앱 verbosity 설정 또는 대시보드 노이즈 필터의 영역.
+- **보류 (계측 후 결정, openQuestion):** 위 분포에서 `log_level_source:priority`가 크면 그때 PRIORITY=3→warn 다운그레이드. body 출처 error(진짜 vLLM ERROR)는 유지.
+- **앱 노이즈(vLLM ERROR) 자체 줄이기**는 앱 verbosity 또는 대시보드 노이즈 필터의 영역(파이프라인 밖).
 
 ## 4. 보존 (OpenSearch ISM)
 
-`infra/logging/elasticsearch/keiwi-logs-ism.json` — 기본 **30일 후 delete**, `ism_template`로 신규 `keiwi-logs-*` 인덱스 자동 부착.
+`infra/logging/elasticsearch/keiwi-logs-ism.json` — **365일 후 delete**(사용자 결정 2026-06-28, 디스크 여유), `ism_template`로 신규 `keiwi-logs-*` 인덱스 자동 부착. 단기로 줄이려면 `min_index_age` 한 줄.
 ```bash
 curl -s -X PUT 'http://localhost:9200/_plugins/_ism/policies/keiwi-logs-retention' \
   -H 'Content-Type: application/json' -d @infra/logging/elasticsearch/keiwi-logs-ism.json

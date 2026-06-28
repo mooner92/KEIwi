@@ -40,10 +40,10 @@
 - [x] T071 keiwi-logs-template.json에 category·log_level_source keyword 추가
 - [x] T072 keiwi-logs-ism.json(30일 보존) 생성
 - [x] T073 ADR-0010 + README에 logs.conf §3b translate·§4 grok 교정 정확히 문서화
-- [ ] T074 [server] **선행 게이트** — logs.conf rubydebug 1회로 user@ 필드보존 + error 인플레(log_level_source) 계측
-- [ ] T075 [server] 템플릿 PUT → logs.conf §3b translate 추가(`logstash -t` 후) → category 분포 검증
-- [ ] T076 [server] log_level 교정(grok INFO|NOTICE·bare-token 축소·log_level_source) 적용, 22% 회귀비교
-- [ ] T077 [server] ISM PUT + `_ism/explain` 부착 확인 + 디스크 예산 점검
+- [x] T074 logs.conf 구현 — §3b translate-category + grok INFO\|NOTICE + log_level_source 계측기(repo 반영). priority 다운그레이드는 계측 후로 보류
+- [ ] T075 [server] **적용**(README §2.3) — 템플릿 PUT → logs.conf+사전 cp → `logstash -t` → 리로드 → category 분포 검증
+- [ ] T076 [server] 적용 후 계측 — `log_level:error AND log_level_source:priority` 분포로 인플레 규모 확인 → priority 다운그레이드 여부 결정(openQuestion 1)
+- [x] T077 keiwi-logs-ism.json(365일, 사용자 결정) 생성 — [ ] [server] PUT `_ism/policies/keiwi-logs-retention` + `_ism/explain` 확인
 - [ ] T078 logs.json에 $category 변수 + 에러 우선 패널(service 정규식 폴백) → 사람 import
 
 ## 백로그

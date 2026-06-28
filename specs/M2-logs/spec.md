@@ -64,14 +64,14 @@
 
 ---
 
-## 미해결 질문 (openQuestions — 사용자 결정 필요)
+## 미해결 질문 (openQuestions)
 
-1. **log_level 다운그레이드** — `error` 22% 중 stderr 인플레 규모를 `log_level_source`로 계측한 뒤, PRIORITY=3→warn 다운그레이드를 적용할지(본문 명시 ERROR 승격은 유지). 측정 전 선커밋 금지.
-2. **대화형 워크로드 방식** — jupyter/OpenFOAM을 (A) systemd 유닛화 표준(사용자 행위변경) vs (B) 미분류 수용 중 무엇으로 갈지.
-3. **GPU 가속 simulation** — OpenFOAM+CUDA처럼 GPU 점유 연산은 상호배타 단일 `category`에서 `gpu`/`simulation` 택일 → "GPU 주도작업" 필터에서 누락. boolean 교차 플래그/exporter 교차/누락 수용 중 택1.
-4. **보존 기간** — ISM 30일이 적정한가(vLLM 4.3M+ 문서가 용량 지배 → data05 디스크 예산).
-5. **포트 디스커버리(요구 b)** — P2 보조 카탈로그로라도 추진할지, 완전 폐기할지.
-6. **과거 인덱스 소급** — 신규 keyword 미소급. 과거 미분류 수용 vs reindex 비용.
+1. **log_level 다운그레이드** — 🔬 *계측 중*. `log_level_source` 계측기를 배포했다(repo logs.conf). `log_level:error AND log_level_source:priority` 분포를 본 뒤 PRIORITY=3→warn 다운그레이드를 결정(본문 ERROR 승격은 유지). 측정 전 선커밋 금지.
+2. **대화형 워크로드(jupyter/OpenFOAM)** — ✅ *결정(2026-06-28): 현재 불필요*. 유닛화 표준화·command_line 분류 모두 보류. `user-session`에 정직하게 둔다(필요해지면 유닛화, [ADR-0010](../../docs/decisions/0010-log-taxonomy.md)).
+3. **GPU 가속 simulation** — ✅ *결정(2026-06-28): 현재 고려 안 함*. 단일 `category`로 가고 누락 수용. 필요 시 boolean 교차 플래그 재검토.
+4. **보존 기간** — ✅ *결정(2026-06-28): 365일*(디스크 여유 확인). `keiwi-logs-ism.json` `min_index_age=365d`. 줄이려면 한 줄.
+5. **포트 디스커버리(요구 b)** — 보류. P2 보조 카탈로그로라도 추진할지, 완전 폐기할지(OpenFOAM 포트 없어 목표 미달).
+6. **과거 인덱스 소급** — 신규 keyword 미소급. 과거 미분류 수용 vs reindex 비용(소급 불요면 자연 소멸).
 
 ---
 
