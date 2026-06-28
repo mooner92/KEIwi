@@ -49,19 +49,38 @@ curl -s -X PUT "http://localhost:9200/keiwi-logs-$(date +%Y.%m.%d)/_mapping" \
   -H 'Content-Type: application/json' \
   -d '{"properties":{"category":{"type":"keyword"},"log_level_source":{"type":"keyword"}}}'
 
-# ② 갱신된 파이프라인 + 사전을 컨테이너로 (compose 마운트가 :ro라 cp 사용)
-docker cp logstash/pipeline/logs.conf            keiwi-logstash:/usr/share/logstash/pipeline/logs.conf
-docker cp logstash/pipeline/service-category.yml keiwi-logstash:/usr/share/logstash/pipeline/service-category.yml
-
-# ③ 구성 검증 (반드시 — config.reload.automatic 이라 잘못된 저장은 라이브를 깸, §12)
+# ② 파이프라인 반영 — ⚠ pipeline 디렉터리는 호스트 :ro 마운트라 docker cp 불가/불필요.
+#    git pull 이 마운트된 logs.conf 를 직접 갱신하고 config.reload.automatic 이 자동 로드한다.
+#    즉 git pull 순간 새 파이프라인이 바로 라이브가 된다(아래 ①b 레이스 주의 → ⑤ 순서 권장).
+#    구성검증(권장):
 docker exec keiwi-logstash bin/logstash --path.settings /usr/share/logstash/config \
   -t -f /usr/share/logstash/pipeline/logs.conf      # "Config Validation Result: OK"
-
-# ④ 리로드: config.reload.automatic 이 15s 내 자동 반영. 즉시 원하면:
-docker exec keiwi-logstash sh -c 'kill -SIGHUP 1' || docker restart keiwi-logstash
 ```
-- translate 플러그인 부재로 ③이 실패하면: `docker exec keiwi-logstash bin/logstash-plugin install logstash-filter-translate` 후 재시도.
+- translate 플러그인 부재로 검증이 실패하면: `docker exec keiwi-logstash bin/logstash-plugin install logstash-filter-translate` 후 재시도.
 - 과거 인덱스는 keyword 소급 안 됨(자연 소멸). category/log_level_source는 **신규 일자 인덱스부터**.
+
+> **⚠ 레이스 주의(중요).** `:ro` 마운트 + `config.reload.automatic` 때문에 `git pull` 즉시 새 파이프라인이 돌아 **그날 인덱스에 category가 text로 동적매핑**된다(템플릿 PUT보다 먼저). 이를 피하려면 **logstash를 멈추고** 받아라:
+> ```bash
+> docker stop keiwi-logstash && git pull
+> curl -X PUT .../_index_template/keiwi-logs -d @elasticsearch/keiwi-logs-template.json
+> curl -X PUT ".../keiwi-logs-$(date +%Y.%m.%d)/_mapping" -d '{"properties":{"category":{"type":"keyword"},"log_level_source":{"type":"keyword"}}}'
+> docker start keiwi-logstash   # 이제 category 문서가 keyword 매핑된 인덱스로 들어감
+> ```
+> 이미 text 로 들어간 그날 인덱스는 §2.5 로 고친다.
+
+### 2.5 이미 text 로 동적매핑된 그날 인덱스 고치기 (reindex, 무손실)
+레이스로 `category`/`log_level_source` 가 text 가 된 인덱스는 in-place 변경 불가 → 템플릿 매핑으로 reindex.
+```bash
+D=$(date +%Y.%m.%d)
+curl -s -X POST "localhost:9200/_reindex?wait_for_completion=true" -H 'Content-Type: application/json' \
+  -d "{\"source\":{\"index\":\"keiwi-logs-$D\"},\"dest\":{\"index\":\"keiwi-logs-$D-fix\"}}"   # -fix 는 keiwi-logs-* 템플릿 → keyword
+curl -s -X DELETE "localhost:9200/keiwi-logs-$D"                                                # logstash 가 다음 쓰기에 템플릿으로 재생성(keyword)
+curl -s -X POST "localhost:9200/_reindex?wait_for_completion=true" -H 'Content-Type: application/json' \
+  -d "{\"source\":{\"index\":\"keiwi-logs-$D-fix\"},\"dest\":{\"index\":\"keiwi-logs-$D\"}}"
+curl -s -X DELETE "localhost:9200/keiwi-logs-$D-fix"
+```
+- 원본 로그는 각 서버 journald 에도 있으니 최악에도 안전. 다만 reindex 중 들어오는 신규 문서는 재생성 인덱스(keyword)로 정상 적재된다.
+- **그날만의 문제** — 다음 일자 인덱스(`keiwi-logs-<내일>`)는 템플릿으로 처음부터 keyword 라 reindex 불필요.
 
 ### 2.4 검증
 ```bash
