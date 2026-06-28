@@ -5,7 +5,13 @@ import { GrafanaTabs } from "./grafana-tabs";
 // 인증은 Cloudflare Access(헌장 §14)가 처리 — 콘솔은 토큰 주입 안 함.
 // 대시보드 개수 가변: env 목록 → 탭(1개면 탭 없이 임베드). env 미설정 시 안내 패널.
 // selectedInstance: 플릿 노드 드릴다운(var-instance) 대상 — 시스템 탭에만 적용.
-export function GrafanaEmbed({ selectedInstance }: { selectedInstance?: string }) {
+export function GrafanaEmbed({
+  selectedInstance,
+  selectedNodeName,
+}: {
+  selectedInstance?: string;
+  selectedNodeName?: string;
+}) {
   // 데이터 취득만 try/catch (JSX 렌더는 밖에서 — 렌더 에러를 try로 못 잡으므로)
   let grafana: ReturnType<typeof getGrafana> | null = null;
   try {
@@ -34,6 +40,7 @@ export function GrafanaEmbed({ selectedInstance }: { selectedInstance?: string }
       baseUrl={grafana.url}
       dashboards={grafana.dashboards}
       selectedInstance={selectedInstance}
+      selectedNodeName={selectedNodeName}
     />
   );
 }

@@ -37,6 +37,7 @@ export function resolveFleetStatus(
       role: node.role,
       status,
       nodeInstance: node.exporters.node,
+      nodeName: node.hostname,
     };
   });
 }

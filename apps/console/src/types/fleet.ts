@@ -37,4 +37,6 @@ export type FleetNodeStatus = {
    * node exporter가 없는 노드(예: windows)는 undefined → 드릴다운 불가.
    */
   nodeInstance?: string;
+  /** OS hostname(node_uname_info nodename) — Grafana var-nodename 드릴다운용. inventory hostname. */
+  nodeName?: string;
 };

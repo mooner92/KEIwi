@@ -35,7 +35,7 @@ nodes:
 
   - id: data04
     ip: 192.168.1.104
-    hostname: ""
+    hostname: "data04lx"          # node_uname_info nodename — Grafana var-nodename 드릴다운용
     os: ubuntu
     role: target
     gpu: null
@@ -44,7 +44,7 @@ nodes:
 
   - id: data05
     ip: 192.168.1.105
-    hostname: ""
+    hostname: "efc20b3d818e"      # 실제 OS hostname(랜덤형) — hostnamectl로 정리 권장. 드릴다운 var-nodename용
     os: ubuntu
     role: stack-host           # 개발(Claude Code) + 관제 스택 호스트
     gpu: "A40 x2"

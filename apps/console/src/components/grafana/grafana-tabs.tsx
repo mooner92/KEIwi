@@ -13,6 +13,7 @@ function buildEmbedSrc(
   baseUrl: string,
   entry: string,
   instance?: string,
+  nodeName?: string,
   theme: "light" | "dark" = "light",
 ): string {
   const base = baseUrl.replace(/\/+$/, "");
@@ -29,8 +30,11 @@ function buildEmbedSrc(
         p &&
         !/^kiosk(=|$)/i.test(p) &&
         !/^theme=/i.test(p) &&
-        !(instance && /^var-instance=/i.test(p)),
+        !(instance && /^var-instance=/i.test(p)) &&
+        !(nodeName && /^var-nodename=/i.test(p)),
     );
+  // Nodename이 부모 변수(Instance가 종속)라 드릴다운은 var-nodename이 핵심.
+  if (nodeName) params.push(`var-nodename=${encodeURIComponent(nodeName)}`);
   if (instance) params.push(`var-instance=${encodeURIComponent(instance)}`);
   params.push("kiosk", `theme=${theme}`);
   return `${base}/d/${path}?${params.join("&")}`;
@@ -49,19 +53,22 @@ export function GrafanaTabs({
   baseUrl,
   dashboards,
   selectedInstance,
+  selectedNodeName,
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
   selectedInstance?: string;
+  selectedNodeName?: string;
 }) {
   const systemTab = findSystemTab(dashboards);
   const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
   // 노드가 선택된 채 진입하면 시스템 탭부터 보여 드릴다운이 바로 보이게 한다.
   const [active, setActive] = useState(selectedInstance ? systemTab : 0);
   const current = dashboards[active] ?? dashboards[0];
-  const applyInstance =
-    selectedInstance && active === systemTab ? selectedInstance : undefined;
-  const src = buildEmbedSrc(baseUrl, current.uid, applyInstance, theme);
+  const onSystem = active === systemTab;
+  const applyInstance = selectedInstance && onSystem ? selectedInstance : undefined;
+  const applyNodeName = selectedNodeName && onSystem ? selectedNodeName : undefined;
+  const src = buildEmbedSrc(baseUrl, current.uid, applyInstance, applyNodeName, theme);
 
   return (
     <div className="flex h-full flex-col gap-2">

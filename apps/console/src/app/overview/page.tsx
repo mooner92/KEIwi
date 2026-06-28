@@ -60,7 +60,10 @@ export default async function OverviewPage({
           )}
         </header>
         <div className="min-h-0 flex-1">
-          <GrafanaEmbed selectedInstance={selectedNode?.nodeInstance} />
+          <GrafanaEmbed
+            selectedInstance={selectedNode?.nodeInstance}
+            selectedNodeName={selectedNode?.nodeName}
+          />
         </div>
       </section>
     </div>
