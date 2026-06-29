@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
-import { answerError, type ErrorContext } from "@/lib/assistant";
+import { answerError, explore, type ErrorContext } from "@/lib/assistant";
 import { loadRunbooks } from "@/lib/runbooks";
+import { getFacets } from "@/lib/facets";
 
 // env(OpenSearch/vLLM)·네트워크 의존 → 정적 프리렌더 금지.
 export const dynamic = "force-dynamic";
@@ -27,6 +28,14 @@ export async function POST(req: NextRequest) {
   inFlight++;
   try {
     const runbooks = await loadRunbooks();
+    // 모드 분기: 신호행 "분석"(service/node 동반) → 진단형, 자유 질문 → 탐색형(질의계획).
+    const isExplore = !ctx.service && !ctx.fleetNode;
+    const question = (ctx.question || ctx.message || "").trim();
+    if (isExplore && question) {
+      const facets = await getFacets();
+      const result = await explore(question, facets, runbooks);
+      return Response.json(result);
+    }
     const result = await answerError(ctx, runbooks);
     return Response.json(result);
   } catch (e) {

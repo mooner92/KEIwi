@@ -14,17 +14,13 @@ const LEVEL: Record<string, { text: string; label: string }> = {
 export async function CurrentSignals() {
   let signals: LogDoc[] = [];
   try {
-    const raw = await searchLogs({
+    // 노이즈(rsyslog 자기로그·UFW 방화벽) 제외를 쿼리단에서 — top-N이 진짜 신호로 채워짐(ADR-0015).
+    signals = await searchLogs({
       levels: ["error", "warn"],
-      from: "now-6h",
-      size: 40,
+      from: "now-24h",
+      excludeNoise: true,
+      size: 12,
     });
-    signals = raw
-      .filter(
-        (s) =>
-          s.service !== "rsyslog.service" && !s.message.includes("UFW BLOCK"),
-      )
-      .slice(0, 12);
   } catch {
     signals = [];
   }
@@ -37,7 +33,7 @@ export async function CurrentSignals() {
       <header className="border-b border-border px-3 py-2">
         <h2 className="font-display text-sm font-semibold tracking-tight text-ink">
           현재 신호{" "}
-          <span className="font-normal text-ink-muted">· 최근 6시간 error·warn</span>
+          <span className="font-normal text-ink-muted">· 최근 24시간 error·warn (노이즈 제외)</span>
         </h2>
       </header>
       {signals.length === 0 ? (

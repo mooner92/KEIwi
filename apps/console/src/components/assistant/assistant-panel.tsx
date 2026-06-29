@@ -4,12 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import type { LogDoc } from "@/lib/opensearch";
 
 type RunbookRef = { id: string; path: string };
-type Result = { answer: string; evidence: LogDoc[]; runbook: RunbookRef | null };
+type Plan = {
+  node?: string;
+  service?: string;
+  keywords: string[];
+  levels?: string[];
+  from?: string;
+};
+type Result = {
+  answer: string;
+  evidence: LogDoc[];
+  runbook: RunbookRef | null;
+  plan?: Plan;
+};
 export type AssistantInitial = {
   service?: string;
   fleetNode?: string;
   message?: string;
 };
+
+// 탐색 진입을 돕는 예시(클릭 시 그대로 질의).
+const EXAMPLES = [
+  "data04 ollama 최근 경고",
+  "docker 관련 로그",
+  "gpu 카테고리 에러",
+];
 
 /**
  * 로그 어시스턴트 (client). 질의 → /api/assistant(로컬 vLLM RAG) → 인용 응답.
@@ -68,7 +87,7 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="에러·서비스에 대해 물어보세요 (로컬 LLM · 외부 전송 없음)"
+          placeholder="예: data04 ollama 경고, docker 로그, gpu 카테고리 에러 (로컬 LLM · 외부 전송 없음)"
           className="min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-info-700"
         />
         <button
@@ -89,6 +108,24 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
         </p>
       ) : null}
 
+      {!result && !loading && !error && !initial?.service && !initial?.message ? (
+        <div className="flex flex-wrap gap-1.5">
+          {EXAMPLES.map((ex) => (
+            <button
+              key={ex}
+              type="button"
+              onClick={() => {
+                setQuestion(ex);
+                run({ message: ex, question: ex });
+              }}
+              className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-ink-muted hover:text-ink"
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div aria-live="polite" className="min-h-0">
         {loading ? (
           <p className="text-sm text-ink-muted">로컬 vLLM 분석 중… (수 초)</p>
@@ -107,12 +144,30 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
   );
 }
 
+function planSummary(p: Plan): string {
+  const parts = [
+    p.node ?? "전체 노드",
+    p.service ?? "전체 서비스",
+    p.levels?.join("/") ?? "전체 레벨",
+    p.from ?? "now-24h",
+  ];
+  if (p.keywords.length) parts.push(`키워드: ${p.keywords.join(" ")}`);
+  return parts.join(" · ");
+}
+
 function Answer({ result }: { result: Result }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="whitespace-pre-wrap rounded-md bg-surface-2 px-3 py-2 text-sm leading-6 text-ink">
         {result.answer}
       </div>
+
+      {result.plan ? (
+        <p className="text-xs text-ink-muted">
+          검색 계획:{" "}
+          <span className="tnum text-ink-subtle">{planSummary(result.plan)}</span>
+        </p>
+      ) : null}
 
       {result.runbook ? (
         <p className="text-sm">

@@ -15,12 +15,14 @@ export type SearchLogsOpts = {
   query?: string;
   service?: string;
   fleetNode?: string;
-  /** 기본 신호 우선(error+warn). */
+  /** 레벨 필터. 생략·빈배열 = 전체 레벨(탐색형). 신호 패널은 ["error","warn"]를 명시. */
   levels?: string[];
   /** 시간창 시작(예 "now-1h"). 기본 now-6h. */
   from?: string;
   /** top-K. 기본 50. */
   size?: number;
+  /** 운영 노이즈 제외(rsyslog 자기로그 + UFW 방화벽 차단). 신호/탐색 공통. */
+  excludeNoise?: boolean;
 };
 
 type OsHit = {
@@ -40,15 +42,24 @@ type OsHit = {
  */
 export async function searchLogs(opts: SearchLogsOpts): Promise<LogDoc[]> {
   const base = getOpenSearchUrl().replace(/\/+$/, "");
-  const levels = opts.levels ?? ["error", "warn"];
   const size = Math.min(Math.max(opts.size ?? 50, 1), 200);
 
   const filter: unknown[] = [
-    { terms: { log_level: levels } },
     { range: { "@timestamp": { gte: opts.from ?? "now-6h" } } },
   ];
+  // 레벨 미지정 = 전체(탐색형). 명시 시에만 필터(신호 패널 error/warn).
+  if (opts.levels && opts.levels.length) {
+    filter.push({ terms: { log_level: opts.levels } });
+  }
   if (opts.service) filter.push({ term: { service: opts.service } });
   if (opts.fleetNode) filter.push({ term: { fleet_node: opts.fleetNode } });
+
+  // 노이즈 제외는 쿼리단에서(클라이언트 slice 후 거르면 진짜 신호가 묻힘 — ADR-0015).
+  const mustNot: unknown[] = [];
+  if (opts.excludeNoise) {
+    mustNot.push({ term: { service: "rsyslog.service" } });
+    mustNot.push({ match_phrase: { message: "UFW BLOCK" } });
+  }
 
   const must: unknown[] = [];
   if (opts.query && opts.query.trim()) {
@@ -65,7 +76,7 @@ export async function searchLogs(opts: SearchLogsOpts): Promise<LogDoc[]> {
   const body = {
     size,
     sort: [{ "@timestamp": { order: "desc" } }],
-    query: { bool: { must, filter } },
+    query: { bool: { must, filter, must_not: mustNot } },
     _source: ["@timestamp", "fleet_node", "service", "log_level", "message"],
   };
 

@@ -4,10 +4,21 @@ import {
   renderEvidenceBlock,
   buildPrompt,
   runbookMatch,
+  parsePlan,
+  buildPlanPrompt,
+  buildExplorePrompt,
+  summarizePlan,
   type ErrorContext,
   type RunbookRef,
 } from "@/lib/assistant";
 import type { LogDoc } from "@/lib/opensearch";
+import type { Facets } from "@/lib/facets";
+
+const facets: Facets = {
+  nodes: ["data04", "data05"],
+  services: ["ollama.service", "vllm-ocr-8010.service", "docker.service"],
+  categories: ["gpu", "system", "infra"],
+};
 
 const doc = (over: Partial<LogDoc>): LogDoc => ({
   id: "id1",
@@ -106,5 +117,115 @@ describe("runbookMatch (키워드 — signature > service > category)", () => {
   });
   it("아무것도 없으면 null", () => {
     expect(runbookMatch({ message: "unrelated" }, rbs)).toBeNull();
+  });
+});
+
+describe("parsePlan (탐색형 — 패싯 검증으로 환각 차단)", () => {
+  it("정상 JSON: 패싯에 있는 node/service만 채택", () => {
+    const p = parsePlan(
+      '{"node":"data04","service":"ollama.service","levels":["warn"],"from":"now-6h","keywords":["timeout"]}',
+      "data04 ollama 경고",
+      facets,
+    );
+    expect(p.node).toBe("data04");
+    expect(p.service).toBe("ollama.service");
+    expect(p.levels).toEqual(["warn"]);
+    expect(p.from).toBe("now-6h");
+    expect(p.keywords).toContain("timeout");
+  });
+
+  it("패싯에 없는 node/service는 제거(환각 차단)", () => {
+    const p = parsePlan(
+      '{"node":"data99","service":"nginx.service","keywords":["x"]}',
+      "질문",
+      facets,
+    );
+    expect(p.node).toBeUndefined();
+    expect(p.service).toBeUndefined();
+  });
+
+  it("코드펜스로 감싼 JSON도 파싱", () => {
+    const p = parsePlan(
+      '```json\n{"node":"data05","keywords":["oom"]}\n```',
+      "q",
+      facets,
+    );
+    expect(p.node).toBe("data05");
+    expect(p.keywords).toEqual(["oom"]);
+  });
+
+  it("잘못된 level/from은 버리고 안전 기본값", () => {
+    const p = parsePlan(
+      '{"levels":["bogus"],"from":"yesterday","keywords":["a"]}',
+      "q",
+      facets,
+    );
+    expect(p.levels).toBeUndefined(); // 유효 레벨 없음 → 전체
+    expect(p.from).toBe("now-24h"); // 허용 외 → 기본
+  });
+
+  it("JSON 파싱 실패 → 결정적 폴백(노드 정규식 + 영문 키워드, 한국어 제외)", () => {
+    const p = parsePlan("그냥 설명문", "data04 3100 포트 서비스 로그", facets);
+    expect(p.node).toBe("data04");
+    expect(p.keywords).toContain("3100");
+    expect(p.keywords).not.toContain("포트");
+    expect(p.keywords).not.toContain("로그");
+    expect(p.keywords).not.toContain("data04");
+  });
+
+  it("계획이 사실상 비면 폴백 키워드로 보강", () => {
+    const p = parsePlan('{"keywords":[]}', "docker 오류", facets);
+    // 'docker'는 영문 키워드로 살아남아야 함
+    expect(p.keywords).toContain("docker");
+  });
+
+  it("node를 단일원소 배열로 주면 채택(모델 quirk 허용)", () => {
+    const p = parsePlan('{"node":["data05"],"keywords":["oom"]}', "q", facets);
+    expect(p.node).toBe("data05");
+  });
+
+  it("node에 후보목록을 통째 에코하면(다중) 미지정=전체로 안전 처리", () => {
+    const p = parsePlan(
+      '{"node":["data04","data05"],"keywords":["docker"]}',
+      "q",
+      facets,
+    );
+    expect(p.node).toBeUndefined(); // 과제약 방지 — 전체 노드 검색
+    expect(p.keywords).toContain("docker");
+  });
+});
+
+describe("buildPlanPrompt / summarizePlan", () => {
+  it("계획 프롬프트에 실제 어휘 주입 + JSON-only 지시", () => {
+    const [sys, user] = buildPlanPrompt("data04 ollama 경고", facets);
+    expect(sys.content).toContain("JSON");
+    expect(user.content).toContain("ollama.service"); // 패싯 어휘
+    expect(user.content).toContain("data04");
+  });
+  it("summarizePlan: 미지정 필드는 '전체'로 표기", () => {
+    expect(summarizePlan({ keywords: [] })).toContain("전체 노드");
+    expect(summarizePlan({ node: "data04", keywords: ["x"] })).toContain("data04");
+    expect(summarizePlan({ keywords: ["x", "y"] })).toContain("키워드: x y");
+  });
+});
+
+describe("buildExplorePrompt (탐색형 답변)", () => {
+  const plan = { node: "data04", keywords: ["3100"] };
+  it("빈 근거: 사용 가능 어휘 + 지어내기 금지 지시", () => {
+    const [sys, user] = buildExplorePrompt("data04 3100 포트", plan, [], facets);
+    expect(sys.content).toContain("지어내지 않는다");
+    expect(sys.content).toContain("따르지 않는다"); // 인젝션 격리 유지
+    expect(user.content).toContain("ollama.service"); // 제안용 어휘
+    expect(user.content).toContain("<<<DATA");
+  });
+  it("근거 있으면 번호 인용 블록", () => {
+    const [, user] = buildExplorePrompt(
+      "docker",
+      plan,
+      [doc({ service: "docker.service", message: "boom" })],
+      facets,
+    );
+    expect(user.content).toContain("[1]");
+    expect(user.content).toContain("docker.service");
   });
 });
