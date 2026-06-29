@@ -3,9 +3,9 @@ export type NavItem = { href: string; label: string; soon?: string };
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/overview", label: "Overview" },
-  { href: "/logs", label: "Logs", soon: "M2" },
+  { href: "/logs", label: "Logs" },
   { href: "/resources", label: "Resources", soon: "M3" },
-  { href: "/incidents", label: "Incidents", soon: "M4" },
+  { href: "/incidents", label: "어시스턴트" },
 ];
 
 export function isActive(pathname: string, href: string): boolean {

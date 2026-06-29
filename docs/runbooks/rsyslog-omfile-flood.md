@@ -1,3 +1,17 @@
+---
+id: rsyslog-omfile-flood
+service: rsyslog.service
+category: infra
+signature: "omfile' suspended"
+affected_nodes: [data04]
+first_seen: 2026-06-28
+last_seen: 2026-06-28
+occurrences: 1
+status: resolved
+fix_kind: root-cause
+detection_query: '{"query":{"term":{"service":"rsyslog.service"}}}'
+---
+
 # 런북 — rsyslog `omfile suspended` 로그 도배
 
 > 한 노드의 `rsyslog.service`가 error/warn 로그를 폭주시켜 통합 로그(M2)를 덮는 현상.

@@ -17,18 +17,18 @@
 - [x] T034 `lib/assistant.test.ts` — 14 케이스(스크럽·격리·근거번호·런북매칭). 전체 34/34 통과
 - [x] T035 라이브 스모크(개념증명) — 실제 containerd/docker CNI 에러 → 로컬 vLLM 정확 진단, egress 0. ([P1] 인용 구체번호 프롬프트 튜닝)
 
-## Phase 4 — BFF
-- [ ] T040 `app/api/assistant/route.ts` — POST(force-dynamic) SSE 스트림(fleet/status 패턴)
+## Phase 4 — BFF ✅
+- [x] T040 `app/api/assistant/route.ts` — POST(force-dynamic), answerError. GPU 경합 방지(동시1요청, 429). MVP 비스트리밍
 
-## Phase 5 — UI (Overview/Incidents 통합)
-- [ ] T050 `components/signals/current-signals.tsx`(server) — 최근 error+warn top-N(OpenSearch) + 행별 "분석"
-- [ ] T051 `components/assistant/*`(client) — 질의·스트림응답·근거패널·런북/Grafana 딥링크
-- [ ] T052 `/incidents` 라우트를 어시스턴트 탭으로 전용(`nav-items.ts` 라벨)
-- [ ] T053 진입점 — 현재신호 "분석" → 어시스턴트 prefill, KRDS·접근성(aria-live·키보드·다크)
+## Phase 5 — UI (Incidents 전용) ✅
+- [x] T050 `components/signals/current-signals.tsx`(server) — 최근 error+warn top-N(rsyslog/UFW 제외) + 행별 "분석"
+- [x] T051 `components/assistant/assistant-panel.tsx`(client) — 질의·응답·근거 details·런북 표시·aria-live
+- [x] T052 `/incidents` → 어시스턴트 전용(`nav-items.ts` 라벨 "어시스턴트", Logs M2 배지 제거)
+- [x] T053 진입점 — 현재신호 "분석" → `?service&node&q` prefill → 마운트 자동분석
 
-## Phase 6 — KB
-- [ ] T060 런북 frontmatter 표준(id·service·category·signature·detection_query·fix_kind·status·occurrences) — rsyslog 첫 엔트리
-- [ ] T061 runbookMatch 연결(keyword 우선, 벡터 없음)
+## Phase 6 — KB ✅
+- [x] T060 런북 frontmatter 표준(id·service·category·signature·detection_query·fix_kind·status) — rsyslog 첫 엔트리
+- [x] T061 `lib/runbooks.ts` 로더 + runbookMatch 연결(keyword 우선, 벡터 없음)
 
 ## Phase 7 — 검증·문서
 - [ ] T070 verify(타입·린트·테스트·secrets·no-raw-hex) — 빌드는 사람(라이브 .next)
