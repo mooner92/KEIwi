@@ -33,24 +33,21 @@ export function NodeCard({
         aria-hidden
         className={`absolute inset-y-0 left-0 w-1 ${ACCENT[node.status]}`}
       />
-      <div className="p-4 pl-5">
+      <div className="p-2.5 pl-3.5">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-display text-base font-semibold tracking-tight text-ink">
+          <h3 className="font-display text-sm font-semibold tracking-tight text-ink">
             {node.id}
           </h3>
-          <span className="text-[11px] uppercase tracking-wide text-ink-muted">
-            {node.role}
-          </span>
+          <span className="tnum text-[11px] text-ink-subtle">{node.ip}</span>
         </div>
-        <p className="tnum mt-0.5 text-sm text-ink-muted">{node.ip}</p>
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-1.5 flex items-center justify-between gap-2">
           <StatusIndicator status={node.status} />
-          <span className="text-[11px] uppercase tracking-wide text-ink-muted">
+          <span className="text-[10px] uppercase tracking-wide text-ink-muted">
             {node.os}
           </span>
         </div>
         {capacity ? (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <div className="mt-1.5 flex flex-wrap gap-1">
             {gpu ? (
               <CapacityBadge
                 axis="GPU"

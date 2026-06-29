@@ -30,8 +30,8 @@ export default async function OverviewPage({
     : undefined;
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex flex-col gap-1.5">
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex flex-col gap-1">
         <Breadcrumb />
         <PageHeader title="플릿 Overview" />
       </div>

@@ -29,8 +29,8 @@ export function FleetStrip({
 
   return (
     <section aria-label="플릿 상태">
-      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="font-display text-lg font-semibold tracking-tight text-ink">
+      <header className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-display text-base font-semibold tracking-tight text-ink">
           플릿 상태
         </h2>
         <p className="text-xs text-ink-muted">
@@ -42,7 +42,7 @@ export function FleetStrip({
         </p>
       </header>
       {capacity ? (
-        <div className="mb-3">
+        <div className="mb-2">
           <PlacementHint rec={rec} />
         </div>
       ) : null}
@@ -51,7 +51,7 @@ export function FleetStrip({
           inventory에 노드가 없습니다. <span className="tnum">docs/inventory.yaml</span>을 확인하세요.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {nodes.map((node) => {
             // 드릴다운 가능: node-exporter 엔드포인트가 있고 데이터가 실제로 들어오는 노드.
             const drillable =
