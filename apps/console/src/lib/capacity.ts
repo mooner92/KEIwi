@@ -1,0 +1,167 @@
+import type {
+  Node,
+  CapacityRaw,
+  NodeCapacity,
+  GpuCapacity,
+  Verdict,
+  GpuSample,
+} from "@/types/fleet";
+import {
+  DEFAULT_CAPACITY_POLICY,
+  type CapacityPolicy,
+} from "@/config/capacity-policy";
+import { loadInventory } from "@/lib/inventory";
+import { queryCapacity } from "@/lib/prometheus";
+
+/**
+ * 여유 판정 (순수 — capacity.test.ts 대상). ADR-0013.
+ *  - 일반축(CPU+mem): 둘 다 있어야 판정, 하나라도 없으면 unknown(정직 — US4).
+ *  - GPU축: DCGM 있는 노드만(없으면 gpu=null=해당 없음). binding = 가용 VRAM(util 보조).
+ *  - 무데이터/실패 = unknown. 절대 거짓 "여유" 금지.
+ */
+export function resolveFleetCapacity(
+  nodes: Node[],
+  raw: CapacityRaw,
+  policy: CapacityPolicy = DEFAULT_CAPACITY_POLICY,
+): NodeCapacity[] {
+  const cpu = new Map(raw.cpuBusy.map((s) => [s.instance, s.value]));
+  const mem = new Map(raw.memAvail.map((s) => [s.instance, s.value]));
+  const utilByInst = groupGpu(raw.gpuUtil);
+  const vramByInst = groupGpu(raw.gpuVramFree);
+
+  return nodes.map((node) => {
+    const nodeInst = node.exporters.node;
+    const dcgmInst = node.exporters.dcgm;
+
+    const cpuBusyPct = nodeInst ? cpu.get(nodeInst) : undefined;
+    const memAvailPct = nodeInst ? mem.get(nodeInst) : undefined;
+    const general = {
+      cpuBusyPct,
+      memAvailPct,
+      verdict: judgeGeneral(cpuBusyPct, memAvailPct, policy),
+    };
+
+    const gpu: GpuCapacity | null = dcgmInst
+      ? judgeGpu(utilByInst.get(dcgmInst), vramByInst.get(dcgmInst), policy)
+      : null;
+
+    const hasData =
+      cpuBusyPct !== undefined ||
+      memAvailPct !== undefined ||
+      (gpu !== null && gpu.verdict !== "unknown");
+
+    return { id: node.id, hasData, general, gpu };
+  });
+}
+
+/** instance → (gpu → value) */
+function groupGpu(samples: GpuSample[]): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const s of samples) {
+    let m = out.get(s.instance);
+    if (!m) {
+      m = new Map();
+      out.set(s.instance, m);
+    }
+    m.set(s.gpu, s.value);
+  }
+  return out;
+}
+
+function judgeGeneral(
+  cpuBusyPct: number | undefined,
+  memAvailPct: number | undefined,
+  p: CapacityPolicy,
+): Verdict {
+  if (cpuBusyPct === undefined || memAvailPct === undefined) return "unknown";
+  if (cpuBusyPct >= p.cpuBusyFullPct || memAvailPct < p.memAvailFullPct)
+    return "full";
+  if (cpuBusyPct <= p.cpuBusyFreePct && memAvailPct >= p.memAvailFreePct)
+    return "free";
+  return "busy";
+}
+
+/**
+ * GPU축 판정. binding = 가장 여유한 GPU의 가용 VRAM%(모델 들어갈 자리), util 보조.
+ * 데이터 없으면 verdict=unknown(present는 유지 — 노드엔 GPU가 있으나 지금 못 읽음).
+ */
+function judgeGpu(
+  utils: Map<string, number> | undefined,
+  vrams: Map<string, number> | undefined,
+  p: CapacityPolicy,
+): GpuCapacity {
+  // VRAM 표본이 GPU 식별의 기준(가용 자리). 없으면 판정 불가.
+  if (!vrams || vrams.size === 0) {
+    return {
+      present: true,
+      bestVramFreePct: 0,
+      bestUtilPct: 0,
+      gpuCount: 0,
+      verdict: "unknown",
+    };
+  }
+  // 가장 여유한 GPU(max 가용 VRAM%)와 그 GPU의 util.
+  let bestGpu = "";
+  let bestVram = -1;
+  for (const [g, v] of vrams) {
+    if (v > bestVram) {
+      bestVram = v;
+      bestGpu = g;
+    }
+  }
+  const bestUtil = utils?.get(bestGpu) ?? 0;
+  const allUtilHigh =
+    utils !== undefined &&
+    utils.size > 0 &&
+    [...utils.values()].every((u) => u >= p.gpuUtilFullPct);
+
+  let verdict: Verdict;
+  if (bestVram < p.gpuVramFullPct || allUtilHigh) verdict = "full";
+  else if (bestVram >= p.gpuVramFreePct && bestUtil <= p.gpuUtilBusyPct)
+    verdict = "free";
+  else verdict = "busy";
+
+  return {
+    present: true,
+    bestVramFreePct: bestVram,
+    bestUtilPct: bestUtil,
+    gpuCount: vrams.size,
+    verdict,
+  };
+}
+
+/**
+ * GPU 작업 배치 추천 (순수). GPU free 노드 중 가용 VRAM 최대를 1순위로.
+ * 없으면 null(= "여유 GPU 없음" — 거짓 추천 금지).
+ */
+export function recommendGpuPlacement(
+  caps: NodeCapacity[],
+): { nodeId: string; vramFreePct: number } | null {
+  const free = caps
+    .filter((c) => c.gpu?.verdict === "free")
+    .sort((a, b) => (b.gpu?.bestVramFreePct ?? 0) - (a.gpu?.bestVramFreePct ?? 0));
+  const top = free[0];
+  return top && top.gpu
+    ? { nodeId: top.id, vramFreePct: top.gpu.bestVramFreePct }
+    : null;
+}
+
+/**
+ * 오케스트레이터 (서버 전용): inventory + Prometheus 질의 + 판정.
+ * Prometheus 미설정/불가 시 raw 비움 → 전부 unknown(US4, 절대 거짓 "여유" 아님).
+ */
+export async function getFleetCapacity(): Promise<NodeCapacity[]> {
+  const nodes = await loadInventory();
+  let raw: CapacityRaw = {
+    cpuBusy: [],
+    memAvail: [],
+    gpuUtil: [],
+    gpuVramFree: [],
+  };
+  try {
+    raw = await queryCapacity();
+  } catch {
+    // 안전 귀결: 전부 unknown
+  }
+  return resolveFleetCapacity(nodes, raw);
+}

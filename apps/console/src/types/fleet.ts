@@ -42,3 +42,42 @@ export type FleetNodeStatus = {
   /** DCGM exporter 엔드포인트(ip:9400) — GPU 탭 드릴다운(var-instance)용. inventory exporters.dcgm. */
   nodeDcgm?: string;
 };
+
+// ── M3 여유 리소스 (ADR-0013) ────────────────────────────────────────────────
+
+/** 여유 등급. unknown = 데이터 없음/해당 없음(거짓 "여유" 금지 — US4). */
+export type Verdict = "free" | "busy" | "full" | "unknown";
+
+/** GPU축 판정. present=true(노드에 DCGM 있음). 데이터 없으면 verdict=unknown. */
+export type GpuCapacity = {
+  present: true;
+  /** 가장 여유한 GPU의 가용 VRAM%(모델 들어갈 자리 — GPU 여유의 binding) */
+  bestVramFreePct: number;
+  /** 그 GPU의 util%(보조 신호) */
+  bestUtilPct: number;
+  gpuCount: number;
+  verdict: Verdict;
+};
+
+/** 노드 단위 여유 판정 결과(순수 함수 산출). */
+export type NodeCapacity = {
+  id: string;
+  /** 어느 축이든 실데이터가 있었나(없으면 전부 unknown) */
+  hasData: boolean;
+  general: { cpuBusyPct?: number; memAvailPct?: number; verdict: Verdict };
+  /** null = GPU 없는 노드(해당 없음). present 객체 = GPU 노드(데이터 없으면 verdict unknown). */
+  gpu: GpuCapacity | null;
+};
+
+/** Prometheus 원시 표본 — instance(ip:port) 기준 매칭(status.ts 패턴). value=숫자. */
+export type MetricSample = { instance: string; value: number };
+/** GPU 표본 — DCGM은 노드당 복수 GPU라 gpu 라벨로 같은 물리 GPU의 util↔VRAM을 짝짓는다. */
+export type GpuSample = { instance: string; gpu: string; value: number };
+
+/** queryCapacity() 산출 = resolveFleetCapacity() 입력(순수 분리 — 테스트 가능). */
+export type CapacityRaw = {
+  cpuBusy: MetricSample[]; // ip:9100
+  memAvail: MetricSample[]; // ip:9100
+  gpuUtil: GpuSample[]; // ip:9400 (per GPU)
+  gpuVramFree: GpuSample[]; // ip:9400 (per GPU, 가용 VRAM%)
+};
