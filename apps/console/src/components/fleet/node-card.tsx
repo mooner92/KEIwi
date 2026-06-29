@@ -1,6 +1,7 @@
 import Link from "next/link";
-import type { FleetNodeStatus, NodeStatus } from "@/types/fleet";
+import type { FleetNodeStatus, NodeStatus, NodeCapacity } from "@/types/fleet";
 import { StatusIndicator } from "@/components/ui/status-indicator";
+import { CapacityBadge } from "@/components/ui/capacity-badge";
 
 // 좌측 상태 액센트 바 — 시맨틱 토큰만.
 const ACCENT: Record<NodeStatus, string> = {
@@ -15,13 +16,17 @@ const ACCENT: Record<NodeStatus, string> = {
  */
 export function NodeCard({
   node,
+  capacity,
   href,
   selected = false,
 }: {
   node: FleetNodeStatus;
+  capacity?: NodeCapacity;
   href?: string;
   selected?: boolean;
 }) {
+  const gpu = capacity?.gpu ?? null;
+  const general = capacity?.general;
   const body = (
     <>
       <span
@@ -44,6 +49,37 @@ export function NodeCard({
             {node.os}
           </span>
         </div>
+        {capacity ? (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {gpu ? (
+              <CapacityBadge
+                axis="GPU"
+                verdict={gpu.verdict}
+                detail={
+                  gpu.verdict === "unknown"
+                    ? undefined
+                    : `VRAM ${Math.round(gpu.bestVramFreePct)}%`
+                }
+                title={
+                  gpu.verdict === "unknown"
+                    ? "GPU 메트릭 없음"
+                    : `가장 여유한 GPU 기준 · util ${Math.round(gpu.bestUtilPct)}% · GPU ${gpu.gpuCount}장`
+                }
+              />
+            ) : null}
+            {general ? (
+              <CapacityBadge
+                axis="일반"
+                verdict={general.verdict}
+                title={
+                  general.verdict === "unknown"
+                    ? "CPU/메모리 메트릭 없음"
+                    : `CPU ${Math.round(general.cpuBusyPct ?? 0)}% 사용 · 메모리 ${Math.round(general.memAvailPct ?? 0)}% 가용`
+                }
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </>
   );

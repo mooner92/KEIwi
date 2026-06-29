@@ -16,17 +16,18 @@
 - [ ] T033 `lib/capacity.ts` `resolveFleetCapacity(nodes, raw)`(순수) + `getFleetCapacity()`(오케스트레이터, 실패→unknown)
 - [ ] T034 `lib/capacity.test.ts` — 경계값(free/busy/full), GPU없음→null, no-data→unknown, VRAM가득+util0→full
 
-## Phase 4 — UI (Overview 통합)
-- [ ] T040 fleet 카드에 **여유 배지**(GPU·일반, 색+텍스트, System 색) — `components/fleet/`
-- [ ] T041 상단 **배치 추천 배너**(PlacementHint) — "GPU 작업은 dataX 추천 (VRAM N% 여유)" / "여유 GPU 없음"
-- [ ] T042 임계 노출(UR4) — 배지 툴팁/추천 옆 기준 표기
-- [ ] T043 `app/overview/page.tsx` — `getFleetCapacity()` 병렬 fetch → strip·배너 전달. 드릴다운(GrafanaEmbed) 기존 재사용
-- [ ] T044 정직성 — `unknown`=회색·"판정불가/해당없음"(거짓 여유 금지)
+## Phase 4 — UI (Overview 통합) ✅
+- [x] T040 여유 배지 `components/ui/capacity-badge.tsx`(GPU·일반, 색+텍스트, System 색 토큰)
+- [x] T041 배치 추천 배너 `components/fleet/placement-hint.tsx`("dataX 추천 (VRAM N%)" / "여유 GPU 없음")
+- [x] T042 임계 노출(UR4) — 배지 title 툴팁 + 추천 옆 "기준: VRAM≥50%·util≤30%"
+- [x] T043 `node-card`·`fleet-strip`·`overview/page.tsx` — `getFleetCapacity()` 병렬 fetch → 전달. 드릴다운 기존 재사용
+- [x] T044 정직성 — `unknown`=중립색·"판정불가", GPU없음=배지없음(거짓 여유 금지)
 
 ## Phase 5 — 검증·문서
-- [ ] T050 `npm run verify`(타입·린트·테스트·빌드) 통과
-- [ ] T051 실데이터 — data04=GPU free(VRAM~78%), data05=GPU full/busy, CPU/메모리 여유 확인
-- [ ] T052 Playwright 스크린샷(라이트·다크) 공유 — [[visual-qa-at-task-end]]
+- [x] T050a 안전 검증 — typecheck·lint·test(20/20)·check:secrets·check:no-raw-hex 통과
+- [ ] T050b [server] 빌드+배포 — `npm run build && sudo systemctl restart keiwi-console`(라이브 .next 충돌로 사람이, §11)
+- [x] T051 실데이터 — data04=GPU free(VRAM 78%·util 0%), data05=GPU busy(best 32%) 판정 확인
+- [ ] T052 [server] Playwright/스크린샷(라이트·다크) 공유 — [[visual-qa-at-task-end]] (배포 후)
 - [ ] T053 README/AGENTS 갱신(여유 리소스 뷰 운영·임계 조정)
 
 ## 백로그

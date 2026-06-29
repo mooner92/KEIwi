@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getFleetStatus } from "@/lib/status";
+import { getFleetCapacity } from "@/lib/capacity";
 import { FleetStrip } from "@/components/fleet/fleet-strip";
 import { GrafanaEmbed } from "@/components/grafana/grafana-embed";
 import { Breadcrumb } from "@/components/shell/breadcrumb";
@@ -13,7 +14,11 @@ export default async function OverviewPage({
 }: {
   searchParams: Promise<{ node?: string }>;
 }) {
-  const [nodes, params] = await Promise.all([getFleetStatus(), searchParams]);
+  const [nodes, capacity, params] = await Promise.all([
+    getFleetStatus(),
+    getFleetCapacity(),
+    searchParams,
+  ]);
 
   // ?node=<id> → 데이터 있는 노드만 유효한 선택으로 인정. 그 노드의 node-exporter
   // instance(ip:9100)를 Grafana 시스템 임베드에 var-instance로 주입한다.
@@ -30,7 +35,11 @@ export default async function OverviewPage({
         <Breadcrumb />
         <PageHeader title="플릿 Overview" />
       </div>
-      <FleetStrip nodes={nodes} selectedNodeId={selectedNode?.id} />
+      <FleetStrip
+        nodes={nodes}
+        capacity={capacity}
+        selectedNodeId={selectedNode?.id}
+      />
 
       <section
         aria-label="메트릭 대시보드"

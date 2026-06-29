@@ -1,21 +1,31 @@
-import type { FleetNodeStatus, NodeStatus } from "@/types/fleet";
+import type { FleetNodeStatus, NodeStatus, NodeCapacity } from "@/types/fleet";
+import { recommendGpuPlacement } from "@/lib/capacity";
 import { NodeCard } from "./node-card";
+import { PlacementHint } from "./placement-hint";
 
 function count(nodes: FleetNodeStatus[], status: NodeStatus): number {
   return nodes.filter((n) => n.status === status).length;
 }
 
-/** 플릿 한눈 상태 — 콘솔의 시그니처 뷰 (US1). 데이터 있는 노드는 클릭→메트릭 드릴다운. */
+/**
+ * 플릿 한눈 상태 — 콘솔의 시그니처 뷰 (US1). 데이터 있는 노드는 클릭→메트릭 드릴다운.
+ * capacity가 주어지면 노드별 여유 배지 + GPU 배치 추천(M3, ADR-0012/0013)을 함께 보인다.
+ */
 export function FleetStrip({
   nodes,
+  capacity,
   selectedNodeId,
 }: {
   nodes: FleetNodeStatus[];
+  capacity?: NodeCapacity[];
   selectedNodeId?: string;
 }) {
   const up = count(nodes, "up");
   const down = count(nodes, "down");
   const noData = count(nodes, "no-data");
+
+  const capById = new Map((capacity ?? []).map((c) => [c.id, c]));
+  const rec = capacity ? recommendGpuPlacement(capacity) : null;
 
   return (
     <section aria-label="플릿 상태">
@@ -31,6 +41,11 @@ export function FleetStrip({
           <span className="tnum">{noData}</span> 데이터 없음
         </p>
       </header>
+      {capacity ? (
+        <div className="mb-3">
+          <PlacementHint rec={rec} />
+        </div>
+      ) : null}
       {nodes.length === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted">
           inventory에 노드가 없습니다. <span className="tnum">docs/inventory.yaml</span>을 확인하세요.
@@ -51,6 +66,7 @@ export function FleetStrip({
               <NodeCard
                 key={node.id}
                 node={node}
+                capacity={capById.get(node.id)}
                 href={href}
                 selected={selected}
               />
