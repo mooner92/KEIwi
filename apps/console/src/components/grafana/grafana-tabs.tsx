@@ -80,6 +80,8 @@ export function GrafanaTabs({
   // 탭별로 다른 instance를 주입: 시스템=node-exporter(9100)+nodename, GPU=DCGM(9400).
   const onSystem = active === systemTab;
   const onGpu = gpuTab >= 0 && active === gpuTab;
+  // 모델 탭은 플릿 전체(노드 스코프 미주입) — 노드 클릭 시 혼동 방지 안내(ADR-0016).
+  const onModel = /모델|model/i.test(current.label);
   const applyInstance = onSystem
     ? selectedInstance
     : onGpu
@@ -118,6 +120,12 @@ export function GrafanaTabs({
           })}
         </div>
       )}
+      {onModel ? (
+        <p className="shrink-0 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-ink-muted">
+          이 뷰는 <span className="font-medium text-ink">플릿 전체</span>입니다 — 노드 선택과
+          무관하게, 현재 모델이 구동 중인 노드만 표시됩니다.
+        </p>
+      ) : null}
       <iframe
         key={src}
         src={src}
