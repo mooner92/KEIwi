@@ -9,12 +9,13 @@
 - [x] T020 plan.md (BFF·RAG·인용서버검증·안전)
 - [x] T021 ADR-0014 (로컬vLLM·읽기전용·no-vector·no-fix·no-autoapply·/incidents·GPU on-demand)
 
-## Phase 3 — 라이브러리 (순수·테스트)
-- [ ] T030 `config/env.ts` — getOpenSearchUrl·getVllmUrl·getVllmModel(zod, server-only) + `.env.example`
-- [ ] T031 `lib/opensearch.ts` — searchLogs(BM25+필터, 읽기전용, 실패 throw)
-- [ ] T032 `lib/vllm.ts` — chat(/v1/chat/completions, stream 옵션)
-- [ ] T033 `lib/assistant.ts` — scrubSecrets·buildPrompt(격리·번호근거)·runbookMatch(순수) + answerError(오케스트레이터)
-- [ ] T034 `lib/assistant.test.ts` — 스크럽·격리·근거번호·런북매칭 경계
+## Phase 3 — 라이브러리 (순수·테스트) ✅
+- [x] T030 `config/env.ts` — getOpenSearchUrl·getVllmUrl·getVllmModel(zod, server-only) + `.env.example`
+- [x] T031 `lib/opensearch.ts` — searchLogs(BM25+필터, 읽기전용, 실패 throw)
+- [x] T032 `lib/vllm.ts` — chat(/v1/chat/completions, 비스트리밍 MVP)
+- [x] T033 `lib/assistant.ts` — scrubSecrets·buildPrompt(격리·번호근거)·runbookMatch(순수) + answerError(오케스트레이터)
+- [x] T034 `lib/assistant.test.ts` — 14 케이스(스크럽·격리·근거번호·런북매칭). 전체 34/34 통과
+- [x] T035 라이브 스모크(개념증명) — 실제 containerd/docker CNI 에러 → 로컬 vLLM 정확 진단, egress 0. ([P1] 인용 구체번호 프롬프트 튜닝)
 
 ## Phase 4 — BFF
 - [ ] T040 `app/api/assistant/route.ts` — POST(force-dynamic) SSE 스트림(fleet/status 패턴)
