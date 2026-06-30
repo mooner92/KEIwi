@@ -1,0 +1,17 @@
+---
+# playbooks/agents.yml — 노드별 모니터링 에이전트 적용(GPU 모델 익스포터 등).
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 로그(filebeat)는 playbooks/logging.yml 참조.
+# 실행(사람, control=data05):
+#   cd infra/ansible
+#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 --check --diff
+#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04
+#
+# 향후 node-exporter·dcgm-exporter role도 여기에 묶는다(ADR-0017 백로그).
+
+- name: GPU 모델 익스포터 (GPU 노드)
+  hosts: gpu
+  become: true
+  gather_facts: true
+  roles:
+    - gpu-model-exporter
