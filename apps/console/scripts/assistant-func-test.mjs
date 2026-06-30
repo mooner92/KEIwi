@@ -19,41 +19,9 @@ const page = await ctx.newPage();
 let failures = 0;
 const fail = (m) => { console.log("  FAIL:", m); failures++; };
 
-async function waitAnswer() {
-  await page.waitForFunction(() => {
-    const loading = [...document.querySelectorAll("p")].some((p) =>
-      (p.textContent || "").includes("분석 중"),
-    );
-    const ans = document.querySelector(
-      'section[aria-label="로그 어시스턴트"] .whitespace-pre-wrap',
-    );
-    const err = document.querySelector(
-      'section[aria-label="로그 어시스턴트"] [role="alert"]',
-    );
-    return !loading && (!!ans || !!err);
-  }, { timeout: 120000 });
-  await page.waitForTimeout(400);
-  return page.evaluate(() => {
-    const ans = document.querySelector(
-      'section[aria-label="로그 어시스턴트"] .whitespace-pre-wrap',
-    );
-    const sum = [...document.querySelectorAll("summary")].find((x) =>
-      (x.textContent || "").includes("근거 로그"),
-    );
-    const err = document.querySelector(
-      'section[aria-label="로그 어시스턴트"] [role="alert"]',
-    );
-    return {
-      answer: ans ? ans.textContent.trim() : null,
-      evidence: sum ? sum.textContent.trim() : null,
-      error: err ? err.textContent.trim() : null,
-    };
-  });
-}
-
 await page.goto(`${BASE}/incidents`, { waitUntil: "networkidle", timeout: 90000 });
 await page.waitForSelector('section[aria-label="현재 신호"]', { timeout: 30000 });
-await page.waitForTimeout(1000);
+await page.waitForTimeout(800);
 
 const signals = await page.evaluate(() => {
   const out = [];
@@ -70,26 +38,58 @@ if (signals.length < 2) fail("신호 2개 미만 — 비교 불가");
 const first = signals[0] ?? null;
 const second = signals.find((s) => s.label !== first?.label) ?? signals[1] ?? null;
 
+// 신호 분석: API 응답(authoritative)을 기다려 answer/evidence 추출 + UI 렌더 확인 + 스크린샷
 async function analyze(sig, tag) {
-  await page.goto(`${BASE}${sig.href}`, { waitUntil: "networkidle", timeout: 60000 });
-  const r = await waitAnswer();
+  const respP = page.waitForResponse(
+    (r) => r.url().includes("/api/assistant") && r.request().method() === "POST",
+    { timeout: 150000 },
+  );
+  await page.goto(`${BASE}${sig.href}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  let json = {};
+  let status = 0;
+  try {
+    const resp = await respP;
+    status = resp.status();
+    json = await resp.json().catch(() => ({}));
+  } catch (e) {
+    fail(`${tag} /api/assistant 응답 없음: ${e.message}`);
+  }
+  await page
+    .waitForSelector(
+      'section[aria-label="로그 어시스턴트"] .whitespace-pre-wrap, section[aria-label="로그 어시스턴트"] [role="alert"]',
+      { timeout: 30000 },
+    )
+    .catch(() => {});
+  await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/${tag}.png`, fullPage: true });
-  console.log(`\n[${tag}] ${sig.label}`);
-  console.log(`  evidence: ${r.evidence}`);
+  const r = {
+    service: sig.label,
+    status,
+    answer: json.answer ?? null,
+    evidenceCount: Array.isArray(json.evidence) ? json.evidence.length : 0,
+    plan: json.plan ?? null,
+    error: json.error ?? null,
+  };
+  console.log(`\n[${tag}] ${sig.label}  (HTTP ${status})`);
+  console.log(`  evidence: ${r.evidenceCount}건  plan: ${r.plan ? JSON.stringify(r.plan) : "-"}`);
   if (r.error) console.log(`  error: ${r.error}`);
-  console.log(`  answer: ${(r.answer || "").slice(0, 140).replace(/\n/g, " ")}…`);
+  console.log(`  answer: ${(r.answer || "").slice(0, 160).replace(/\s+/g, " ")}…`);
   return r;
 }
 
 if (first && second) {
   const A = await analyze(first, "signal-A");
   const B = await analyze(second, "signal-B");
+  if (A.status !== 200) fail(`A HTTP ${A.status}`);
+  if (B.status !== 200) fail(`B HTTP ${B.status}`);
   if (A.error) fail(`A 에러: ${A.error}`);
   if (B.error) fail(`B 에러: ${B.error}`);
+  if (!A.answer) fail("A 답변 없음");
+  if (!B.answer) fail("B 답변 없음");
   if (A.answer && B.answer && A.answer === B.answer && first.label !== second.label)
     fail("서로 다른 신호인데 답변 동일 — 재분석 버그 회귀");
-  if (A.evidence && A.evidence.includes("0건")) fail("A 근거 0건 — 진단검색 실패");
-  if (B.evidence && B.evidence.includes("0건")) fail("B 근거 0건 — 진단검색 실패");
+  if (A.evidenceCount === 0) fail("A 근거 0건 — 진단검색 실패");
+  if (B.evidenceCount === 0) fail("B 근거 0건 — 진단검색 실패");
 }
 
 console.log(
