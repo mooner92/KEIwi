@@ -10,6 +10,7 @@
   register: _nvsmi
   changed_when: false
   failed_when: false
+  check_mode: false   # --check에서도 실제 실행 → 가드(_nvsmi.rc)가 신뢰 가능
 
 - name: GPU 없으면 스킵
   ansible.builtin.debug:
@@ -51,4 +52,5 @@
     state: started
     enabled: true
     daemon_reload: true
-  when: _nvsmi.rc == 0
+  # --check에선 유닛 파일이 실제로 안 써져 systemctl이 못 찾음 → 드라이런에선 스킵(실적용에서만 기동).
+  when: _nvsmi.rc == 0 and not ansible_check_mode
