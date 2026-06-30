@@ -1,76 +1,84 @@
-# KEIwi — 에이전트 가이드 (목차)
+# KEIwi — 에이전트 가이드 (목차 · 지도)
 
-> 이 파일은 **백과사전이 아니라 지도**다. 상세를 인라인하지 않고 권위 있는 소스를 가리킨다. (헌장 §10)
-> 모든 작업 세션은 아래 순서로 컨텍스트를 읽고 시작한다. (헌장 §VI)
+> 이 파일은 **백과사전이 아니라 지도**입니다(헌장 §10). 상세를 인라인하지 않고 권위 있는 소스를 가리킵니다. 개요·다이어그램은 [`README.md`](./README.md)에 있습니다.
 
-## 0. 가장 먼저 읽을 것 (권위 순서)
+> [!IMPORTANT] 모든 작업 세션은 이 순서로 컨텍스트를 읽고 시작합니다 (헌장 §VI)
+> 1. **[`Constitution.md`](./Constitution.md)** — 프로젝트 헌장. **불변 규칙이며 모든 문서·코드에 우선**(충돌 시 헌장 승).
+> 2. **[`docs/inventory.yaml`](./docs/inventory.yaml)** — 플릿 단일 기준(SoT, §0). 노드 추가·변경은 이 파일에서 시작 → 절차는 [`docs/runbooks/node-onboarding.md`](./docs/runbooks/node-onboarding.md).
+> 3. 작업 중인 **spec** — `specs/<name>/spec.md`.
 
-1. **[`Constitution.md`](./Constitution.md)** — 프로젝트 헌장. **불변 규칙이며 모든 문서·코드에 우선**한다. 충돌 시 헌장이 이긴다.
-2. **[`docs/inventory.yaml`](./docs/inventory.yaml)** — 플릿 단일 기준(source of truth). 노드 추가·변경은 이 파일 수정으로 시작.
-3. 작업 중인 마일스톤의 **spec** — 예: [`specs/M1-console/spec.md`](./specs/M1-console/spec.md)
-
-## 1. 디렉터리 지도
+## 🗺️ 디렉터리 지도
 
 | 경로 | 내용 |
-|---|---|
-| `Constitution.md` | 헌장 (권위) |
-| `AGENTS.md` | 이 목차 |
-| `README.md` | 레포 개요 |
-| `docs/inventory.yaml` | 플릿 인벤토리 (source of truth) |
-| `docs/decisions/` | ADR (`NNNN-*.md`) — 모든 의존성·기술 선택 근거 |
-| `docs/prompts/` | 마일스톤별 빌드 프롬프트 |
-| `specs/<milestone>/spec.md` | 마일스톤 스펙 (WHAT + WHY) |
-| `specs/krds-redesign/` | KRDS 리디자인 — 전체 SDD 삼분(`spec`·`plan`·`tasks`·`research`) |
-| `infra/` | 관제 스택(Prometheus/Grafana/ELK 등) — **범위 밖, 함부로 생성·수정 금지** |
-| `apps/console/` | KEIwi 콘솔 (Next.js) — M1 deliverable |
-| `design-system/spec/` | 디자인 시스템 스펙 (KRDS 리스킨, SDD) — ADR 0006/0007 |
+| --- | --- |
+| ⚖️ `Constitution.md` | 헌장 (최우선 권위) |
+| 🗺️ `AGENTS.md` | 이 목차 |
+| 📖 `README.md` | 레포 개요·아키텍처·상태 |
+| 📍 `docs/inventory.yaml` | 플릿 단일 기준(SoT) — 노드·exporters |
+| 📑 `docs/decisions/` | ADR `NNNN-*.md` — 모든 의존성·기술 선택 근거(§8) |
+| 🛠️ `docs/runbooks/` | 운영 런북 — `node-onboarding` · `rsyslog-omfile-flood` |
+| ✍️ `docs/prompts/` | 마일스톤별 빌드 프롬프트 |
+| ✅ `docs/testing.md` | 시각 QA(Playwright) 절차 |
+| 📋 `specs/<name>/` | SDD 삼분(`spec`·`plan`·`tasks`[·`research`]) — M1-console·M2-logs·M3-resources·assistant·service-map·krds-redesign |
+| 🎨 `design-system/spec/` | KRDS 토큰·색·shape·타이포 규약(ADR 0006/0007) |
+| 🤖 `infra/` | 관제 스택 — 레포는 **권장본 생성만**, 라이브 적용은 사람(§11·§12). `monitoring/`·`logging/`·`ansible/` |
+| 🖥️ `apps/console/` | KEIwi 콘솔 (Next.js 16 · KRDS) |
 
-## 2. 워크플로 (SDD)
+## 🔄 워크플로 (SDD)
 
 ```
 헌장 → /specify (WHAT+WHY) → /plan (HOW + ADR) → /tasks → /verify
 ```
 
-- **Spec이 진실의 원천.** 행동 변경은 코드가 아니라 spec을 먼저 고친다. (헌장 §7)
-- 모든 의존성·기술 선택은 **ADR**로 근거를 남긴다. (헌장 §8)
-- 수용 기준은 **기계 검증 가능**해야 한다. (헌장 §9)
+- **Spec이 진실의 원천** — 행동 변경은 코드가 아니라 spec을 먼저 고친다(§7).
+- 모든 의존성·기술 선택은 **ADR**로 근거를 남긴다(§8).
+- 수용 기준은 **기계 검증 가능**해야 한다(§9).
 
-## 3. 콘솔 실행법 (`apps/console`)
+## 🖥️ 콘솔 실행법 (`apps/console`)
 
-> 콘솔 관련 모든 명령은 `apps/console`에서 실행한다. dev 포트는 **3105**(라이브 스택과 분리).
+> [!NOTE]
+> 콘솔 명령은 `apps/console`에서 실행합니다. dev 포트는 **3105**(라이브 스택과 분리). 콘솔은 라이브로 `.next`를 서빙하므로 **`npm run build`·재시작은 사람이**(§11·§12) — 에이전트 검증은 build 제외로 돌립니다.
 
 ```bash
 cd apps/console
 npm install
-cp .env.example .env.local   # 값은 직접 채움 (커밋 금지)
-npm run dev        # http://localhost:3105
-npm run verify     # lint + typecheck + test + build + check:secrets + check:no-raw-hex
-npm run screenshot # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
+cp .env.example .env.local   # 값은 직접 채움 (커밋 금지 §13)
+npm run dev                  # http://localhost:3105
+
+# 에이전트 검증(build 제외 — 라이브 .next 보호):
+npm run typecheck && npm run lint && npm run test && npm run check:no-raw-hex
+npm run screenshot           # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
 ```
 
-- 환경변수는 `src/config/env.ts`에서 zod로 검증해 한 곳에서만 읽는다.
-- `.env.local`·시크릿은 **절대 커밋하지 않는다.** (헌장 §13)
-- **테스트/시각 QA**: [`docs/testing.md`](./docs/testing.md) — UI 작업은 끝에 Playwright 스크린샷으로 눈으로 확인.
+- 환경변수는 `src/config/env.ts`에서 zod로 한 곳에서만 검증해 읽는다.
+- `.env.local`·시크릿은 **절대 커밋하지 않는다**(§13).
 
-## 4. 마일스톤
+## 📌 마일스톤
 
-- **M1** 통합 메트릭 콘솔 ← *현재 작업* ([spec](./specs/M1-console/spec.md))
-- **M2** 통합 로그 · **M3** 여유 리소스 뷰 · **M4** 장애 추적 · **M5** 크리티컬 알림
+> 로드맵 조정([ADR-0012](./docs/decisions/0012-roadmap-m3-m4-pivot.md)): M3→Overview 흡수 · M4 보류 · 다음=M1/M2 고도화. 상태표 상세는 [README](./README.md#상태--다음).
 
-## 5. ADR 색인 ([`docs/decisions/`](./docs/decisions))
+- **M1** 통합 메트릭 콘솔 — ✅ 라이브
+- **M2** 통합 로그(OpenSearch·신호우선) — ✅ 라이브
+- **M3** 여유 리소스 → Overview 흡수 · **M4** 장애추적 보류 · **M5** 에러 알림 후순위
+- 진행: 로그 어시스턴트 · 노드 온보딩 표준 · 서비스 맵(설계) · 디자인 고도화
 
-- [0001](./docs/decisions/0001-framework-and-styling.md) — 프레임워크/스타일링: Next.js 16 + Tailwind v4(`@theme`) + CSS 변수 토큰
-- [0002](./docs/decisions/0002-grafana-embed.md) — Grafana 임베드: `<iframe>`(kiosk), 자체 인증 없음
-- [0003](./docs/decisions/0003-inventory-yaml-parser.md) — inventory 파서: `yaml` 패키지(서버 전용)
-- [0004](./docs/decisions/0004-config-validation-zod.md) — env·스키마 검증: `zod`(fail-fast)
-- [0005](./docs/decisions/0005-unit-test-runner.md) — 단위 테스트 러너: `vitest`(US4 불변식 verify 강제)
-- [0006](./docs/decisions/0006-krds-adoption.md) — KRDS 디자인 시스템 채택(콘솔 크롬만, tokens-only, 시계열은 Grafana 유지)
-- [0007](./docs/decisions/0007-brand-color-strategy.md) — 브랜드↔KRDS 색 전략: 표준형(정부 블루 Primary, green은 로고/액센트)
-- [0008](./docs/decisions/0008-log-pipeline.md) — M2 로그 파이프라인: Filebeat→Logstash→Elasticsearch→Grafana(콘솔 임베드)
-- [0009](./docs/decisions/0009-ansible-config-mgmt.md) — 에이전트·설정 배포: Ansible(k8s 미채택)
+## 📑 ADR 색인 ([`docs/decisions/`](./docs/decisions))
 
-## 6. 안전 규칙 (요약 — 상세는 헌장)
+| # | 결정 | # | 결정 |
+| --- | --- | --- | --- |
+| [0001](./docs/decisions/0001-framework-and-styling.md) | Next.js 16 + Tailwind v4(`@theme`) | [0010](./docs/decisions/0010-log-taxonomy.md) | 로그 분류(category) |
+| [0002](./docs/decisions/0002-grafana-embed.md) | Grafana iframe 임베드(단일 콘솔) | [0011](./docs/decisions/0011-signal-first-log-ux.md) | 신호 우선 로그 UX |
+| [0003](./docs/decisions/0003-inventory-yaml-parser.md) | inventory 파서(`yaml`) | [0012](./docs/decisions/0012-roadmap-m3-m4-pivot.md) | 로드맵 M3→Overview·M4 보류 |
+| [0004](./docs/decisions/0004-config-validation-zod.md) | env 검증(`zod` fail-fast) | [0013](./docs/decisions/0013-capacity-judgment-policy.md) | 용량(여유) 판정 정책 |
+| [0005](./docs/decisions/0005-unit-test-runner.md) | 테스트 러너(`vitest`) | [0014](./docs/decisions/0014-log-assistant.md) | 로그 어시스턴트(로컬 vLLM RAG) |
+| [0006](./docs/decisions/0006-krds-adoption.md) | KRDS 채택(tokens-only) | [0015](./docs/decisions/0015-assistant-exploratory-query.md) | 어시스턴트 탐색형 질의 |
+| [0007](./docs/decisions/0007-brand-color-strategy.md) | 브랜드↔KRDS 색 전략 | [0016](./docs/decisions/0016-gpu-drilldown-dcgm.md) | GPU 드릴다운 DCGM 분리 |
+| [0008](./docs/decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./docs/decisions/0017-node-onboarding-standard.md) | **노드 온보딩 표준** |
+| [0009](./docs/decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | | |
 
-- 에이전트는 생성, **적용(프로덕션 배포)은 사람**. (§11)
-- 개발 격리: 라이브 `.105` 스택 방해 금지. (§12)
-- 단일 콘솔 = Grafana. **Grafana 재구현 금지.** (§2)
+## ⛔ 안전 규칙 (요약 — 상세는 헌장)
+
+- **단일 콘솔 = Grafana** — 재구현 금지. 임베드 대시보드는 UI 수제 아닌 **레포 프로비저닝**(§I-2, ADR-0016).
+- **에이전트 생성 · 사람 적용** — 프로덕션 배포·SSH 설치는 사람(§11).
+- **개발 격리** — 라이브 `.105` 스택 방해 금지(§12).
+- **시크릿 레포 밖**(§13).
