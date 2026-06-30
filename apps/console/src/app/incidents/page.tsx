@@ -35,7 +35,11 @@ export default async function AssistantPage({
       </p>
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <CurrentSignals />
-        <AssistantPanel initial={initial} />
+        {/* 신호가 바뀌면 remount → 새 신호로 재분석(같은 라우트라 key 없으면 재실행 안 됨) */}
+        <AssistantPanel
+          key={`${p.service ?? ""}|${p.node ?? ""}|${(p.q ?? "").slice(0, 48)}`}
+          initial={initial}
+        />
       </div>
     </div>
   );

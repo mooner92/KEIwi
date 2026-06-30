@@ -315,12 +315,15 @@ export async function answerError(
   ctx: ErrorContext,
   runbooks: RunbookRef[] = [],
 ): Promise<AssistantAnswer> {
+  // 근거 검색: 원시 에러 메시지를 query_string으로 넣으면 콜론·따옴표로 파싱이 깨져 0건이 됨.
+  // 서비스+노드+레벨+창(24h, 신호 패널과 일치)으로 그 서비스의 최근 error/warn을 근거로 확보.
   const opts: SearchLogsOpts = {
-    query: ctx.message,
+    query: ctx.service ? undefined : ctx.message,
     service: ctx.service,
     fleetNode: ctx.fleetNode,
-    from: ctx.from ?? "now-6h",
+    from: ctx.from ?? "now-24h",
     levels: ["error", "warn"],
+    excludeNoise: true,
     size: 40,
   };
   const evidence = await searchLogs(opts);
