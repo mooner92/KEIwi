@@ -14,3 +14,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Python 빌드 산출물 (exporter py_compile 등)
+__pycache__/
+*.pyc
