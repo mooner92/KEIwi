@@ -25,8 +25,8 @@
 
 ## Phase 4 — 검증·문서
 - [x] T040 verify(typecheck·lint·test 57·no-raw-hex) — 빌드는 사람(§12)
-- [ ] T041 [server] Playwright — 노드 선택→서비스 탭 렌더·모델·행 링크 (격리 프로덕션 빌드 검증)
-- [ ] T042 README/AGENTS 갱신(서비스 맵 진입점·데이터소스)
+- [x] T041 Playwright(격리 프로덕션 빌드) — `/overview?node=data04` → 탭 ["서비스","시스템","GPU","모델"], 서비스+GPU모델 섹션 렌더, Qwen2.5-14B·04_rag_api·로그·진단 링크 확인, 에러 0
+- [x] T042 README 콘솔 화면표에 Overview "서비스" 탭 반영
 
 ## 백로그 (v2 — 별도 ADR)
 - [ ] B01 포트→프로그램 전수 수집기(경량 `ss -tlnp` exporter, 노드별 Ansible role) → 임의 리스닝 포트/프로세스 표기

@@ -165,7 +165,7 @@ flowchart LR
 
 | 경로 | 화면 | 내용 |
 | --- | --- | --- |
-| `/overview` | **Overview** | 플릿 상태(up/down/no-data) + **여유 GPU 판정**·작업 배치 힌트, 노드 클릭 → 시스템/GPU/모델 Grafana 드릴다운 |
+| `/overview` | **Overview** | 플릿 상태(up/down/no-data) + **여유 GPU 판정**·작업 배치 힌트. 노드 클릭 → **서비스**(네이티브 카탈로그: 서비스·모델·포트 + 로그·진단 링크)·시스템·GPU·모델 드릴다운 |
 | `/logs` | **Logs** | 통합 로그(Grafana `keiwi-logs` 대시보드 임베드 · 신호 우선) |
 | `/resources` | **Resources** | 용량 상세(M3 → Overview에 흡수, [ADR-0012](./docs/decisions/0012-roadmap-m3-m4-pivot.md)) |
 | `/incidents` | **어시스턴트** | 현재 신호(error·warn) → "분석" → 로컬 vLLM RAG 진단(근거 인용·런북 매칭) |
