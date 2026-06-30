@@ -22,9 +22,16 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
+  # 모델↔GPU 매핑 익스포터(:9836). node 라벨로 노드 구분(모델 대시보드 $node 변수).
   - job_name: "gpu-model-exporter"
     static_configs:
-      - targets: ["172.18.0.1:9836"]
+      - targets: ["172.18.0.1:9836"] # data05 (로컬 호스트 익스포터, 도커 브리지)
+        labels:
+          node: "data05"
+      # data04 — SSH 터널(keiwi-tunnel-data04) 172.18.0.1:9837 → data04:9836
+      - targets: ["172.18.0.1:9837"]
+        labels:
+          node: "data04"
 
   - job_name: "node-exporter"
     static_configs:

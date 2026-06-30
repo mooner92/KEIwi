@@ -18,6 +18,21 @@
         "hide": 0,
         "current": {},
         "refresh": 1
+      },
+      {
+        "name": "node",
+        "label": "노드",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(gpu_model_info, node)",
+        "query": { "qryType": 1, "query": "label_values(gpu_model_info, node)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "options": []
       }
     ]
   },
@@ -74,7 +89,7 @@
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 4 },
       "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "unit", "value": "bytes" }, { "id": "displayName", "value": "VRAM" } ] } ] },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_model_vram_bytes", "format": "table", "instant": true }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_model_vram_bytes{node=~\"$node\"}", "format": "table", "instant": true }
       ],
       "transformations": [
         { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "node": true }, "renameByName": { "gpu": "GPU", "model": "모델", "framework": "프레임워크", "port": "포트", "pid": "PID" } } }
@@ -146,8 +161,8 @@
       "gridPos": { "h": 7, "w": 8, "x": 8, "y": 25 },
       "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_vram_used_bytes", "legendFormat": "GPU {{gpu}} 사용" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_vram_total_bytes", "legendFormat": "GPU {{gpu}} 총량" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_vram_used_bytes{node=~\"$node\"}", "legendFormat": "{{node}} GPU {{gpu}} 사용" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_vram_total_bytes{node=~\"$node\"}", "legendFormat": "{{node}} GPU {{gpu}} 총량" }
       ]
     },
     {
