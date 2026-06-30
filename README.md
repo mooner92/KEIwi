@@ -130,6 +130,8 @@ flowchart LR
 
 ## 문서 지도
 
+전체 문서 인덱스 허브: **[docs/README.md](./docs/README.md)**.
+
 > [!TIP] 독자별 추천 경로
 > - **운영자:** README → `docs/runbooks/` → Grafana 콘솔
 > - **개발자/에이전트:** [AGENTS.md](./AGENTS.md) → 해당 `specs/<name>/` → `docs/decisions/`
