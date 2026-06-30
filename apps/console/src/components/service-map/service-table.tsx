@@ -38,7 +38,7 @@ export async function ServiceTable({ node }: { node: string }) {
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
       {/* GPU 적재 모델 */}
       {models.length > 0 ? (
-        <section className="rounded-lg border border-border bg-surface">
+        <section className="rounded-xl border border-border bg-surface shadow-1">
           <header className="border-b border-border px-3 py-2">
             <h3 className="font-display text-sm font-semibold text-ink">
               GPU 적재 모델{" "}
@@ -62,7 +62,7 @@ export async function ServiceTable({ node }: { node: string }) {
       ) : null}
 
       {/* 서비스 카탈로그 */}
-      <section className="flex min-h-0 flex-col rounded-lg border border-border bg-surface">
+      <section className="flex min-h-0 flex-col rounded-xl border border-border bg-surface shadow-1">
         <header className="border-b border-border px-3 py-2">
           <h3 className="font-display text-sm font-semibold text-ink">
             서비스{" "}

@@ -8,7 +8,7 @@ export function PlaceholderPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-surface px-6 py-12 sm:px-10 sm:py-16">
+    <section className="rounded-xl border border-border bg-surface px-6 py-12 shadow-1 sm:px-10 sm:py-16">
       <div className="mx-auto max-w-xl text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs font-medium text-ink-muted">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-neutral-400" />

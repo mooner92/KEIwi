@@ -3,7 +3,7 @@ import { UtilBar } from "./util-bar";
 
 export function TopBar() {
   return (
-    <header className="border-b border-border bg-surface text-ink">
+    <header className="border-b border-border bg-surface text-ink shadow-1">
       <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex items-center gap-2.5">
           <BrandMark className="h-7 w-7 shrink-0" />

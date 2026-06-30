@@ -75,7 +75,7 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
   return (
     <section
       aria-label="로그 어시스턴트"
-      className="flex min-h-0 flex-col gap-3 rounded-lg border border-border bg-surface p-3"
+      className="flex min-h-0 flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-1"
     >
       <form
         onSubmit={(e) => {

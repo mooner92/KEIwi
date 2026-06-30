@@ -81,7 +81,7 @@ export function NodeCard({
     </>
   );
 
-  const base = "relative block overflow-hidden rounded-lg border bg-surface";
+  const base = "relative block overflow-hidden rounded-xl border bg-surface shadow-1";
 
   if (!href) {
     return <article className={`${base} border-border`}>{body}</article>;
@@ -94,7 +94,8 @@ export function NodeCard({
       aria-current={selected ? "true" : undefined}
       className={[
         base,
-        "outline-none transition-colors hover:border-border-strong",
+        // 호버 시 살짝 떠오르는 입체감(Toss/당근형 폴리시) — reduced-motion은 globals.css가 무력화
+        "outline-none transition-all duration-150 hover:border-border-strong hover:shadow-2 hover:-translate-y-0.5",
         "focus-visible:ring-2 focus-visible:ring-info-700",
         selected
           ? "border-info-700 ring-1 ring-info-700"

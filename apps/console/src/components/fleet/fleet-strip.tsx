@@ -47,11 +47,11 @@ export function FleetStrip({
         </div>
       ) : null}
       {nodes.length === 0 ? (
-        <p className="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted">
+        <p className="rounded-xl border border-border bg-surface p-6 text-sm text-ink-muted shadow-1">
           inventory에 노드가 없습니다. <span className="tnum">docs/inventory.yaml</span>을 확인하세요.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {nodes.map((node) => {
             // 드릴다운 가능: node-exporter 엔드포인트가 있고 데이터가 실제로 들어오는 노드.
             const drillable =
