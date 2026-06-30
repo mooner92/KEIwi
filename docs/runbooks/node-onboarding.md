@@ -68,11 +68,12 @@ GPU 노드는 어떤 모델이 어느 GPU에 떴는지 보이게 `gpu-model-expo
 data04 GPU엔 모델이 떠 있으나(gpu1 ~22GB) 익스포터가 없어 모델명이 안 보인다([[data04-gpu-model-invisible]]). role로 표준 배포:
 
 1. `infra/ansible/inventory.ini` `[gpu]` 그룹에 `data04`, `data05` 확인(아래 inventory 참고).
-2. **적용(사람, data05)**:
+2. **적용(사람, data05)** — data04 mhchoi는 NOPASSWD sudo가 아니므로 `-K`(sudo 비번 프롬프트) 필요:
    ```bash
    cd /KEIwi/infra/ansible
-   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 --check --diff
-   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04
+   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K --check --diff
+   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K
+   #   "BECOME password:" 에 data04 sudo 비번 입력(레포 저장 안 함 §13)
    ```
    → 대상에 `/opt/keiwi/gpu-model-exporter/gpu-model-exporter.py` 배치 + `keiwi-gpu-model-exporter.service`(systemd, :9836) enable/start. (data05의 기존 PM2 실행은 같은 role로 systemd 수렴 — 드리프트 해소.)
 3. **.105로 노출(사람)**: data04는 직접 도달 불가 → `keiwi-tunnel-data04.service`에 9836 포워드 추가(`-L 172.18.0.1:9837:localhost:9836`) → `systemctl restart keiwi-tunnel-data04` + `ufw allow from 172.18.0.0/16 to any port 9837`.

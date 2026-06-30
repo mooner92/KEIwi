@@ -4,8 +4,10 @@
 # 에이전트 생성, 사람 적용(헌장 §11). 로그(filebeat)는 playbooks/logging.yml 참조.
 # 실행(사람, control=data05):
 #   cd infra/ansible
-#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 --check --diff
-#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04
+#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K --check --diff
+#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K
+#   ※ -K(--ask-become-pass): 대상의 sudo가 NOPASSWD가 아니면 필요(예 data04 mhchoi).
+#     "BECOME password:" 프롬프트에 그 노드 sudo 비번 입력(레포 저장 안 함 §13).
 #
 # 향후 node-exporter·dcgm-exporter role도 여기에 묶는다(ADR-0017 백로그).
 
