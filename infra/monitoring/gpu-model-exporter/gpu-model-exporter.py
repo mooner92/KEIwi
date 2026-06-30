@@ -62,21 +62,31 @@ def _model_for_pid(pid):
     if "llama-server" in cmd or "ollama" in cmd:
         model = _ollama_loaded_model() or "ollama"
         return (model, "ollama", "11434")
-    # vLLM workers re-title themselves; climb to the `vllm serve` launcher.
+    # vLLM workers re-title themselves; climb to the launcher (`vllm serve` or api_server module).
     cur = pid
-    for _ in range(5):
+    for _ in range(6):
         c = _cmdline(cur)
-        if "vllm serve" in c or " serve " in c and "vllm" in c:
-            served = re.search(r"--served-model-name\s+(\S+)", c)
-            if not served:
-                served = re.search(r"serve\s+(\S+)", c)
-            model = served.group(1) if served else "vllm"
+        if "vllm" in c and ("serve" in c or "api_server" in c or "entrypoints" in c):
+            m = (re.search(r"--served-model-name\s+(\S+)", c)
+                 or re.search(r"--model\s+(\S+)", c)
+                 or re.search(r"\bserve\s+(\S+)", c))
+            model = os.path.basename(m.group(1).rstrip("/")) if m else "vllm"
             port = re.search(r"--port\s+(\d+)", c)
-            return (os.path.basename(model.rstrip("/")), "vllm", port.group(1) if port else "")
-        cur = _ppid(cur)
-        if cur <= 1:
+            return (model, "vllm", port.group(1) if port else "")
+        nxt = _ppid(cur)
+        if nxt <= 1 or nxt == cur:
             break
-    return ("unknown", "unknown", "")
+        cur = nxt
+    # 일반 GPU 프로세스(uvicorn/python 앱 등) — best-effort 이름 + 포트(unknown 대신).
+    port = re.search(r"--port\s+(\d+)", cmd)
+    p = port.group(1) if port else ""
+    mu = re.search(r"uvicorn\s+(\S+?):", cmd)
+    if mu:
+        return (mu.group(1), "uvicorn", p)
+    mp = re.search(r"(\S+\.py)\b", cmd)
+    if mp:
+        return (os.path.basename(mp.group(1)), "python", p)
+    return ("unknown", "unknown", p)
 
 
 _OLLAMA_CACHE = {"v": None}
