@@ -6,7 +6,7 @@
 ## Phase 0 — 설계 ✅
 - [x] T000 spec.md (WHAT·WHY·수용기준·범위 v1/v2)
 - [x] T001 plan.md (데이터소스 매핑·IA·Phase)
-- [ ] T002 IA 확정 — Overview "서비스" 탭 vs 독립 `/service-map` (사용자 합의 — spec openQuestion)
+- [x] T002 IA 확정 — **Overview 노드 드릴다운에 "서비스" 네이티브 탭**(유기적, 노드 맥락 통합). 독립 `/service-map` 기각. (2026-06-30 사용자 합의)
 
 ## Phase 1 — 라이브러리 (순수·테스트)
 - [ ] T010 `lib/service-catalog.ts` — getNodeServices(node): OpenSearch terms(service) + error/warn 수(노이즈 제외, 24h)

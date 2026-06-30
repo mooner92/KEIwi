@@ -36,6 +36,35 @@ export async function queryUp(): Promise<UpSeries[]> {
     .filter((s) => s.instance !== "" && Number.isFinite(s.value));
 }
 
+/** 노드에 적재된 모델↔GPU 매핑 1건 (gpu-model-exporter, ADR-0016/0017). */
+export type GpuModel = {
+  node: string;
+  model: string;
+  framework: string;
+  port: string;
+  gpu: string;
+  vramBytes: number;
+};
+
+/**
+ * 노드별 적재 모델 질의 (서버 전용 — 서비스 맵). gpu_model_vram_bytes → 모델·GPU·포트·VRAM.
+ * node 미지정이면 전체. 실패는 throw → 호출부(서비스 패널)가 빈 목록으로 안전 귀결.
+ */
+export async function queryGpuModels(node?: string): Promise<GpuModel[]> {
+  // node는 내부(inventory id)지만 PromQL 주입 방지로 영숫자/하이픈만 허용.
+  const safe = (node ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  const sel = safe ? `{node="${safe}"}` : "";
+  const rows = await promQuery(`gpu_model_vram_bytes${sel}`);
+  return rows.map((r) => ({
+    node: r.metric.node ?? "",
+    model: r.metric.model ?? "unknown",
+    framework: r.metric.framework ?? "",
+    port: r.metric.port ?? "",
+    gpu: r.metric.gpu ?? "",
+    vramBytes: r.value,
+  }));
+}
+
 /**
  * 여유 리소스 판정용 메트릭 질의 (서버 전용 — M3, ADR-0013).
  * 4개 instant 질의를 병렬로. CPU는 idle rate(0~1)를 busy%로 환산.
