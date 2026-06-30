@@ -3,6 +3,7 @@ import { getFleetStatus } from "@/lib/status";
 import { getFleetCapacity } from "@/lib/capacity";
 import { FleetStrip } from "@/components/fleet/fleet-strip";
 import { GrafanaEmbed } from "@/components/grafana/grafana-embed";
+import { ServiceTable } from "@/components/service-map/service-table";
 import { Breadcrumb } from "@/components/shell/breadcrumb";
 import { PageHeader } from "@/components/shell/page-header";
 
@@ -73,6 +74,9 @@ export default async function OverviewPage({
             selectedInstance={selectedNode?.nodeInstance}
             selectedNodeName={selectedNode?.nodeName}
             selectedDcgm={selectedNode?.nodeDcgm}
+            servicePanel={
+              selectedNode ? <ServiceTable node={selectedNode.id} /> : undefined
+            }
           />
         </div>
       </section>

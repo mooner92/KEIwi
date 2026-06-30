@@ -8,24 +8,24 @@
 - [x] T001 plan.md (데이터소스 매핑·IA·Phase)
 - [x] T002 IA 확정 — **Overview 노드 드릴다운에 "서비스" 네이티브 탭**(유기적, 노드 맥락 통합). 독립 `/service-map` 기각. (2026-06-30 사용자 합의)
 
-## Phase 1 — 라이브러리 (순수·테스트)
-- [ ] T010 `lib/service-catalog.ts` — getNodeServices(node): OpenSearch terms(service) + error/warn 수(노이즈 제외, 24h)
-- [ ] T011 `lib/prometheus.ts` +`queryGpuModels()` — gpu_model_* → {node,model,gpu,port,framework,vramBytes}[]
-- [ ] T012 `config/known-endpoints.ts` — 정적 알려진 포트(ssh:764·grafana:3000·vllm:8003/8010·ollama:11434) + inventory exporters 병합
-- [ ] T013 테스트 — 패싯 파싱·딥링크(/logs, /incidents) 생성·known-endpoint 병합
+## Phase 1 — 라이브러리 (순수·테스트) ✅
+- [x] T010 `lib/service-catalog.ts` — getNodeServices(node): OpenSearch terms(service) + category + error/warn(노이즈 제외, 24h). 빌더·파서 분리(순수)
+- [x] T011 `lib/prometheus.ts` +`queryGpuModels(node)` — gpu_model_vram_bytes → {node,model,gpu,port,framework,vramBytes}[] (PromQL 주입 가드)
+- [x] T012 `config/known-endpoints.ts` — 정적 알려진 포트 + endpointLabel()
+- [x] T013 테스트 — buildServiceAggBody·parseServiceBuckets·endpointLabel (57/57)
 
-## Phase 2 — UI
-- [ ] T020 `components/service-map/service-table.tsx`(server) — 행: 서비스·카테고리·포트·모델·error/warn 수
-- [ ] T021 행 액션 — /logs Grafana 딥링크(fleet_node+service var) + /incidents?service=&node= 어시스턴트
-- [ ] T022 GPU 노드 모델 섹션(queryGpuModels) 표시
+## Phase 2 — UI ✅
+- [x] T020 `components/service-map/service-table.tsx`(server) — 서비스 행(서비스·카테고리·포트·error/warn) + GPU 모델 섹션
+- [x] T021 행 액션 — `/incidents?service&node` 어시스턴트(로그·진단) 딥링크
+- [x] T022 GPU 노드 모델 섹션(queryGpuModels) — model·gpu·port·VRAM
 
-## Phase 3 — IA 통합
-- [ ] T030 T002 결정대로 진입점 배선(노드 선택 ?node= 재사용)
-- [ ] T031 nav/breadcrumb 갱신(필요 시)
+## Phase 3 — IA 통합 ✅
+- [x] T030 Overview 드릴다운에 **네이티브 "서비스" 탭** — `grafana-tabs.tsx` 통합 탭 모델(서비스+Grafana), 서버 ServiceTable을 `servicePanel` prop으로 주입. 노드 선택 시 기본 활성
+- [x] T031 nav/breadcrumb — 변경 불필요(Overview 탭 내부)
 
 ## Phase 4 — 검증·문서
-- [ ] T040 verify(typecheck·lint·test·no-raw-hex) — 빌드는 사람(§12)
-- [ ] T041 [server] Playwright — 노드 선택→표 렌더·행 링크·패싯 일치 ([[visual-qa-at-task-end]])
+- [x] T040 verify(typecheck·lint·test 57·no-raw-hex) — 빌드는 사람(§12)
+- [ ] T041 [server] Playwright — 노드 선택→서비스 탭 렌더·모델·행 링크 (격리 프로덕션 빌드 검증)
 - [ ] T042 README/AGENTS 갱신(서비스 맵 진입점·데이터소스)
 
 ## 백로그 (v2 — 별도 ADR)

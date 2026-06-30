@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTheme } from "@/lib/use-theme";
 
 type Dashboard = { uid: string; label: string };
+type Tab = { key: string; label: string; kind: "service" | "grafana"; dash?: Dashboard };
 
 // 임베드 URL 조립: 입력(경로/슬러그/쿼리/전체 URL 무엇이든)을 경로+쿼리로 분해해
 // kiosk(크롬 숨김)·theme(콘솔 테마 매칭 — 다크 동기화)를 올바르게 병합(? 중복 방지).
@@ -44,65 +45,58 @@ function buildEmbedSrc(
   return `${base}/d/${path}?${params.join("&")}`;
 }
 
-// 시스템(node-exporter) 대시보드 추정: 라벨에 시스템/system/node 포함 첫 탭, 없으면 0.
-// 노드 드릴다운(var-instance)은 이 탭에만 적용한다(GPU/DCGM 등 타 대시보드 오염 방지).
-function findSystemTab(dashboards: Dashboard[]): number {
-  const i = dashboards.findIndex((d) => /시스템|system|node/i.test(d.label));
-  return i === -1 ? 0 : i;
-}
-
-// GPU 탭 추정: 라벨에 gpu 포함 첫 탭(없으면 -1). GPU 탭은 DCGM instance(ip:9400)로 드릴다운.
-function findGpuTab(dashboards: Dashboard[]): number {
-  return dashboards.findIndex((d) => /gpu/i.test(d.label));
-}
-
-// 대시보드 개수 가변 — 줄바꿈 탭 바(1개면 탭 숨김). 선택된 대시보드를 kiosk로 임베드.
-// selectedInstance: 노드 드릴다운 대상(ip:9100) — 시스템 탭에서만 var-instance로 주입.
+// 탭 바 = "서비스"(콘솔 네이티브 패널) + Grafana 대시보드 탭들(통합). 노드 드릴다운 시
+// 시스템=node-exporter(9100)+nodename, GPU=DCGM(9400)만 var 주입(모델/서비스는 미주입).
 export function GrafanaTabs({
   baseUrl,
   dashboards,
   selectedInstance,
   selectedNodeName,
   selectedDcgm,
+  servicePanel,
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
   selectedInstance?: string;
   selectedNodeName?: string;
   selectedDcgm?: string;
+  /** 노드 선택 시 "서비스" 탭에 렌더할 서버 패널(ServiceTable). 없으면 탭 없음. */
+  servicePanel?: ReactNode;
 }) {
-  const systemTab = findSystemTab(dashboards);
-  const gpuTab = findGpuTab(dashboards);
   const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
-  // 노드가 선택된 채 진입하면 시스템 탭부터 보여 드릴다운이 바로 보이게 한다.
-  const [active, setActive] = useState(selectedInstance ? systemTab : 0);
-  const current = dashboards[active] ?? dashboards[0];
-  // 탭별로 다른 instance를 주입: 시스템=node-exporter(9100)+nodename, GPU=DCGM(9400).
-  const onSystem = active === systemTab;
-  const onGpu = gpuTab >= 0 && active === gpuTab;
-  // 모델 탭은 플릿 전체(노드 스코프 미주입) — 노드 클릭 시 혼동 방지 안내(ADR-0016).
-  const onModel = /모델|model/i.test(current.label);
-  const applyInstance = onSystem
-    ? selectedInstance
-    : onGpu
-      ? selectedDcgm
-      : undefined;
+  const tabs: Tab[] = [
+    ...(servicePanel ? [{ key: "__svc__", label: "서비스", kind: "service" as const }] : []),
+    ...dashboards.map((d) => ({ key: d.uid, label: d.label, kind: "grafana" as const, dash: d })),
+  ];
+  // 노드 선택 시 "서비스" 탭부터(없으면 시스템 탭). remount(key=instance)로 상태 초기화.
+  const systemIdx = tabs.findIndex(
+    (t) => t.kind === "grafana" && /시스템|system|node/i.test(t.label),
+  );
+  const [active, setActive] = useState(
+    servicePanel ? 0 : selectedInstance && systemIdx >= 0 ? systemIdx : 0,
+  );
+  const cur = tabs[active] ?? tabs[0];
+
+  const onService = cur?.kind === "service";
+  const onSystem = cur?.kind === "grafana" && /시스템|system|node/i.test(cur.label);
+  const onGpu = cur?.kind === "grafana" && /gpu/i.test(cur.label);
+  const onModel = cur?.kind === "grafana" && /모델|model/i.test(cur.label);
+  const applyInstance = onSystem ? selectedInstance : onGpu ? selectedDcgm : undefined;
   const applyNodeName = onSystem ? selectedNodeName : undefined;
-  const src = buildEmbedSrc(baseUrl, current.uid, applyInstance, applyNodeName, theme);
+  const src =
+    onService || !cur?.dash
+      ? ""
+      : buildEmbedSrc(baseUrl, cur.dash.uid, applyInstance, applyNodeName, theme);
 
   return (
     <div className="flex h-full flex-col gap-2">
-      {dashboards.length > 1 && (
-        <div
-          role="tablist"
-          aria-label="대시보드"
-          className="flex shrink-0 flex-wrap gap-1"
-        >
-          {dashboards.map((d, i) => {
+      {tabs.length > 1 && (
+        <div role="tablist" aria-label="대시보드" className="flex shrink-0 flex-wrap gap-1">
+          {tabs.map((t, i) => {
             const selected = i === active;
             return (
               <button
-                key={`${d.uid}-${i}`}
+                key={t.key}
                 type="button"
                 role="tab"
                 aria-selected={selected}
@@ -114,7 +108,7 @@ export function GrafanaTabs({
                     : "border border-transparent text-ink-muted hover:bg-surface-2 hover:text-ink",
                 ].join(" ")}
               >
-                {d.label}
+                {t.label}
               </button>
             );
           })}
@@ -126,25 +120,31 @@ export function GrafanaTabs({
           무관하게, 현재 모델이 구동 중인 노드만 표시됩니다.
         </p>
       ) : null}
-      <iframe
-        key={src}
-        src={src}
-        title={`Grafana — ${current.label}`}
-        loading="lazy"
-        className="min-h-[240px] w-full flex-1 rounded-lg border border-border bg-surface"
-      />
-      <p className="text-right text-xs text-ink-muted">
-        대시보드가 비어 보이면{" "}
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-info-700 underline underline-offset-2"
-        >
-          새 탭에서 열기
-        </a>{" "}
-        — 인증이 필요할 수 있습니다.
-      </p>
+      {onService ? (
+        servicePanel
+      ) : (
+        <>
+          <iframe
+            key={src}
+            src={src}
+            title={`Grafana — ${cur?.label ?? ""}`}
+            loading="lazy"
+            className="min-h-[240px] w-full flex-1 rounded-lg border border-border bg-surface"
+          />
+          <p className="text-right text-xs text-ink-muted">
+            대시보드가 비어 보이면{" "}
+            <a
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-info-700 underline underline-offset-2"
+            >
+              새 탭에서 열기
+            </a>{" "}
+            — 인증이 필요할 수 있습니다.
+          </p>
+        </>
+      )}
     </div>
   );
 }

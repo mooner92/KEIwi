@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getGrafana } from "@/config/env";
 import { GrafanaTabs } from "./grafana-tabs";
 
@@ -5,14 +6,17 @@ import { GrafanaTabs } from "./grafana-tabs";
 // 인증은 Cloudflare Access(헌장 §14)가 처리 — 콘솔은 토큰 주입 안 함.
 // 대시보드 개수 가변: env 목록 → 탭(1개면 탭 없이 임베드). env 미설정 시 안내 패널.
 // selectedInstance: 플릿 노드 드릴다운(var-instance) 대상 — 시스템 탭에만 적용.
+// servicePanel: 노드 선택 시 "서비스" 네이티브 탭(ServiceTable) — 서버에서 렌더해 전달.
 export function GrafanaEmbed({
   selectedInstance,
   selectedNodeName,
   selectedDcgm,
+  servicePanel,
 }: {
   selectedInstance?: string;
   selectedNodeName?: string;
   selectedDcgm?: string;
+  servicePanel?: ReactNode;
 }) {
   // 데이터 취득만 try/catch (JSX 렌더는 밖에서 — 렌더 에러를 try로 못 잡으므로)
   let grafana: ReturnType<typeof getGrafana> | null = null;
@@ -44,6 +48,7 @@ export function GrafanaEmbed({
       selectedInstance={selectedInstance}
       selectedNodeName={selectedNodeName}
       selectedDcgm={selectedDcgm}
+      servicePanel={servicePanel}
     />
   );
 }
