@@ -1,0 +1,51 @@
+---
+# roles/port-exporter/tasks/main.yml — 리스닝 포트↔프로세스 익스포터(:9986) 멱등 배포.
+# 에이전트 생성, 사람 적용(§11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+# root로 동작해야 `ss -p`가 모든 프로세스명을 본다(systemd 유닛은 root 기본).
+
+- name: iproute2(ss) 존재 확인
+  ansible.builtin.command: which ss
+  register: _ss
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: iproute2 설치(ss 없으면)
+  ansible.builtin.apt:
+    name: iproute2
+    state: present
+  when: _ss.rc != 0 and ansible_os_family == "Debian"
+
+- name: 설치 디렉터리 보장
+  ansible.builtin.file:
+    path: "{{ port_exporter_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: 익스포터 스크립트 배포(레포 vendored 본)
+  ansible.builtin.copy:
+    src: "{{ port_exporter_src }}"
+    dest: "{{ port_exporter_install_dir }}/port-exporter.py"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart port-exporter
+
+- name: systemd 유닛 배포(포트·경로 파라미터화)
+  ansible.builtin.template:
+    src: keiwi-port-exporter.service.j2
+    dest: /etc/systemd/system/keiwi-port-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart port-exporter
+
+- name: 서비스 enable + 기동
+  ansible.builtin.systemd:
+    name: keiwi-port-exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: not ansible_check_mode

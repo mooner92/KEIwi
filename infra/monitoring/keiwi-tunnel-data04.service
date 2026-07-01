@@ -13,7 +13,7 @@
 #   · 172.18.0.1 바인딩이 막히면 0.0.0.0:9104로 바꾸고 Prometheus 타깃도 172.18.0.1:9104 유지.
 
 [Unit]
-Description=KEIwi SSH tunnel (data04 node-exporter:9104 + DCGM:9404 + gpu-model:9837)
+Description=KEIwi SSH tunnel (data04 node:9104 + DCGM:9404 + gpu-model:9837 + port:9987)
 After=network-online.target
 Wants=network-online.target
 
@@ -27,6 +27,7 @@ ExecStart=/usr/bin/ssh -N \
   -L 172.18.0.1:9104:localhost:9100 \
   -L 172.18.0.1:9404:localhost:9400 \
   -L 172.18.0.1:9837:localhost:9836 \
+  -L 172.18.0.1:9987:localhost:9986 \
   mhchoi@192.168.1.104
 Restart=always
 RestartSec=10

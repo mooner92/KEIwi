@@ -33,6 +33,17 @@ scrape_configs:
         labels:
           node: "data04"
 
+  # 리스닝 포트↔프로세스 익스포터(:9986). 서비스 맵 v2. node 라벨로 노드 구분.
+  - job_name: "port-exporter"
+    static_configs:
+      - targets: ["172.18.0.1:9986"] # data05 (호스트, 도커 브리지)
+        labels:
+          node: "data05"
+      # data04 — SSH 터널(keiwi-tunnel-data04) 172.18.0.1:9987 → data04:9986
+      - targets: ["172.18.0.1:9987"]
+        labels:
+          node: "data04"
+
   - job_name: "node-exporter"
     static_configs:
       - targets: ["node-exporter:9100"] # data05 (로컬 컨테이너)

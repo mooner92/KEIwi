@@ -28,7 +28,14 @@
 - [x] T041 Playwright(격리 프로덕션 빌드) — `/overview?node=data04` → 탭 ["서비스","시스템","GPU","모델"], 서비스+GPU모델 섹션 렌더, Qwen2.5-14B·04_rag_api·로그·진단 링크 확인, 에러 0
 - [x] T042 README 콘솔 화면표에 Overview "서비스" 탭 반영
 
-## 백로그 (v2 — 별도 ADR)
-- [ ] B01 포트→프로그램 전수 수집기(경량 `ss -tlnp` exporter, 노드별 Ansible role) → 임의 리스닝 포트/프로세스 표기
+## Phase 5 — v2 포트→프로그램 수집기 ✅
+- [x] V01 `infra/monitoring/port-exporter/port-exporter.py` — `ss -tulnpH` 파싱 → `keiwi_listening_port_info{port,proto,process,pid}`(stdlib, root). 실 ss 데이터로 파싱 검증
+- [x] V02 Ansible role `port-exporter` + `playbooks/agents.yml`(hosts: nodes) + `[nodes]` 그룹 (syntax OK)
+- [x] V03 `prometheus.yml` port-exporter 잡(node 라벨 data05/04) + 터널 9987 포워드
+- [x] V04 `lib/prometheus.ts` +`queryListeningPorts(node)`(포트 오름차순) + ServiceTable "리스닝 포트" 섹션(포트·proto·프로세스 + known-endpoint)
+- [x] V05 검증 — typecheck·lint·test 57·no-raw-hex. **[server]** 라이브 데이터는 배포 후(ansible + 터널 + prometheus restart)
+
+## 백로그
 - [ ] B02 data02(Windows) 서비스 카탈로그(winlogbeat/windows_exporter 연계)
 - [ ] B03 서비스 up/down 상태(systemd collector) 행 표기
+- [ ] B04 포트↔서비스(systemd unit) 상호 연결(프로세스명↔유닛 매핑)

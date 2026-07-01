@@ -1,0 +1,20 @@
+# KEIwi port exporter — systemd 유닛 (Ansible 관리 — 대상에서 직접 편집 금지)
+# 원본/근거: infra/monitoring/port-exporter/. root로 동작(ss -p 프로세스 가시성).
+[Unit]
+Description=KEIwi listening-port exporter (port -> process -> :{{ port_exporter_port }}/metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 {{ port_exporter_install_dir }}/port-exporter.py
+Environment=PORT_EXPORTER_PORT={{ port_exporter_port }}
+Restart=on-failure
+RestartSec=5
+# 하드닝(읽기 전용 — ss/proc만 읽음). root 유지(프로세스명 가시성).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

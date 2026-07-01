@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { getNodeServices, type NodeService } from "@/lib/service-catalog";
-import { queryGpuModels, type GpuModel } from "@/lib/prometheus";
+import {
+  queryGpuModels,
+  queryListeningPorts,
+  type GpuModel,
+  type ListeningPort,
+} from "@/lib/prometheus";
 import { endpointLabel } from "@/config/known-endpoints";
 
 // 카테고리 색(ADR-0010 분류축) — KRDS 토큰만.
@@ -23,6 +28,7 @@ const gib = (b: number) => `${(b / 1024 ** 3).toFixed(1)} GiB`;
 export async function ServiceTable({ node }: { node: string }) {
   let services: NodeService[] = [];
   let models: GpuModel[] = [];
+  let ports: ListeningPort[] = [];
   try {
     services = await getNodeServices(node);
   } catch {
@@ -32,6 +38,11 @@ export async function ServiceTable({ node }: { node: string }) {
     models = await queryGpuModels(node);
   } catch {
     models = [];
+  }
+  try {
+    ports = await queryListeningPorts(node);
+  } catch {
+    ports = [];
   }
 
   return (
@@ -57,6 +68,38 @@ export async function ServiceTable({ node }: { node: string }) {
                 </span>
               </li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* 리스닝 포트 ↔ 프로세스 (port-exporter, v2) */}
+      {ports.length > 0 ? (
+        <section className="flex min-h-0 flex-col rounded-xl border border-border bg-surface shadow-1">
+          <header className="border-b border-border px-3 py-2">
+            <h3 className="font-display text-sm font-semibold text-ink">
+              리스닝 포트{" "}
+              <span className="font-normal text-ink-muted">· {ports.length}</span>
+            </h3>
+          </header>
+          <ul className="divide-y divide-border overflow-y-auto">
+            {ports.map((p, i) => {
+              const known = endpointLabel(p.port);
+              return (
+                <li
+                  key={`${p.proto}-${p.port}-${p.pid}-${i}`}
+                  className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="tnum text-ink">:{p.port}</span>
+                    <span className="text-ink-subtle">{p.proto}</span>
+                    <span className="truncate text-ink-muted">{p.process}</span>
+                  </span>
+                  {known ? (
+                    <span className="shrink-0 text-[11px] text-info-700">{known}</span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

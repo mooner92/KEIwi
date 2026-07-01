@@ -17,3 +17,10 @@
   gather_facts: true
   roles:
     - gpu-model-exporter
+
+- name: 리스닝 포트↔프로세스 익스포터 (모든 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  roles:
+    - port-exporter

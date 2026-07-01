@@ -65,6 +65,34 @@ export async function queryGpuModels(node?: string): Promise<GpuModel[]> {
   }));
 }
 
+/** 노드의 리스닝 포트↔프로세스 1건 (port-exporter, 서비스 맵 v2). */
+export type ListeningPort = {
+  node: string;
+  port: string;
+  proto: string;
+  process: string;
+  pid: string;
+};
+
+/**
+ * 노드별 리스닝 포트 질의 (서버 전용 — 서비스 맵 v2). keiwi_listening_port_info → 포트↔프로세스.
+ * 포트 오름차순 정렬. 실패는 throw → 호출부가 빈 목록으로 안전 귀결.
+ */
+export async function queryListeningPorts(node?: string): Promise<ListeningPort[]> {
+  const safe = (node ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  const sel = safe ? `{node="${safe}"}` : "";
+  const rows = await promQuery(`keiwi_listening_port_info${sel}`);
+  return rows
+    .map((r) => ({
+      node: r.metric.node ?? "",
+      port: r.metric.port ?? "",
+      proto: r.metric.proto ?? "",
+      process: r.metric.process ?? "unknown",
+      pid: r.metric.pid ?? "",
+    }))
+    .sort((a, b) => (parseInt(a.port, 10) || 0) - (parseInt(b.port, 10) || 0));
+}
+
 /**
  * 여유 리소스 판정용 메트릭 질의 (서버 전용 — M3, ADR-0013).
  * 4개 instant 질의를 병렬로. CPU는 idle rate(0~1)를 busy%로 환산.

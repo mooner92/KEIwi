@@ -18,6 +18,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | **filebeat** | `playbooks/logging.yml` | `[logging]` | journald → data05 Logstash:5044 (M2 로그) |
 | **gpu-model-exporter** | `playbooks/agents.yml` | `[gpu]` | 모델↔GPU↔포트 익스포터 systemd(:9836) |
+| **port-exporter** | `playbooks/agents.yml` | `[nodes]` | 리스닝 포트↔프로세스 익스포터 systemd(:9986, 서비스맵 v2) |
 
 > Logstash/OpenSearch/Grafana는 이 디렉터리 밖 — [`infra/logging`](../logging/README.md)·[`infra/monitoring`](../monitoring/README.md).
 
