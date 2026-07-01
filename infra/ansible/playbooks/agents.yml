@@ -15,6 +15,7 @@
   hosts: gpu
   become: true
   gather_facts: true
+  tags: [gpu-model]
   roles:
     - gpu-model-exporter
 
@@ -22,5 +23,6 @@
   hosts: nodes
   become: true
   gather_facts: true
+  tags: [port]
   roles:
     - port-exporter
