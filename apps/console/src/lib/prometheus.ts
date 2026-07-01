@@ -93,6 +93,41 @@ export async function queryListeningPorts(node?: string): Promise<ListeningPort[
     .sort((a, b) => (parseInt(a.port, 10) || 0) - (parseInt(b.port, 10) || 0));
 }
 
+/** 집계된 GPU 모델 프로세스 1건 (중복 제거 — model+framework, 노드별). */
+export type GpuModelAgg = {
+  node: string;
+  model: string;
+  framework: string;
+  gpus: string[];
+  ports: string[];
+  vramBytes: number;
+};
+
+/**
+ * gpu_model_* 시리즈(=(gpu,pid)별)를 node+framework+model로 집계(순수 — 테스트 대상).
+ * 같은 모델이 여러 GPU/pid로 흩어진 것을 1행으로: 사용 GPU 목록 + 포트 + 합계 VRAM.
+ */
+export function aggregateGpuModels(rows: GpuModel[]): GpuModelAgg[] {
+  const map = new Map<string, GpuModelAgg>();
+  for (const r of rows) {
+    const key = `${r.node}|${r.framework}|${r.model}`;
+    let a = map.get(key);
+    if (!a) {
+      a = { node: r.node, model: r.model, framework: r.framework, gpus: [], ports: [], vramBytes: 0 };
+      map.set(key, a);
+    }
+    if (r.gpu && !a.gpus.includes(r.gpu)) a.gpus.push(r.gpu);
+    if (r.port && !a.ports.includes(r.port)) a.ports.push(r.port);
+    a.vramBytes += r.vramBytes;
+  }
+  const out = [...map.values()];
+  out.forEach((a) => {
+    a.gpus.sort();
+    a.ports.sort();
+  });
+  return out.sort((a, b) => b.vramBytes - a.vramBytes);
+}
+
 /**
  * 여유 리소스 판정용 메트릭 질의 (서버 전용 — M3, ADR-0013).
  * 4개 instant 질의를 병렬로. CPU는 idle rate(0~1)를 busy%로 환산.

@@ -74,9 +74,7 @@ export default async function OverviewPage({
             selectedInstance={selectedNode?.nodeInstance}
             selectedNodeName={selectedNode?.nodeName}
             selectedDcgm={selectedNode?.nodeDcgm}
-            servicePanel={
-              selectedNode ? <ServiceTable node={selectedNode.id} /> : undefined
-            }
+            servicePanel={<ServiceTable node={selectedNode?.id} />}
           />
         </div>
       </section>
