@@ -35,6 +35,14 @@
 - [x] V04 `lib/prometheus.ts` +`queryListeningPorts(node)`(포트 오름차순) + ServiceTable "리스닝 포트" 섹션(포트·proto·프로세스 + known-endpoint)
 - [x] V05 검증 — typecheck·lint·test 57·no-raw-hex. **[server]** 라이브 데이터는 배포 후(ansible + 터널 + prometheus restart)
 
+## Phase 6 — v2.1 UI 재설계 (라이브 피드백 5개)
+- [ ] R01 "서비스" 탭 상시화·기본 활성 — `overview/page`가 servicePanel 항상 전달(노드 옵션). 진입 시 서비스 먼저(플릿 전체 지원)
+- [ ] R02 모델 중복 제거 — `aggregateGpuModels(rows)` 순수 집계(model+framework → GPU 목록·합계 VRAM) + 단위테스트
+- [ ] R03 2컬럼 레이아웃 — 좌 GPU 프로세스 / 우 리스닝 포트(주 패널). 세로 스크롤 없이(컬럼 내부 스크롤)
+- [ ] R04 리스닝 포트 행 클릭 → `/incidents?node&q=<process>`(상태/로그)
+- [ ] R05 로그기반 서비스 목록 제거(어시스턴트와 중복)
+- [ ] R06 검증 — typecheck·lint·test·no-raw-hex + **Playwright 화면 보며**(진입 기본탭·2컬럼·무스크롤·중복없음·라이트/다크)
+
 ## 백로그
 - [ ] B02 data02(Windows) 서비스 카탈로그(winlogbeat/windows_exporter 연계)
 - [ ] B03 서비스 up/down 상태(systemd collector) 행 표기

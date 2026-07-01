@@ -27,17 +27,33 @@
 - **UL3** GPU 노드는 어떤 모델이 어느 GPU·포트에 떠 있는지(VRAM 포함) 본다 — data04 모델도(에이전트 배포 후).
 
 ## 수용 기준 (기계 검증 가능 — §9)
-- [ ] `/service-map`(또는 합의된 진입점) 라우트가 200을 반환(force-dynamic).
-- [ ] 노드 N을 선택하면 표에 표시되는 서비스 집합이 OpenSearch `terms(service) where fleet_node=N`(최근 24h)와 일치.
-- [ ] GPU 노드는 `gpu_model_*{node=N}` 행(모델·GPU·포트·VRAM)이 표시. (data05 즉시, data04는 에이전트 배포 후.)
-- [ ] 각 서비스 행에 `/logs?...`(fleet_node+service) 링크와 `/incidents?service=&node=` 링크가 존재.
-- [ ] 신규 수집 컴포넌트 0(기존 OpenSearch/Prometheus/inventory만 사용) — diff에 새 exporter/스크레이프 없음.
-- [ ] `npm run typecheck && lint && test && check:no-raw-hex` 통과. (빌드는 사람, 라이브 .next §12.)
 
-## 미해결 질문 (openQuestions)
-- IA: 새 nav 항목 `/service-map`인가, 아니면 **Overview 노드 드릴다운에 "서비스" 탭** 추가인가(유기적 리팩토링과 연계). → plan에서 1안 확정, 사용자 합의.
-- 포트 표기: 알려진 엔드포인트만 보일지(인벤토리+gpu_model port+정적 표) vs v2 전수 수집까지 기다릴지. v1=알려진 것만.
-- 서비스 "상태"(up/down)를 행에 넣을지 — node-exporter엔 임의 서비스 상태가 없음(systemd collector 필요). v1=최근 로그 유무/레벨 요약만.
+### v1·v2 (달성)
+- [x] Overview 노드 드릴다운에 "서비스" 네이티브 탭. GPU 노드는 `gpu_model_*{node=N}` 표시.
+- [x] v2: `keiwi_listening_port_info{node=N}`(port·proto·process) 표시(port-exporter).
+- [x] 신규 콘솔 수집 0(기존 Prometheus/OpenSearch 재사용). typecheck/lint/test/no-raw-hex.
+
+### v2.1 UI 재설계 (아래 §"v2.1 재설계")
+- [ ] "서비스" 탭이 **노드 미선택 시에도 존재·기본 활성**(진입 시 시스템 아닌 서비스가 먼저).
+- [ ] 모델 섹션 **중복 제거** — `model+framework` 집계 1행(사용 GPU 목록 + 합계 VRAM).
+- [ ] **2컬럼 레이아웃**(좌 GPU 프로세스 / 우 리스닝 포트) — 데스크톱에서 **세로 스크롤 없이** 표시(Playwright 검증).
+- [ ] 리스닝 포트 **주 패널(크게)** + 행 클릭 → `/incidents?node&q=<process>`(상태/로그).
+- [ ] 로그기반 **서비스 목록 제거**(diff — 불명확·어시스턴트와 중복).
+- [ ] typecheck·lint·test·no-raw-hex 통과.
+
+## v2.1 재설계 (2026-07-01 — 라이브 피드백)
+
+라이브 사용 결과 5개 문제 → 결정:
+
+| # | 문제(피드백) | 결정 |
+|---|---|---|
+| 1 | 진입 시 서비스 탭이 안 보이고 시스템이 나옴 | "서비스" 탭을 **항상 존재·기본 활성**. 노드 미선택=플릿 전체(모든 노드, node 라벨), 노드 선택=해당 노드. |
+| 2 | "적재 모델"이 중복·불명확 | `gpu_model_*`는 (gpu,pid)별 시리즈 → **model+framework로 집계**: 1행 = 사용 GPU 목록 + 합계 VRAM. 라벨 "GPU 프로세스" 명확화. |
+| 3 | 리스닝 포트가 핵심인데 작음 | 리스닝 포트를 **주 패널(우측, 크게)**. 행 클릭 → `/incidents?node&q=<process>`(상태/로그 진단). |
+| 4 | 하단 서비스(로그) 목록 불명확·불필요 | **제거.** 신호/진단은 어시스턴트 탭(현재 신호)이 담당(중복 제거). |
+| 5 | 세로 나열 말고 Grafana처럼 조밀하게 | **2컬럼(Notion형)**: 좌=GPU 프로세스 / 우=리스닝 포트. 스크롤 없이 한 화면. |
+
+> 해소된 openQuestion: IA=**Overview 서비스 탭**(확정) · 포트=**v2 전수 수집(port-exporter)** · 서비스 상태=**포트 클릭→어시스턴트 진단**.
 
 ## 비범위
 - 새 메트릭/로그 수집기 도입(=v2 포트 exporter, 별도 ADR). 콘솔에서 Grafana 대시보드 재구현(§I-2 — 탐색은 /logs Grafana로 위임).

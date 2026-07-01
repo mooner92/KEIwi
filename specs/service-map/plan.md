@@ -36,5 +36,13 @@ v1은 콘솔 코드뿐 → `npm run build && sudo systemctl restart keiwi-consol
 | 3 | IA 통합(Overview "서비스" 탭 or /service-map) + 노드 선택 연결 |
 | 4 | 검증(typecheck/lint/test/no-raw-hex) + 시각 QA(Playwright) |
 
+## v2.1 재설계 (HOW)
+
+- **탭 상시화**: `overview/page`가 `servicePanel`을 **항상** 전달(노드 선택 무관, `<ServiceTable node={selectedNode?.id} />`). `grafana-tabs`는 servicePanel 있으면 "서비스" 탭 index 0 기본 활성(이미). → 진입 시 서비스가 먼저.
+- **lib 집계(모델 중복 제거)**: `lib/prometheus.ts`에 `aggregateGpuModels(rows)` 순수 함수 — `model+framework` 키로 묶어 `{model, framework, gpus:[...], ports:[...], vramBytes:합계}`. (gpu,pid) 시리즈 → 모델 1행. **테스트 대상**.
+- **queries 노드 옵션**: `queryGpuModels(node?)`·`queryListeningPorts(node?)`는 이미 node 옵션(미지정=전체). 플릿 뷰는 node 미전달 → 모든 노드(행에 node 뱃지).
+- **ServiceTable 2컬럼**: `grid grid-cols-2 gap-3`(모바일 1컬럼) — 좌=**GPU 프로세스**(집계), 우=**리스닝 포트**(주 패널, 각 행 `/incidents?node&q=<process>` 링크로 상태/로그). 로그기반 서비스 섹션 **삭제**(getNodeServices·service-catalog 사용 중단, lib은 유지). 내부 스크롤은 컬럼별(min-h-0 overflow-auto)로 한 화면 유지.
+- **known-endpoints**: 포트 라벨 계속 사용.
+
 ## 검증 전략
-순수 lib 단위테스트(패싯 파싱·딥링크 생성). Playwright: 노드 선택 → 표 렌더 + 행 링크 존재 + OpenSearch 패싯과 일치. (격리 프로덕션 빌드, §12.)
+순수 lib 단위테스트(집계 `aggregateGpuModels`·딥링크). **Playwright(격리 프로덕션 빌드, §12)로 화면 보며 검증**: 진입 시 서비스 탭 기본, 2컬럼 렌더, 세로 스크롤 없음(desktop), 모델 중복 없음, 포트 행 링크. 라이트/다크.
