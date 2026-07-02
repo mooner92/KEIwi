@@ -37,6 +37,7 @@
 
 ## Phase 6 — v2.1 UI 재설계 (라이브 피드백 5개) ✅
 - [x] R01 "서비스" 탭 상시화·기본 활성(servicePanel 항상, 플릿+노드) — Playwright activeTab="서비스" 확인(플릿/노드)
+  - ⚠️ 2026-07-02 개정(사용자): 탭 순서 **시스템·GPU·모델·서비스**, 기본 활성=시스템. 서비스 탭은 상시 유지(마지막).
 - [x] R02 모델 중복 제거 — `aggregateGpuModels`(순수, 테스트 6). 라이브: data04 5행→2행(Qwen·04_rag_api)
 - [x] R03 2컬럼(좌 GPU 프로세스 / 우 리스닝 포트) — pageScroll=0(무스크롤) 확인
 - [x] R04 리스닝 포트 행 클릭 → `/incidents?q=<node process 포트 상태>`

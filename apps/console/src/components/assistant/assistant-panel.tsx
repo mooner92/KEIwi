@@ -33,8 +33,15 @@ const EXAMPLES = [
 /**
  * 로그 어시스턴트 (client). 질의 → /api/assistant(로컬 vLLM RAG) → 인용 응답.
  * prefill(현재 신호 "분석")이 있으면 마운트 시 1회 자동 분석. 읽기 전용(조치 자동적용 없음).
+ * onEvidenceFocus: 근거 로그 행 "이 시점 →" 콜백(로그 워크벤치의 Grafana 딥링크 — specs/logs-assistant AC3).
  */
-export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
+export function AssistantPanel({
+  initial,
+  onEvidenceFocus,
+}: {
+  initial?: AssistantInitial;
+  onEvidenceFocus?: (doc: LogDoc) => void;
+}) {
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,7 +82,7 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
   return (
     <section
       aria-label="로그 어시스턴트"
-      className="flex min-h-0 flex-col gap-3 rounded-xl border border-border bg-surface p-3 shadow-1"
+      className="flex min-h-0 flex-col gap-3 rounded-lg border border-border bg-surface p-3 shadow-1"
     >
       <form
         onSubmit={(e) => {
@@ -84,16 +91,17 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
         }}
         className="flex gap-2"
       >
+        {/* 입력·버튼 = KRDS small 규격(높이 40 = h-10 · radius 6) — specs/design/03. 포커스 보더는 brand(전역 더블링 병행). */}
         <input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="예: data04 ollama 경고, docker 로그, gpu 카테고리 에러 (로컬 LLM · 외부 전송 없음)"
-          className="min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-info-700"
+          className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-3 text-sm text-ink outline-none focus-visible:border-brand"
         />
         <button
           type="submit"
           disabled={loading || !question.trim()}
-          className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="inline-flex h-10 shrink-0 items-center rounded-md bg-brand px-3 text-sm font-medium text-white disabled:opacity-50"
         >
           분석
         </button>
@@ -138,7 +146,7 @@ export function AssistantPanel({ initial }: { initial?: AssistantInitial }) {
             {error}
           </p>
         ) : null}
-        {result ? <Answer result={result} /> : null}
+        {result ? <Answer result={result} onEvidenceFocus={onEvidenceFocus} /> : null}
       </div>
     </section>
   );
@@ -155,7 +163,13 @@ function planSummary(p: Plan): string {
   return parts.join(" · ");
 }
 
-function Answer({ result }: { result: Result }) {
+function Answer({
+  result,
+  onEvidenceFocus,
+}: {
+  result: Result;
+  onEvidenceFocus?: (doc: LogDoc) => void;
+}) {
   return (
     <div className="flex flex-col gap-3">
       <div className="whitespace-pre-wrap rounded-md bg-surface-2 px-3 py-2 text-sm leading-6 text-ink">
@@ -184,9 +198,21 @@ function Answer({ result }: { result: Result }) {
         <ul className="divide-y divide-border border-t border-border">
           {result.evidence.map((d, i) => (
             <li key={d.id} className="px-3 py-1.5 text-xs">
-              <span className="tnum text-ink-subtle">
-                [{i + 1}] {d.timestamp} · {d.fleetNode} · {d.service}
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="tnum min-w-0 truncate text-ink-subtle">
+                  [{i + 1}] {d.timestamp} · {d.fleetNode} · {d.service}
+                </span>
+                {onEvidenceFocus ? (
+                  <button
+                    type="button"
+                    onClick={() => onEvidenceFocus(d)}
+                    title="Grafana 로그를 이 시각 ±5분으로 이동"
+                    className="shrink-0 text-[11px] font-medium text-info-700 underline underline-offset-2"
+                  >
+                    이 시점 →
+                  </button>
+                ) : null}
+              </div>
               <p className="mt-0.5 line-clamp-2 text-ink-muted">{d.message}</p>
             </li>
           ))}

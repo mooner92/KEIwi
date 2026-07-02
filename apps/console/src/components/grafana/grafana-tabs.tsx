@@ -6,16 +6,21 @@ import { useTheme } from "@/lib/use-theme";
 type Dashboard = { uid: string; label: string };
 type Tab = { key: string; label: string; kind: "service" | "grafana"; dash?: Dashboard };
 
+/** 시간창/변수 강제 지정 — 어시스턴트 근거 로그 "이 시점 →" 딥링크(specs/logs-assistant AC3). */
+export type EmbedTimeOverride = { from: string; to: string; vars?: Record<string, string> };
+
 // 임베드 URL 조립: 입력(경로/슬러그/쿼리/전체 URL 무엇이든)을 경로+쿼리로 분해해
 // kiosk(크롬 숨김)·theme(콘솔 테마 매칭 — 다크 동기화)를 올바르게 병합(? 중복 방지).
 // 기존 쿼리(var-*, from/to, refresh 등)는 보존하고 kiosk/theme만 갱신한다.
 // instance가 주어지면 노드 드릴다운 — 기존 var-instance를 치환해 해당 노드로 고정.
+// override가 주어지면 from/to(및 지정 var)를 치환 — iframe 내부는 못 건드려도 src는 콘솔 소유.
 function buildEmbedSrc(
   baseUrl: string,
   entry: string,
   instance?: string,
   nodeName?: string,
   theme: "light" | "dark" = "light",
+  override?: EmbedTimeOverride,
 ): string {
   const base = baseUrl.replace(/\/+$/, "");
   let e = entry.trim();
@@ -24,6 +29,7 @@ function buildEmbedSrc(
   const qIdx = e.indexOf("?");
   const path = (qIdx === -1 ? e : e.slice(0, qIdx)).replace(/^\/+|\/+$/g, "");
   const existing = qIdx === -1 ? "" : e.slice(qIdx + 1);
+  const overrideVarKeys = Object.keys(override?.vars ?? {}).map((k) => `var-${k.toLowerCase()}=`);
   const params = existing
     .split("&")
     .filter(
@@ -32,7 +38,9 @@ function buildEmbedSrc(
         !/^kiosk(=|$)/i.test(p) &&
         !/^theme=/i.test(p) &&
         !(instance && /^var-(instance|node|host)=/i.test(p)) &&
-        !(nodeName && /^var-nodename=/i.test(p)),
+        !(nodeName && /^var-nodename=/i.test(p)) &&
+        !(override && /^(from|to)=/i.test(p)) &&
+        !overrideVarKeys.some((k) => p.toLowerCase().startsWith(k)),
     );
   if (nodeName) params.push(`var-nodename=${encodeURIComponent(nodeName)}`);
   if (instance) {
@@ -40,6 +48,15 @@ function buildEmbedSrc(
     // 후보를 모두 설정한다(대시보드에 없는 변수는 Grafana가 무시).
     const v = encodeURIComponent(instance);
     params.push(`var-instance=${v}`, `var-node=${v}`, `var-host=${v}`);
+  }
+  if (override) {
+    params.push(
+      `from=${encodeURIComponent(override.from)}`,
+      `to=${encodeURIComponent(override.to)}`,
+    );
+    for (const [k, v] of Object.entries(override.vars ?? {})) {
+      params.push(`var-${k}=${encodeURIComponent(v)}`); // 대시보드에 없는 var는 Grafana가 무시
+    }
   }
   params.push("kiosk", `theme=${theme}`);
   return `${base}/d/${path}?${params.join("&")}`;
@@ -54,6 +71,7 @@ export function GrafanaTabs({
   selectedNodeName,
   selectedDcgm,
   servicePanel,
+  timeOverride,
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
@@ -62,19 +80,17 @@ export function GrafanaTabs({
   selectedDcgm?: string;
   /** 노드 선택 시 "서비스" 탭에 렌더할 서버 패널(ServiceTable). 없으면 탭 없음. */
   servicePanel?: ReactNode;
+  /** 시간창/변수 강제(근거 로그 딥링크) — Grafana 탭 전체에 적용. */
+  timeOverride?: EmbedTimeOverride | null;
 }) {
   const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
+  // 탭 순서: 시스템·GPU·모델(env 순서) → 서비스 마지막 (2026-07-02 사용자 지시 — v2.1 R01 개정).
   const tabs: Tab[] = [
-    ...(servicePanel ? [{ key: "__svc__", label: "서비스", kind: "service" as const }] : []),
     ...dashboards.map((d) => ({ key: d.uid, label: d.label, kind: "grafana" as const, dash: d })),
+    ...(servicePanel ? [{ key: "__svc__", label: "서비스", kind: "service" as const }] : []),
   ];
-  // 노드 선택 시 "서비스" 탭부터(없으면 시스템 탭). remount(key=instance)로 상태 초기화.
-  const systemIdx = tabs.findIndex(
-    (t) => t.kind === "grafana" && /시스템|system|node/i.test(t.label),
-  );
-  const [active, setActive] = useState(
-    servicePanel ? 0 : selectedInstance && systemIdx >= 0 ? systemIdx : 0,
-  );
+  // 기본 활성 = 첫 탭(시스템). 노드 드릴다운도 remount(key=instance)로 시스템부터.
+  const [active, setActive] = useState(0);
   const cur = tabs[active] ?? tabs[0];
 
   const onService = cur?.kind === "service";
@@ -86,12 +102,19 @@ export function GrafanaTabs({
   const src =
     onService || !cur?.dash
       ? ""
-      : buildEmbedSrc(baseUrl, cur.dash.uid, applyInstance, applyNodeName, theme);
+      : buildEmbedSrc(
+          baseUrl,
+          cur.dash.uid,
+          applyInstance,
+          applyNodeName,
+          theme,
+          timeOverride ?? undefined,
+        );
 
   return (
     <div className="flex h-full flex-col gap-2">
       {tabs.length > 1 && (
-        <div role="tablist" aria-label="대시보드" className="flex shrink-0 flex-wrap gap-1">
+        <div role="tablist" aria-label="대시보드" className="flex shrink-0 flex-wrap border-b border-border">
           {tabs.map((t, i) => {
             const selected = i === active;
             return (
@@ -102,13 +125,18 @@ export function GrafanaTabs({
                 aria-selected={selected}
                 onClick={() => setActive(i)}
                 className={[
-                  "rounded-md px-3 py-1.5 text-sm transition-colors",
-                  selected
-                    ? "border border-border bg-surface-2 font-medium text-ink"
-                    : "border border-transparent text-ink-muted hover:bg-surface-2 hover:text-ink",
+                  // KRDS .line 탭 — 하단 3px 브랜드 언더라인이 활성 신호(track = 컨테이너 border-b)
+                  "relative -mb-px px-3.5 py-2 text-sm font-semibold transition-colors",
+                  selected ? "text-brand" : "text-ink-muted hover:text-ink",
                 ].join(" ")}
               >
                 {t.label}
+                {selected && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-1 -bottom-px h-[3px] rounded-full bg-brand"
+                  />
+                )}
               </button>
             );
           })}
