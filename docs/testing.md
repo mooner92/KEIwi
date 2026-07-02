@@ -11,6 +11,8 @@
 | **정적 검사** | 타입·린트·시크릿·raw hex 금지 | `npm run typecheck` / `lint` / `check:secrets` / `check:no-raw-hex` |
 | **시각 QA** | 레이아웃·스크롤·테마(라이트/다크) | `npm run screenshot` (Playwright) |
 | **기능 테스트** | 어시스턴트 동작(신호별 다른 근거·답변) | `node scripts/assistant-func-test.mjs` (Playwright) |
+| **기능 테스트** | 로그 워크벤치(드로어·인플레이스 분석·딥링크·토글·탭 순서) | `node scripts/logs-workbench-test.mjs` (Playwright) |
+| **기능 테스트** | 임베드 베이스 host 분기(내부 IP→:3000, 로그인 루프 가드) | `node scripts/embed-host-test.mjs` (Playwright) |
 
 > [!WARNING] `npm run verify`는 `build`를 포함 — 라이브 주의(§12)
 > `verify` = `lint → typecheck → test → build → check:secrets → check:no-raw-hex`. 그런데 콘솔은 `apps/console/.next`를 **라이브로 서빙**하므로, 에이전트가 라이브와 같은 디렉터리에서 `build`를 돌리면 운영이 깨집니다. → **에이전트 검증은 build 제외**로:
@@ -59,6 +61,18 @@ SCREENSHOT_THEME=dark \
 ```bash
 BASE=http://127.0.0.1:3199 node scripts/assistant-func-test.mjs   # 실패 시 종료코드 1
 ```
+
+## 기능 테스트 — 로그 워크벤치
+
+[`apps/console/scripts/logs-workbench-test.mjs`](../apps/console/scripts/logs-workbench-test.mjs): `/logs` 워크벤치의 수용 기준([specs/logs-assistant](../specs/logs-assistant/spec.md) AC1~AC5)을 검증 — 드로어 표시·신호 클릭 인플레이스 분석(vLLM 실호출)·근거 "이 시점 →" iframe 시간창 딥링크·리셋·토글(Ctrl+I·헤더 버튼·localStorage 지속)·심화 링크 + Overview 탭 순서(시스템·GPU·모델·서비스).
+
+```bash
+BASE=http://127.0.0.1:3199 node scripts/logs-workbench-test.mjs   # 스크린샷 → ./screenshots/workbench
+```
+> [!NOTE] 헤드리스 한계
+> 헤드리스 Chromium은 **물리 Ctrl+I 키를 페이지에 전달하지 않아**(kbd-debug로 확인) 합성 `KeyboardEvent`로 핸들러를 검증합니다. 실 브라우저에선 물리 키가 정상 전달됩니다.
+
+[`apps/console/scripts/embed-host-test.mjs`](../apps/console/scripts/embed-host-test.mjs): 접속 host별 임베드 베이스 분기(`lib/grafana-host.ts`) — localhost/IP 접속 시 iframe이 `http://<host>:3000`(same-site)으로 향하는지 확인(크로스 사이트 쿠키 거부 → Grafana 로그인 무한 루프 회귀 가드).
 > [!NOTE] Grafana iframe·외부 사이트
 > Grafana 임베드는 Cloudflare Access 뒤라 헤드리스에서 인증 없이 **안 떠도 정상**입니다 — 검증 대상은 **콘솔 레이아웃·네이티브 동작**이지 Grafana 내용이 아닙니다. 라이브 URL(keiwi.excusa.uk)도 Access로 막히니 검증은 **localhost(격리 빌드)** 로.
 
