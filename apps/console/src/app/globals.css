@@ -125,8 +125,8 @@
   --color-chrome: var(--krds-color-light-gray-90);
   --color-chrome-ink: var(--krds-color-light-gray-5);
   --color-chrome-muted: var(--krds-color-light-gray-40);
-  --color-brand: var(--krds-color-light-primary-50); /* KRDS 정부 블루 #256ef4 (표준형, ADR-0007 개정) */
-  --color-brand-strong: var(--krds-color-light-primary-60);
+  --color-brand: var(--color-green-500); /* 우리 초록 #38B38D — ADR-0007 정체성 원복(2026-07-01). KRDS 정부블루 미채택 */
+  --color-brand-strong: var(--color-green-600);
 }
 
 /* ---- 다크(선명한 화면 = KRDS high-contrast) — 시맨틱/크롬/뉴트럴만 오버라이드 ----
@@ -135,8 +135,8 @@
   color-scheme: dark;
 
   /* Primary(브랜드) — 다크에선 밝은 정부 블루(전경 대비) */
-  --color-brand: var(--krds-color-high-contrast-primary-30);
-  --color-brand-strong: var(--krds-color-high-contrast-primary-20);
+  --color-brand: var(--color-green-300); /* 다크: 밝은 초록(근흑 면 대비) */
+  --color-brand-strong: var(--color-green-200);
 
   /* gray 램프(직접 사용분) */
   --color-gray-50: var(--krds-color-high-contrast-gray-95);
@@ -220,10 +220,11 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
-/* 키보드 포커스 가시 (shape.spec §3 — radius small) */
+/* 키보드 포커스 — KRDS 더블링(2px 면 분리 + 4px 브랜드). outline은 forced-colors 폴백. */
 :focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid transparent;
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-brand);
   border-radius: 4px;
 }
 

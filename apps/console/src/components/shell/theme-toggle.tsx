@@ -28,7 +28,8 @@ export function ThemeToggle() {
       aria-pressed={isDark}
       aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
       title={isDark ? "라이트 모드" : "다크 모드"}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-muted outline-none transition-colors hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand"
+      // 아이콘 버튼 40px(터치 타깃)·포커스는 전역 더블링(:focus-visible)에 위임 — specs/design/03·05
+      className="inline-flex h-10 w-10 items-center justify-center rounded-md text-ink-muted outline-none transition-colors hover:bg-surface-2 hover:text-ink"
     >
       {isDark ? (
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

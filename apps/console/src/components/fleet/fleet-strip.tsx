@@ -29,8 +29,8 @@ export function FleetStrip({
 
   return (
     <section aria-label="플릿 상태">
-      <header className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="font-display text-base font-semibold tracking-tight text-ink">
+      <header className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-display text-lg font-semibold tracking-tight text-ink">
           플릿 상태
         </h2>
         <p className="text-xs text-ink-muted">
@@ -47,7 +47,7 @@ export function FleetStrip({
         </div>
       ) : null}
       {nodes.length === 0 ? (
-        <p className="rounded-xl border border-border bg-surface p-6 text-sm text-ink-muted shadow-1">
+        <p className="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted shadow-1">
           inventory에 노드가 없습니다. <span className="tnum">docs/inventory.yaml</span>을 확인하세요.
         </p>
       ) : (

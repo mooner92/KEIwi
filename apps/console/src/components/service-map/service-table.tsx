@@ -32,13 +32,13 @@ export async function ServiceTable({ node }: { node?: string }) {
 
   const NodeBadge = ({ n }: { n: string }) =>
     fleet && n ? (
-      <span className="tnum shrink-0 rounded bg-surface-2 px-1 text-[10px] text-ink-subtle">{n}</span>
+      <span className="tnum shrink-0 rounded-sm bg-surface-2 px-1 text-[10px] text-ink-subtle">{n}</span>
     ) : null;
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-2">
       {/* 좌 — GPU 프로세스(모델) */}
-      <section className="flex min-h-0 flex-col rounded-xl border border-border bg-surface shadow-1">
+      <section className="flex min-h-0 flex-col rounded-lg border border-border bg-surface shadow-1">
         <header className="border-b border-border px-3 py-2">
           <h3 className="font-display text-sm font-semibold text-ink">
             GPU 프로세스 <span className="font-normal text-ink-muted">· {models.length}</span>
@@ -71,7 +71,7 @@ export async function ServiceTable({ node }: { node?: string }) {
       </section>
 
       {/* 우 — 리스닝 포트 (핵심). 행 클릭 → 어시스턴트 상태/로그 */}
-      <section className="flex min-h-0 flex-col rounded-xl border border-border bg-surface shadow-1">
+      <section className="flex min-h-0 flex-col rounded-lg border border-border bg-surface shadow-1">
         <header className="border-b border-border px-3 py-2">
           <h3 className="font-display text-sm font-semibold text-ink">
             리스닝 포트 <span className="font-normal text-ink-muted">· {ports.length}</span>

@@ -17,7 +17,7 @@ export function SearchField() {
         aria-disabled="true"
         aria-label="통합검색 (준비 중)"
         placeholder="통합검색 준비 중"
-        className="h-9 w-44 rounded-md border border-border bg-surface-2 pl-8 pr-3 text-sm text-ink-muted placeholder:text-ink-subtle disabled:cursor-not-allowed"
+        className="h-10 w-44 rounded-md border border-border bg-surface-2 pl-8 pr-3 text-sm text-ink-muted placeholder:text-ink-subtle disabled:cursor-not-allowed"
       />
     </div>
   );

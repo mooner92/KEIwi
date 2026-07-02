@@ -28,7 +28,7 @@ export async function CurrentSignals() {
   return (
     <section
       aria-label="현재 신호"
-      className="flex min-h-0 flex-col rounded-xl border border-border bg-surface shadow-1"
+      className="flex min-h-0 flex-col rounded-lg border border-border bg-surface shadow-1"
     >
       <header className="border-b border-border px-3 py-2">
         <h2 className="font-display text-sm font-semibold tracking-tight text-ink">

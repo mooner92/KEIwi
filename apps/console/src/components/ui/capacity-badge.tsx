@@ -12,6 +12,7 @@ const MAP: Record<Verdict, { bg: string; text: string; label: string }> = {
 /**
  * 여유 등급 배지. axis(예 "GPU"/"일반") + 등급 + 선택 detail(예 "VRAM 78%").
  * unknown은 "여유"로 오인되지 않게 중립색 + "판정불가" 텍스트(US4 정직성).
+ * 반경 4px(rounded-sm) = specs/design/03 배지 규격(비인터랙티브 상태 표시).
  */
 export function CapacityBadge({
   axis,
@@ -28,7 +29,7 @@ export function CapacityBadge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${v.bg} ${v.text}`}
+      className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-px text-[11px] font-medium ${v.bg} ${v.text}`}
     >
       <span className="opacity-70">{axis}</span>
       <span>{v.label}</span>

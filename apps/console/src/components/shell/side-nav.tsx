@@ -44,7 +44,7 @@ export function SideNav() {
                   )}
                   <span>{item.label}</span>
                   {item.soon && (
-                    <span className="rounded border border-border px-1 text-[10px] font-medium tracking-wide text-ink-subtle">
+                    <span className="rounded-sm border border-border px-1 text-[10px] font-medium tracking-wide text-ink-subtle">
                       {item.soon}
                     </span>
                   )}

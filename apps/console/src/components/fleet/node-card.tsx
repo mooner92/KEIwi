@@ -33,9 +33,10 @@ export function NodeCard({
         aria-hidden
         className={`absolute inset-y-0 left-0 w-1 ${ACCENT[node.status]}`}
       />
+      {/* 콤팩트 밀도(사용자 요구): 패딩·행간 축소, 위계(제목 17px > 상태 > 배지)는 유지 */}
       <div className="p-2.5 pl-3.5">
         <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-display text-sm font-semibold tracking-tight text-ink">
+          <h3 className="font-display text-base font-semibold tracking-tight text-ink">
             {node.id}
           </h3>
           <span className="tnum text-[11px] text-ink-subtle">{node.ip}</span>
@@ -47,7 +48,7 @@ export function NodeCard({
           </span>
         </div>
         {capacity ? (
-          <div className="mt-1.5 flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             {gpu ? (
               <CapacityBadge
                 axis="GPU"
@@ -81,7 +82,8 @@ export function NodeCard({
     </>
   );
 
-  const base = "relative block overflow-hidden rounded-xl border bg-surface shadow-1";
+  // 카드 반경 = 10px(rounded-lg) — specs/design/03 공통 반경 규격
+  const base = "relative block overflow-hidden rounded-lg border bg-surface shadow-1";
 
   if (!href) {
     return <article className={`${base} border-border`}>{body}</article>;
@@ -96,9 +98,9 @@ export function NodeCard({
         base,
         // 호버 시 살짝 떠오르는 입체감(Toss/당근형 폴리시) — reduced-motion은 globals.css가 무력화
         "outline-none transition-all duration-150 hover:border-border-strong hover:shadow-2 hover:-translate-y-0.5",
-        "focus-visible:ring-2 focus-visible:ring-info-700",
+        // 포커스는 globals.css :focus-visible 더블링(브랜드)이 담당. 선택 상태는 브랜드 링/보더.
         selected
-          ? "border-info-700 ring-1 ring-info-700"
+          ? "border-brand ring-1 ring-brand"
           : "border-border",
       ].join(" ")}
     >

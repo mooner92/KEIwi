@@ -31,8 +31,8 @@ export default async function OverviewPage({
     : undefined;
 
   return (
-    <div className="flex h-full flex-col gap-2">
-      <div className="flex flex-col gap-1">
+    <div className="flex h-full flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
         <Breadcrumb />
         <PageHeader title="플릿 Overview" />
       </div>
@@ -46,8 +46,8 @@ export default async function OverviewPage({
         aria-label="메트릭 대시보드"
         className="flex min-h-0 flex-1 flex-col"
       >
-        <header className="mb-2 flex items-baseline justify-between gap-3">
-          <h2 className="font-display text-base font-semibold tracking-tight text-ink">
+        <header className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-lg font-semibold tracking-tight text-ink">
             메트릭
           </h2>
           {selectedNode ? (

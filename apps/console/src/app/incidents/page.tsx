@@ -26,7 +26,8 @@ export default async function AssistantPage({
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="flex flex-col gap-1">
+      {/* breadcrumb→H1 간격은 전 페이지 gap-1.5로 통일(04 여백 리듬 일관성) */}
+      <div className="flex flex-col gap-1.5">
         <Breadcrumb />
         <PageHeader title="로그 어시스턴트" />
       </div>
