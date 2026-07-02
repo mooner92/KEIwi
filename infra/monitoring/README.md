@@ -87,11 +87,22 @@ vLLM `/metrics`(요청·토큰·지연·KV캐시) + DCGM + `gpu_model_*`(모델�
 > sudo ufw allow from 172.18.0.0/16 to any port 8010 proto tcp
 > ```
 
-**프로비저닝**(라이브 Grafana는 디렉터리 미바인드 → docker cp):
+**프로비저닝 — 바인드 마운트(표준, 2026-07-02~)**:
+> [!CAUTION] `docker cp` 주입 금지
+> docker cp는 컨테이너 쓰기 레이어에 들어가 **재생성 시 소실**됩니다(2026-07-02 익명뷰어 적용 재생성 때 keiwi-gpu·model-workload·logs 대시보드 소실 사고). 호스트 디렉터리에 두고 바인드하세요(권장 compose에 포함).
 ```bash
-sudo docker cp infra/monitoring/dashboards/model-workload.json \
-    grafana:/etc/grafana/provisioning/dashboards/keiwi/model-workload.json
-sudo docker restart grafana
+# 레포(원본) → 호스트 프로비저닝 디렉터리
+sudo mkdir -p /data/monitoring/grafana/provisioning/dashboards/keiwi \
+              /data/monitoring/grafana/provisioning/datasources
+sudo cp infra/monitoring/grafana/provisioning/dashboards/keiwi-dashboards.yaml \
+    /data/monitoring/grafana/provisioning/dashboards/
+sudo cp infra/monitoring/dashboards/{gpu,logs,model-workload}.json \
+    /data/monitoring/grafana/provisioning/dashboards/keiwi/
+sudo cp infra/monitoring/grafana/provisioning/datasources/opensearch.yaml \
+    /data/monitoring/grafana/provisioning/datasources/     # elasticsearch.yaml은 넣지 않는다(폐기)
+# compose의 grafana.volumes에 프로비저닝 바인드 2줄(권장본 docker-compose.yml 참고) 후 재생성
+sudo docker rm -f grafana && sudo docker-compose up -d grafana
+# 대시보드 JSON 갱신 시: 호스트 경로에 cp만 하면 30s 내 자동 반영(updateIntervalSeconds)
 ```
 콘솔 탭은 `apps/console/.env.local`의 `GRAFANA_DASHBOARD_UID`에 `keiwi-model-workload/...|모델`로 등록(콘솔 화면표는 [README](../../README.md#콘솔-화면)).
 
@@ -106,9 +117,28 @@ curl -s localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info{node=
 ```
 콘솔 Overview에서 **data04·data05 = 정상**, **data01~03 = 데이터 없음**, 노드 클릭 → **서비스·시스템·GPU·모델** 드릴다운.
 
+## Grafana 익명 뷰어 (LAN 조회 전용, 2026-07-02)
+
+내부(IP) 접속 임베드에서 Grafana 로그인 없이 대시보드를 보이게 하는 설정 — **조회(Viewer)만 익명**, 편집/관리자는 여전히 로그인. 외부(grafana.excusa.uk)는 Cloudflare Access가 앞단에서 차단하므로 익명이 외부에 노출되지 않습니다. 권장본: [`docker-compose.yml`](./docker-compose.yml).
+
+**[server] 사람이 적용(§11)** — data05에서:
+```bash
+cd /data/monitoring
+# ① docker-compose.yml의 grafana.environment에 2줄 추가:
+#      - GF_AUTH_ANONYMOUS_ENABLED=true
+#      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+# ② env 변경은 재시작이 아니라 "재생성"이 필요 (grafana_data 볼륨이라 대시보드/설정 안전):
+sudo docker-compose up -d grafana
+# compose 1.29 'ContainerConfig' 버그가 나면:
+sudo docker-compose rm -sf grafana && sudo docker-compose up -d grafana
+# ③ 확인 — 익명 조회 200:
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/dashboards/home   # 200이면 OK(익명)
+```
+
 ## 노드 추가/삭제
 
 단일 표준 절차 → [`docs/runbooks/node-onboarding.md`](../../docs/runbooks/node-onboarding.md)(메트릭·로그 두 평면 · 터널 복제 · Prometheus 타깃 · 오프보딩). inventory는 이미 5노드라 6번째부터 `docs/inventory.yaml` 수정.
 
 > [!CAUTION] 보안(§13)
 > 라이브 compose의 Grafana 관리자 비밀번호가 평문 기본값이면 env/시크릿으로 옮기세요. 콘솔은 Grafana 토큰을 주입하지 않습니다(인증은 Cloudflare Access).
+> ※ `GF_SECURITY_ADMIN_PASSWORD`는 **볼륨 최초 초기화 때만** 적용 — 이후 UI에서 바꾼 실제 비밀번호와 다를 수 있음(2026-07-02 확인: compose 값 ≠ 현재 DB 비번). 재설정이 필요하면: `sudo docker exec grafana grafana cli admin reset-admin-password '<새비번>'`

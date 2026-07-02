@@ -1,0 +1,77 @@
+# KEIwi 모니터링 스택 — 권장본 (라이브 = data05:/data/monitoring/docker-compose.yml)
+# ⚠️ 에이전트는 생성, 사람이 적용(§11). 라이브 반영 절차는 README "Grafana 익명 뷰어" 참고.
+# 라이브와 차이:
+#  - GF_SECURITY_ADMIN_PASSWORD를 .env(${GRAFANA_ADMIN_PASSWORD})로 — 시크릿 레포 밖(§13, README §보안)
+#  - GF_AUTH_ANONYMOUS_*: LAN 익명 뷰어(조회 전용) — 내부(IP) 접속 임베드에서 로그인 없이 대시보드 표시.
+#    쓰기/관리자는 여전히 로그인 필요. 외부(grafana.excusa.uk)는 Cloudflare Access가 앞단 차단.
+version: "3.8"
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - /data/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # 프로비저닝 바인드(영구) — docker cp 주입은 컨테이너 재생성 시 소실됨(2026-07-02 실제 발생:
+      # keiwi-gpu·model-workload·logs 대시보드 소실 → 재프로비저닝). 레포가 원본, 호스트 경로에 복사해 바인드.
+      - /data/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - /data/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true # 콘솔 iframe 임베드 허용(ADR-0002)
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      # LAN 익명 뷰어(조회 전용) — 내부 접속 임베드 로그인 제거(2026-07-02).
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: always
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+
+  dcgm-exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.5-3.4.0-ubuntu22.04
+    container_name: dcgm-exporter
+    restart: always
+    ports:
+      - "9400:9400"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    cap_add:
+      - SYS_ADMIN
+
+volumes:
+  prometheus_data:
+  grafana_data:

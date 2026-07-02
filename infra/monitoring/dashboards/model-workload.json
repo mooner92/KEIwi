@@ -87,12 +87,13 @@
       "title": "모델 ↔ GPU 매핑 (VRAM)",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 4 },
-      "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "unit", "value": "bytes" }, { "id": "displayName", "value": "VRAM" } ] } ] },
+      "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "unit", "value": "bytes" }, { "id": "displayName", "value": "VRAM" } ] }, { "matcher": { "id": "byName", "options": "노드" }, "properties": [ { "id": "custom.width", "value": 90 } ] } ] },
+      "options": { "sortBy": [ { "displayName": "VRAM", "desc": true } ] },
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_model_vram_bytes{node=~\"$node\"}", "format": "table", "instant": true }
       ],
       "transformations": [
-        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true, "node": true }, "renameByName": { "gpu": "GPU", "model": "모델", "framework": "프레임워크", "port": "포트", "pid": "PID" } } }
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true }, "indexByName": { "node": 0, "gpu": 1, "framework": 2, "model": 3, "pid": 4, "port": 5, "Value": 6 }, "renameByName": { "node": "노드", "gpu": "GPU", "model": "모델", "framework": "프레임워크", "port": "포트", "pid": "PID" } } }
       ]
     },
     {
@@ -150,7 +151,7 @@
       "gridPos": { "h": 7, "w": 8, "x": 0, "y": 25 },
       "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10 } } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "DCGM_FI_DEV_GPU_UTIL", "legendFormat": "GPU {{gpu}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace(label_replace(DCGM_FI_DEV_GPU_UTIL, \"node\", \"data04\", \"instance\", \"192\\\\.168\\\\.1\\\\.104:.*\"), \"node\", \"data05\", \"instance\", \"192\\\\.168\\\\.1\\\\.105:.*\")", "legendFormat": "{{node}} · GPU {{gpu}}" }
       ]
     },
     {
@@ -173,8 +174,8 @@
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 25 },
       "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [ { "matcher": { "id": "byRegexp", "options": ".*°C.*" }, "properties": [ { "id": "unit", "value": "celsius" } ] }, { "matcher": { "id": "byRegexp", "options": ".*W.*" }, "properties": [ { "id": "unit", "value": "watt" } ] } ] },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "DCGM_FI_DEV_GPU_TEMP", "legendFormat": "GPU {{gpu}} °C" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "DCGM_FI_DEV_POWER_USAGE", "legendFormat": "GPU {{gpu}} W" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace(label_replace(DCGM_FI_DEV_GPU_TEMP, \"node\", \"data04\", \"instance\", \"192\\\\.168\\\\.1\\\\.104:.*\"), \"node\", \"data05\", \"instance\", \"192\\\\.168\\\\.1\\\\.105:.*\")", "legendFormat": "{{node}} · GPU {{gpu}} °C" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace(label_replace(DCGM_FI_DEV_POWER_USAGE, \"node\", \"data04\", \"instance\", \"192\\\\.168\\\\.1\\\\.104:.*\"), \"node\", \"data05\", \"instance\", \"192\\\\.168\\\\.1\\\\.105:.*\")", "legendFormat": "{{node}} · GPU {{gpu}} W" }
       ]
     }
   ]
