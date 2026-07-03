@@ -1,4 +1,4 @@
-# KEIwi 플릿 수집 — Prometheus 설정 (data04·data05만, 권장본)
+# KEIwi 플릿 수집 — Prometheus 설정 (data03·data04·data05, 권장본)
 #
 # 이 파일은 .105 라이브 스택(/data/monitoring/prometheus.yml)에 적용할 "권장 버전"이다.
 # 에이전트는 생성만, 적용은 사람이 한다(헌장 §11). 라이브는 직접 수정하지 않는다.
@@ -9,7 +9,9 @@
 #                                  dcgm-exporter:9400  → instance 192.168.1.105:9400
 #   · data04(직접 도달 불가, 터널) 172.18.0.1:9104     → instance 192.168.1.104:9100
 #       (호스트 SSH 터널: 172.18.0.1:9104 → data04:9100, keiwi-tunnel-data04.service 참고)
-#   · data01~03                    터널 미설정 → 수집 안 함 → 콘솔에서 no-data(설계된 동작)
+#   · data03(같은 서브넷, 직접)    192.168.1.103:9100  → instance 동일(라벨 명시)
+#       (터널 불필요 — data03 ufw에서 .105 허용만. 2026-07-03 온보딩)
+#   · data01~02                    접근 미설정 → 수집 안 함 → 콘솔에서 no-data(설계된 동작)
 #
 # 적용: 이 내용을 /data/monitoring/prometheus.yml에 반영 후
 #       docker compose -f /data/monitoring/docker-compose.yml restart prometheus
@@ -43,6 +45,10 @@ scrape_configs:
       - targets: ["172.18.0.1:9987"]
         labels:
           node: "data04"
+      # data03 — 직접 스크랩(2026-07-03 온보딩). 전제: data03 ufw가 .105→9986 허용.
+      - targets: ["192.168.1.103:9986"]
+        labels:
+          node: "data03"
 
   - job_name: "node-exporter"
     static_configs:
@@ -53,6 +59,10 @@ scrape_configs:
       - targets: ["172.18.0.1:9104"]
         labels:
           instance: "192.168.1.104:9100"
+      # data03 — 직접 스크랩(2026-07-03 온보딩). 전제: data03 ufw가 .105→9100 허용.
+      - targets: ["192.168.1.103:9100"]
+        labels:
+          instance: "192.168.1.103:9100"
 
   - job_name: "dcgm-exporter"
     static_configs:

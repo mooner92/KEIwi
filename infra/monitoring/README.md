@@ -115,7 +115,7 @@ curl -s 'http://localhost:9090/api/v1/query?query=up' | grep -o '192.168.1.10[45
 # 모델↔GPU (node 라벨)
 curl -s localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info{node="data04"}'
 ```
-콘솔 Overview에서 **data04·data05 = 정상**, **data01~03 = 데이터 없음**, 노드 클릭 → **서비스·시스템·GPU·모델** 드릴다운.
+콘솔 Overview에서 **data03·data04·data05 = 정상**, **data01~02 = 데이터 없음**, 노드 클릭 → **시스템·GPU·모델·서비스** 드릴다운.
 
 ## Grafana 익명 뷰어 (LAN 조회 전용, 2026-07-02)
 

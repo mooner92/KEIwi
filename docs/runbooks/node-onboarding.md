@@ -4,7 +4,7 @@ kind: procedure
 category: infra
 status: active
 first_seen: 2026-06-30
-last_seen: 2026-06-30
+last_seen: 2026-07-03
 ---
 
 # 런북 — 노드 온보딩 / 오프보딩
@@ -104,6 +104,29 @@ data04 GPU엔 모델이 떠 있으나(gpu1 ~22GB) 익스포터가 없어 모델�
 
 - 절차가 바뀌면 이 런북 + 관련 role/playbook을 **같은 PR**에서 갱신, `last_seen` 갱신. 큰 방식 변경은 ADR로 근거(헌장 §8) 후 [ADR-0017](../decisions/0017-node-onboarding-standard.md) 개정 링크.
 - `AGENTS.md` 디렉터리 지도에 본 런북이 등록돼 있는지 확인.
+
+## 부록 — sudo 비번 자동화 (`-K` 제거)
+
+`-K`(BECOME 프롬프트)는 대상 계정이 NOPASSWD sudo가 아닐 때의 임시 우회다. 표준은 둘 중 하나:
+
+**A. NOPASSWD sudoers (권장 — 파일 1개, 이후 영구 무프롬프트)** — 대상 노드에서 1회:
+```bash
+# <user>를 ansible 계정으로. visudo -cf 검증 실패 시 파일이 적용되지 않게 순서 유지.
+echo '<user> ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/90-keiwi-ansible
+sudo chmod 440 /etc/sudoers.d/90-keiwi-ansible
+sudo visudo -cf /etc/sudoers.d/90-keiwi-ansible   # "parsed OK" 확인(필수)
+```
+이후 해당 노드는 `-K` 없이 `ansible-playbook …` 실행. (신뢰 내부망 + 키 인증 전제 — 키 관리가 곧 접근 통제)
+
+**B. Ansible Vault (비번을 유지하고 싶을 때)** — 비번을 암호화 저장, 실행은 무프롬프트:
+```bash
+cd /KEIwi/infra/ansible
+mkdir -p host_vars/data04
+ansible-vault create host_vars/data04/vault.yml     # 내용: ansible_become_password: "<sudo비번>"
+echo '<vault암호>' > ~/.config/keiwi-vault-pass && chmod 600 ~/.config/keiwi-vault-pass  # 레포 밖(§13)
+# ansible.cfg에: [defaults] vault_password_file = ~/.config/keiwi-vault-pass
+```
+vault.yml은 암호화돼 커밋 가능하나, **vault 암호 파일은 반드시 레포 밖**(§13). A가 더 단순해 플릿 표준은 A.
 
 ## 알려진 한계 (백로그)
 - inventory 이중관리(docs/inventory.yaml ↔ inventory.ini) 수기 동기화 — 동적 인벤토리 어댑터 미도입.

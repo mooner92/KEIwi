@@ -26,7 +26,7 @@ nodes:
 
   - id: data03
     ip: 192.168.1.103
-    hostname: ""
+    hostname: "datalx03"          # node_uname_info nodename 확인(2026-07-03)
     os: ubuntu
     role: target
     gpu: null
