@@ -44,6 +44,8 @@ export type GpuModel = {
   port: string;
   gpu: string;
   vramBytes: number;
+  // 소유자(OS 계정명) — SRE 백로그 #8 v1. 미지정/종료/passwd 없음 → "unknown"/"uid:<n>".
+  user: string;
 };
 
 /**
@@ -62,6 +64,7 @@ export async function queryGpuModels(node?: string): Promise<GpuModel[]> {
     port: r.metric.port ?? "",
     gpu: r.metric.gpu ?? "",
     vramBytes: r.value,
+    user: r.metric.user ?? "unknown",
   }));
 }
 
@@ -72,6 +75,8 @@ export type ListeningPort = {
   proto: string;
   process: string;
   pid: string;
+  // 소유자(OS 계정명) — SRE 백로그 #8 v1. 미지정/종료/passwd 없음 → "unknown"/"uid:<n>".
+  user: string;
 };
 
 /**
@@ -89,6 +94,7 @@ export async function queryListeningPorts(node?: string): Promise<ListeningPort[
       proto: r.metric.proto ?? "",
       process: r.metric.process ?? "unknown",
       pid: r.metric.pid ?? "",
+      user: r.metric.user ?? "unknown",
     }))
     .sort((a, b) => (parseInt(a.port, 10) || 0) - (parseInt(b.port, 10) || 0));
 }
@@ -101,19 +107,30 @@ export type GpuModelAgg = {
   gpus: string[];
   ports: string[];
   vramBytes: number;
+  // 소유자(OS 계정명) — 다른 소유자는 분리 집계(SRE 백로그 #8 v1).
+  user: string;
 };
 
 /**
- * gpu_model_* 시리즈(=(gpu,pid)별)를 node+framework+model로 집계(순수 — 테스트 대상).
+ * gpu_model_* 시리즈(=(gpu,pid)별)를 node+framework+model+user로 집계(순수 — 테스트 대상).
  * 같은 모델이 여러 GPU/pid로 흩어진 것을 1행으로: 사용 GPU 목록 + 포트 + 합계 VRAM.
+ * 소유자(user)가 다르면 분리 집계 — "이 모델 누구 거냐" 귀속용(SRE 백로그 #8 v1).
  */
 export function aggregateGpuModels(rows: GpuModel[]): GpuModelAgg[] {
   const map = new Map<string, GpuModelAgg>();
   for (const r of rows) {
-    const key = `${r.node}|${r.framework}|${r.model}`;
+    const key = `${r.node}|${r.framework}|${r.model}|${r.user}`;
     let a = map.get(key);
     if (!a) {
-      a = { node: r.node, model: r.model, framework: r.framework, gpus: [], ports: [], vramBytes: 0 };
+      a = {
+        node: r.node,
+        model: r.model,
+        framework: r.framework,
+        gpus: [],
+        ports: [],
+        vramBytes: 0,
+        user: r.user,
+      };
       map.set(key, a);
     }
     if (r.gpu && !a.gpus.includes(r.gpu)) a.gpus.push(r.gpu);

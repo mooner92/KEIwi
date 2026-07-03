@@ -4,13 +4,14 @@
 `node-exporter`/`dcgm` give numeric metrics but not "포트↔프로그램". This walks
 `ss -tulnpH` (listening TCP + bound UDP with process) and exposes:
 
-  keiwi_listening_port_info{port,proto,process,pid} 1
+  keiwi_listening_port_info{port,proto,process,pid,user} 1
 
 Stdlib only. Run on the host as root (ss -p needs privilege to see processes).
 Prometheus scrapes it (a `node` label is added per scrape target).
   python3 port-exporter.py            # serves :9986/metrics
 """
 import os
+import pwd
 import re
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,6 +22,24 @@ _PROC = re.compile(r'\(\("([^"]+)",pid=(\d+)')
 
 def _label(v):
     return str(v).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _user_for_pid(pid):
+    """PID 소유 OS 계정명. 계약대로 unknown / uid:<n> 폴백."""
+    if not pid:
+        return "unknown"
+    try:
+        with open(f"/proc/{pid}/status") as f:
+            for line in f:
+                if line.startswith("Uid:"):
+                    uid = int(line.split()[1])  # real uid
+                    try:
+                        return pwd.getpwuid(uid).pw_name
+                    except KeyError:
+                        return f"uid:{uid}"
+    except Exception:
+        pass
+    return "unknown"
 
 
 def _rows():
@@ -62,9 +81,11 @@ def collect():
         "# TYPE keiwi_listening_port_info gauge",
     ]
     for proto, port, process, pid in _rows():
+        user = _user_for_pid(pid)  # PID 소유 OS 계정 (SRE 백로그 #8: 사용자별 귀속)
         labels = (
             f'port="{_label(port)}",proto="{_label(proto)}",'
-            f'process="{_label(process)}",pid="{_label(pid)}"'
+            f'process="{_label(process)}",pid="{_label(pid)}",'
+            f'user="{_label(user)}"'
         )
         lines.append(f"keiwi_listening_port_info{{{labels}}} 1")
     return "\n".join(lines) + "\n"

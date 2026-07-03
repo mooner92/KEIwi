@@ -4,18 +4,37 @@
 dcgm-exporter gives numeric GPU metrics but not *what model* occupies each GPU. This maps every
 GPU compute process (vLLM / ollama) to its model + port by walking process cmdlines, and exposes:
 
-  gpu_model_vram_bytes{gpu,model,framework,port,pid}   VRAM used by that model process
-  gpu_model_info{gpu,model,framework,port,pid} 1        presence (1)
+  gpu_model_vram_bytes{gpu,model,framework,port,pid,user}   VRAM used by that model process
+  gpu_model_info{gpu,model,framework,port,pid,user} 1        presence (1)
 
 Stdlib only. Run on the host (reads /proc + nvidia-smi); Prometheus scrapes it.
   python3 gpu-model-exporter.py            # serves :9836/metrics
 """
 import os
+import pwd
 import re
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(os.environ.get("GPU_MODEL_EXPORTER_PORT", "9836"))
+
+
+def _user_for_pid(pid):
+    """PID 소유 OS 계정명. 계약대로 unknown / uid:<n> 폴백."""
+    if not pid:
+        return "unknown"
+    try:
+        with open(f"/proc/{pid}/status") as f:
+            for line in f:
+                if line.startswith("Uid:"):
+                    uid = int(line.split()[1])  # real uid
+                    try:
+                        return pwd.getpwuid(uid).pw_name
+                    except KeyError:
+                        return f"uid:{uid}"
+    except Exception:
+        pass
+    return "unknown"
 
 
 def _run(args):
@@ -152,9 +171,11 @@ def collect():
         except ValueError:
             vram = 0
         model, fw, port = _model_for_pid(pid)
+        user = _user_for_pid(pid)  # PID 소유 OS 계정 (SRE 백로그 #8: 사용자별 귀속)
         labels = (
             f'gpu="{_label(gpu)}",model="{_label(model)}",'
-            f'framework="{_label(fw)}",port="{_label(port)}",pid="{_label(pid)}"'
+            f'framework="{_label(fw)}",port="{_label(port)}",pid="{_label(pid)}",'
+            f'user="{_label(user)}"'
         )
         lines.append(f"gpu_model_vram_bytes{{{labels}}} {vram}")
         info.append(f"gpu_model_info{{{labels}}} 1")
