@@ -18,7 +18,7 @@
 |---|------|:---:|------|
 | 6 | **Alertmanager**(라우팅·중복제거·억제·침묵) + 온프렘 알림 브릿지(ntfy/Gotify self-host, 외부 필요시 Telegram만 예외) | M | 현재 알림 발화 계층 0(M5). Prometheus 옆 컨테이너 1개, k8s 불필요. egress 0 위해 클라우드 대신 사내 self-host. 정비 중 silence, 노드 down시 하위 GPU/포트 알림 inhibition |
 | 7 | **SLO/error budget as code**(Sloth CLI → 규칙파일 커밋, 또는 Pyrra 파일시스템 모드) | M | SLI=인프라 가용성(노드 up 비율·scrape 성공률·GPU 정상·로그 인입 신선도). 다중창 다중번레이트 알림 자동생성. Grafana에 SLO 대시보드 프로비저닝(§I-2) |
-| 8 | **사용자/프로세스별 GPU 귀속**(nvidia-smi --query-compute-apps + /proc uid→user, Ansible role) | M | 스케줄러 없어 "누가 쓰는지" 안 보임. 유휴탐지·showback·충돌해결의 공통 기반. 읽기전용(§11). gpu-model-exporter 확장으로도 가능 |
+| 8 | ✅ **v1 완료(2026-07-03)** — 사용자/프로세스별 GPU·서비스 귀속: gpu-model/port-exporter에 user 라벨(/proc uid→pwd), 콘솔 서비스 탭·모델 대시보드에 소유자 표시. [specs/ownership-attribution](../ownership-attribution/spec.md). 유휴탐지(#9)·showback(#12)의 데이터 기반 확보 |
 | 9 | **유휴/좀비 GPU 탐지 + 넛지**(고VRAM·저util 지속 → 알림, 회수는 사람) | M | 6장 공유 플릿 최대 낭비원. gpu-zombie-hunter 패턴(N회 샘플링 오탐방지). 자동 kill 금지(§11), 넛지만. #8 의존 |
 | 10 | **vLLM 추론 SLO**(TTFT·ITL·num_requests_waiting·kv_cache·preemption + 멀티 burn-rate) | M | vLLM 잡 이미 존재(8003 Qwen3-Coder-30B). model-workload.json에 패널+recording rule. 어시스턴트 체감품질을 SLO로 |
 | 11 | **런북 자동화**(모든 알림에 runbook_url 애너테이션, Ansible playbook 준비·사람 실행) | M | docs/runbooks + Ansible role 이미 존재. 알림→런북→RAG 매칭 고리 완성. toil 직접 감소 |
