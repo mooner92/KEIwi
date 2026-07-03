@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getFleetStatus } from "@/lib/status";
 import { getFleetCapacity } from "@/lib/capacity";
 import { FleetStrip } from "@/components/fleet/fleet-strip";
@@ -30,9 +29,11 @@ export default async function OverviewPage({
       )
     : undefined;
 
+  // 콘텐츠 우선(관제 밀도): 상단 = 얇은 노드 스트립, 아래 = Grafana 임베드가 화면 대부분.
+  // 섹션 헤더행("플릿 상태"/"메트릭")은 제거 — 요약·추천·선택 안내는 FleetStrip 툴바가 흡수.
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex flex-col gap-1">
         <Breadcrumb />
         <PageHeader title="플릿 Overview" />
       </div>
@@ -40,43 +41,19 @@ export default async function OverviewPage({
         nodes={nodes}
         capacity={capacity}
         selectedNodeId={selectedNode?.id}
+        selectedNode={selectedNode ?? undefined}
       />
 
       <section
         aria-label="메트릭 대시보드"
         className="flex min-h-0 flex-1 flex-col"
       >
-        <header className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold tracking-tight text-ink">
-            메트릭
-          </h2>
-          {selectedNode ? (
-            <p className="text-xs text-ink-muted">
-              <span className="tnum font-medium text-ink">
-                {selectedNode.id}
-              </span>{" "}
-              노드 메트릭 ·{" "}
-              <Link
-                href="/overview"
-                className="text-info-700 underline underline-offset-2"
-              >
-                전체 보기
-              </Link>
-            </p>
-          ) : (
-            <p className="hidden text-xs text-ink-muted sm:block">
-              노드 카드를 누르면 해당 노드 메트릭으로 이동 · Grafana 임베드
-            </p>
-          )}
-        </header>
-        <div className="min-h-0 flex-1">
-          <GrafanaEmbed
-            selectedInstance={selectedNode?.nodeInstance}
-            selectedNodeName={selectedNode?.nodeName}
-            selectedDcgm={selectedNode?.nodeDcgm}
-            servicePanel={<ServiceTable node={selectedNode?.id} />}
-          />
-        </div>
+        <GrafanaEmbed
+          selectedInstance={selectedNode?.nodeInstance}
+          selectedNodeName={selectedNode?.nodeName}
+          selectedDcgm={selectedNode?.nodeDcgm}
+          servicePanel={<ServiceTable node={selectedNode?.id} />}
+        />
       </section>
     </div>
   );

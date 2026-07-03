@@ -33,22 +33,17 @@ export function NodeCard({
         aria-hidden
         className={`absolute inset-y-0 left-0 w-1 ${ACCENT[node.status]}`}
       />
-      {/* 콤팩트 밀도(사용자 요구): 패딩·행간 축소, 위계(제목 17px > 상태 > 배지)는 유지 */}
-      <div className="p-2.5 pl-3.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="font-display text-base font-semibold tracking-tight text-ink">
+      {/* 초콤팩트 밀도(콘텐츠 우선 — 임베드가 주인공): 이름+상태 1행 + 배지 1행(~56px).
+          ip·os는 텍스트 행 대신 카드 title 툴팁으로(정보 보존). */}
+      <div className="px-2.5 py-1.5 pl-3" title={`${node.ip} · ${node.os}`}>
+        <div className="flex items-center justify-between gap-1.5">
+          <h3 className="truncate font-display text-sm font-semibold text-ink">
             {node.id}
           </h3>
-          <span className="tnum text-[11px] text-ink-subtle">{node.ip}</span>
-        </div>
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <StatusIndicator status={node.status} />
-          <span className="text-[10px] uppercase tracking-wide text-ink-muted">
-            {node.os}
-          </span>
+          <StatusIndicator status={node.status} compact />
         </div>
         {capacity ? (
-          <div className="mt-2 flex flex-wrap gap-1">
+          <div className="mt-1 flex flex-wrap gap-1">
             {gpu ? (
               <CapacityBadge
                 axis="GPU"
@@ -92,7 +87,7 @@ export function NodeCard({
   return (
     <Link
       href={href}
-      aria-label={`${node.id} 메트릭 보기`}
+      aria-label={`${node.id} (${node.ip}) 메트릭 보기`}
       aria-current={selected ? "true" : undefined}
       className={[
         base,

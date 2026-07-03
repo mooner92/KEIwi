@@ -113,37 +113,54 @@ export function GrafanaTabs({
 
   return (
     <div className="flex h-full flex-col gap-2">
-      {tabs.length > 1 && (
-        <div role="tablist" aria-label="대시보드" className="flex shrink-0 flex-wrap border-b border-border">
-          {tabs.map((t, i) => {
-            const selected = i === active;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setActive(i)}
-                className={[
-                  // KRDS .line 탭 — 하단 3px 브랜드 언더라인이 활성 신호(track = 컨테이너 border-b)
-                  "relative -mb-px px-3.5 py-2 text-sm font-semibold transition-colors",
-                  selected ? "text-brand" : "text-ink-muted hover:text-ink",
-                ].join(" ")}
-              >
-                {t.label}
-                {selected && (
-                  <span
-                    aria-hidden
-                    className="absolute inset-x-1 -bottom-px h-[3px] rounded-full bg-brand"
-                  />
-                )}
-              </button>
-            );
-          })}
+      {(tabs.length > 1 || src) && (
+        <div className="flex shrink-0 flex-wrap items-center border-b border-border">
+          {/* 링크는 tablist 밖이 정석 — role은 탭 버튼 wrapper에만 부여(접근성) */}
+          {tabs.length > 1 && (
+            <div role="tablist" aria-label="대시보드" className="flex flex-wrap">
+              {tabs.map((t, i) => {
+                const selected = i === active;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setActive(i)}
+                    className={[
+                      // KRDS .line 탭 — 하단 3px 브랜드 언더라인이 활성 신호(track = 컨테이너 border-b)
+                      "relative -mb-px px-3.5 py-2 text-sm font-semibold transition-colors",
+                      selected ? "text-brand" : "text-ink-muted hover:text-ink",
+                    ].join(" ")}
+                  >
+                    {t.label}
+                    {selected && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-x-1 -bottom-px h-[3px] rounded-full bg-brand"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {/* 하단 안내행을 탭 행 우측으로 흡수(세로 공간 절약) — 인증 힌트는 title로 보존 */}
+          {src ? (
+            <a
+              href={src}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="대시보드가 비어 보이면 새 탭에서 여세요 — 인증이 필요할 수 있습니다"
+              className="ml-auto pb-1 text-xs text-info-700 underline underline-offset-2"
+            >
+              새 탭에서 열기 ↗
+            </a>
+          ) : null}
         </div>
       )}
       {onModel ? (
-        <p className="shrink-0 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-ink-muted">
+        <p className="shrink-0 rounded-md border border-border bg-surface-2 px-3 py-1 text-xs text-ink-muted">
           이 뷰는 <span className="font-medium text-ink">플릿 전체</span>입니다 — 노드 선택과
           무관하게, 현재 모델이 구동 중인 노드만 표시됩니다.
         </p>
@@ -151,27 +168,13 @@ export function GrafanaTabs({
       {onService ? (
         servicePanel
       ) : (
-        <>
-          <iframe
-            key={src}
-            src={src}
-            title={`Grafana — ${cur?.label ?? ""}`}
-            loading="lazy"
-            className="min-h-[240px] w-full flex-1 rounded-lg border border-border bg-surface"
-          />
-          <p className="text-right text-xs text-ink-muted">
-            대시보드가 비어 보이면{" "}
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-info-700 underline underline-offset-2"
-            >
-              새 탭에서 열기
-            </a>{" "}
-            — 인증이 필요할 수 있습니다.
-          </p>
-        </>
+        <iframe
+          key={src}
+          src={src}
+          title={`Grafana — ${cur?.label ?? ""}`}
+          loading="lazy"
+          className="min-h-[240px] w-full flex-1 rounded-lg border border-border bg-surface"
+        />
       )}
     </div>
   );

@@ -29,7 +29,7 @@ export function CapacityBadge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-sm px-1.5 py-px text-[11px] font-medium ${v.bg} ${v.text}`}
+      className={`inline-flex items-center gap-1 rounded-sm px-1 py-px text-[10px] font-medium ${v.bg} ${v.text}`}
     >
       <span className="opacity-70">{axis}</span>
       <span>{v.label}</span>
