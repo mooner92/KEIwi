@@ -34,7 +34,21 @@ last_seen: 2026-07-03
    - SSH 포트 다르면 그룹 `:vars`의 `ansible_port` 확인.
 
 ### 2.2 메트릭 평면 — node-exporter/DCGM (사람)
-1. **대상 노드에 익스포터 설치**: `node-exporter`(우분투 `sudo apt install prometheus-node-exporter` → `:9100`), GPU면 `dcgm-exporter`(`:9400`).
+1. **대상 노드에 익스포터 설치**: `node-exporter`(우분투 `sudo apt install prometheus-node-exporter` → `:9100`), GPU면 `dcgm-exporter`(`:9400`) — 플릿 표준(data03·data04 확립, 2026-07-03):
+   ```bash
+   # ① NVIDIA 드라이버 — 플릿 표준 535 계열(data04=535.309.01과 정합)
+   sudo apt update && sudo apt install -y nvidia-driver-535-server && sudo reboot
+   nvidia-smi                                    # 재부팅 후 GPU 인식 확인
+   # ② docker + NVIDIA container toolkit
+   sudo apt install -y docker.io
+   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+   curl -sL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+   sudo apt update && sudo apt install -y nvidia-container-toolkit
+   sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
+   # ③ dcgm-exporter — data04와 동일 설정
+   sudo docker run -d --name dcgm-exporter --restart unless-stopped --gpus all -p 9400:9400 nvidia/dcgm-exporter:latest
+   curl -s localhost:9400/metrics | head -3      # DCGM_FI_* 나오면 OK
+   ```
 2. **.105에서 도달 불가하면 SSH 터널**: `infra/monitoring/keiwi-tunnel-data04.service`를 복제 → 포워드 포트를 노드별로 변경(예 data04=9104/9404, 다음 노드=9105/9405), `ssh -p <port> <user>@<ip>`로 `-L 172.18.0.1:<lport>:localhost:9100`(+ GPU면 :9400). `sudo cp` → `systemctl enable --now keiwi-tunnel-dataNN`.
 3. **ufw**: `.105`에서 docker bridge가 터널 포트에 닿게 `sudo ufw allow from 172.18.0.0/16 to any port <lport> proto tcp`.
 4. **Prometheus 타깃**(레포 `infra/monitoring/prometheus.yml`): 해당 job `static_configs`에 타깃 추가하되 **`labels.instance`를 `docs/inventory.yaml`의 exporters 값과 정확히 일치**시킨다(콘솔이 `up{instance}`를 그 값과 정확 매칭 — 불일치 시 조용히 no-data). 예:

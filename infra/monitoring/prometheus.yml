@@ -34,6 +34,10 @@ scrape_configs:
       - targets: ["172.18.0.1:9837"]
         labels:
           node: "data04"
+      # data03 — 직접 스크랩(2026-07-03 GPU 온보딩)
+      - targets: ["192.168.1.103:9836"]
+        labels:
+          node: "data03"
 
   # 리스닝 포트↔프로세스 익스포터(:9986). 서비스 맵 v2. node 라벨로 노드 구분.
   - job_name: "port-exporter"
@@ -73,6 +77,12 @@ scrape_configs:
       - targets: ["172.18.0.1:9404"]
         labels:
           instance: "192.168.1.104:9400"
+      # data03 GPU(Quadro RTX 6000 x2) — 직접 스크랩(2026-07-03). node 라벨을 스크랩단에서
+      # 부여(대시보드 label_replace의 IP 하드코딩은 104/105 레거시 — 신규 노드는 여기서 해결).
+      - targets: ["192.168.1.103:9400"]
+        labels:
+          instance: "192.168.1.103:9400"
+          node: "data03"
 
   # vLLM 추론 서버 메트릭 — 모델 워크로드(요청/토큰/지연/KV캐시).
   # data05 호스트의 vLLM 포트(0.0.0.0 바인딩)를 도커 브리지 게이트웨이로 스크랩.

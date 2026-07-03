@@ -29,9 +29,10 @@ nodes:
     hostname: "datalx03"          # node_uname_info nodename 확인(2026-07-03)
     os: ubuntu
     role: target
-    gpu: null
+    gpu: "Quadro RTX 6000 x2"    # lspci TU102GL x2 확인(2026-07-03) — 드라이버 설치 후 dcgm 활성
     exporters:
       node: "192.168.1.103:9100"
+      dcgm: "192.168.1.103:9400"   # 직접 스크랩(터널 불필요) — data03 ufw .105→9400 허용
 
   - id: data04
     ip: 192.168.1.104
