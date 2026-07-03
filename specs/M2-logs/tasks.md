@@ -54,7 +54,7 @@
 - [x] T084 문서 — ADR-0011 + 런북 + README §6·7·8 + memory `m2-logs-live`
 
 ## 백로그
-- [ ] B01 data01·02·03 SSH 터널/접근 준비 후 Filebeat 확장
+- [ ] B01 data01·02 접근 준비 후 Filebeat 확장 — data03은 완료(2026-07-03 온보딩, 직접 스크랩 + filebeat 가동)
 - [ ] B02 M1 exporter(node/dcgm)도 Ansible role로 흡수(수동→코드)
 - [ ] B03 메트릭↔로그 시간축 연계(드릴다운) · GPU(DCGM)↔서비스 로그 상관(P1)
 - [ ] B04 대화형 워크로드 유닛화(jupyter@.service·krun) → 사전에 notebook/simulation 키 추가(P1, 게이트 통과 시)

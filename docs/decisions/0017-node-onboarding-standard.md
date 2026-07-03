@@ -34,3 +34,11 @@
 - `docs/runbooks/node-onboarding.md`(추가/삭제/변경 매뉴얼) + `infra/ansible/roles/gpu-model-exporter/`(신설 role) + `playbooks/agents.yml`(에이전트 적용) + `inventory.ini` `[gpu]` 그룹.
 - **A(즉시 효과)**: data04에 gpu-model-exporter를 role로 배포 → 모델 탭에 data04 모델(Qwen 14B) 노출(B04 해소). 절차는 런북 §"GPU 모델 익스포터 추가".
 - 한계/후속(백로그): node-exporter·dcgm-exporter role화, inventory 동적 어댑터, 윈도우(data02) winlogbeat role, gpu_model_* 메트릭에 node 라벨 + 모델 대시보드 노드 변수.
+
+## 개정 — 2026-07-03 (data03 실전 적용)
+
+data03 온보딩(계정 mooner92, sshd :764, GPU Quadro RTX 6000×2)으로 본 표준을 실전 검증하고 다음을 개정했다. 상세 절차는 [런북](../runbooks/node-onboarding.md).
+
+1. **직접 스크랩 경로 추가**: 같은 서브넷 + 대상 ufw에서 `.105` 발신 허용 가능이면 SSH 터널 없이 **직접 스크랩 우선**(data03 — ufw로 9100/9400/9836/9986 허용). 터널은 도달 불가 시만(data04). 런북 §2.2.
+2. **sudo NOPASSWD 표준화**: `/etc/sudoers.d/90-keiwi-ansible` **전 노드 적용** → ansible `-K` 폐지. 신규 노드는 원격 원라이너(`ssh -t … sudo tee + visudo -cf`) 1회 — 런북 §1·부록.
+3. **GPU 절차 구체화**: 드라이버 535.309.01 → docker.io+nvidia-container-toolkit → dcgm-exporter 컨테이너(`--restart unless-stopped --gpus all`) 표준 블록 확립(data03·04). 노드 구분 `node` 라벨은 **Prometheus 스크랩단에서 부여**(대시보드 `label_replace` IP 하드코딩은 data04/05 레거시). 런북 §2.2·§3.

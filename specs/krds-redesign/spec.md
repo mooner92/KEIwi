@@ -1,6 +1,6 @@
 # KRDS 리디자인 — Spec (WHAT + WHY)
 
-- 상태: 진행 중 (Phase 0–2 완료, 3–5 잔여 — 진행 상황은 [tasks.md](./tasks.md))
+- 상태: 진행 중 (Phase 0–2 완료·배포됨, Phase 4 대부분 완료, 3·5 잔여 — 진행 상황은 [tasks.md](./tasks.md). 후속 크래프트는 [../design/07-changelog.md](../design/07-changelog.md))
 - 날짜: 2026-06-27
 - 권위: 이 spec은 [`Constitution.md`](../../Constitution.md)에 종속된다. 충돌 시 헌장이 이긴다.
 - 원칙: **Spec이 진실의 원천**(헌장 §7). 행동 변경은 코드가 아니라 이 문서를 먼저 고친다.

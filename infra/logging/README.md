@@ -10,7 +10,7 @@
 
 ```mermaid
 flowchart LR
-  FB["각 서버(data04·05)<br/>Filebeat(journald)"] -->|":5044 beats"| LS["data05 Logstash<br/>정규화 + service→category"]
+  FB["각 서버(data03·04·05)<br/>Filebeat(journald)"] -->|":5044 beats"| LS["data05 Logstash<br/>정규화 + service→category"]
   LS --> OS[("OpenSearch<br/>keiwi-logs-* · ISM 365d")]
   OS --> G["Grafana<br/>(grafana-opensearch-datasource)"]
   G -->|"iframe"| C["콘솔 /logs"]
@@ -18,14 +18,15 @@ flowchart LR
 
 | 항목 | 값 |
 | --- | --- |
+| 수집 대상 | **data03·04·05**(Filebeat 가동, `fleet_node`=data03\|data04\|data05 — data03은 2026-07-03 온보딩). 수신은 data05 ufw가 `192.168.1.0/24 → 5044` 허용(서브넷 전체라 노드 추가 시 규칙 변경 불필요). data01(미접근)·data02(Windows — winlogbeat 백로그 B02)는 제외 |
 | 저장 | **OpenSearch**(ES 7.10 호환, Apache-2.0) — `docker-compose.yml` 컨테이너 `keiwi-opensearch`·`keiwi-logstash` |
 | 데이터소스 | Grafana **`grafana-opensearch-datasource`**(내장 ES 플러그인 v13 파손으로 전환, uid `keiwi-logs-es`) |
 | 표준 필드(계약) | `@timestamp · fleet_node · log_level · service · message · host_name` + `category · log_level_source`(ADR-0010) |
 | 보존 | ISM **365일 후 delete**, 신규 `keiwi-logs-*`에 자동 부착 |
 | 대시보드 | `infra/monitoring/dashboards/logs.json`(uid `keiwi-logs`, 신호 우선) |
 
-> [!NOTE] Grafana provisioning은 docker cp
-> 라이브 Grafana가 provisioning 디렉터리를 바인드하지 않아, 데이터소스·대시보드는 `docker cp` 주입 후 `docker restart grafana`. **컨테이너 재생성 시 소실**(영구화는 라이브 compose에 바인드 마운트 — 별도 작업).
+> [!NOTE] Grafana provisioning은 바인드 마운트 (표준, 2026-07-02~)
+> 데이터소스·대시보드는 호스트 `/data/monitoring/grafana/provisioning`을 컨테이너에 바인드해 프로비저닝합니다. `docker cp` 주입은 컨테이너 재생성 시 소실되므로 **금지**(소실 사고 실측) — 절차는 [`infra/monitoring`](../monitoring/README.md).
 
 ---
 
@@ -135,7 +136,7 @@ curl -s 'localhost:9200/_plugins/_ism/explain/keiwi-logs-*?pretty'      # 부착
 - **레벨 변수 기본값 = `error,warn`** — info 홍수 자동 제외(드롭다운에서 All/info 추가 가능).
 - 레이아웃: ① 에러 우선 stat(노이즈 제외) ② 로그 추세 + 상위 서비스 ③ 로그(메인, `dedupStrategy:signature`) ④ 전체 로그(접힌 행, 진단용).
 - 변수: `node`(fleet_node) · `category` · `level`.
-- 적용: `docker cp logs.json grafana:/etc/grafana/provisioning/dashboards/keiwi/logs.json && docker restart grafana`.
+- 적용: `sudo cp infra/monitoring/dashboards/logs.json /data/monitoring/grafana/provisioning/dashboards/keiwi/` — 바인드 마운트라 30초 내 자동 반영(재시작 불필요, [infra/monitoring](../monitoring/README.md) 프로비저닝 표준).
 
 ---
 

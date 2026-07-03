@@ -1,6 +1,6 @@
 # 로그 어시스턴트 (온프레미스 RAG) — Spec (WHAT + WHY)
 
-- 상태: 초안 (착수 2026-06-29)
+- 상태: v1 라이브 (`/incidents` + `/logs` 워크벤치 통합 — 잔여는 [tasks.md](./tasks.md) Phase 8)
 - 권위: [`Constitution.md`](../../Constitution.md) 종속. 충돌 시 헌장이 이긴다.
 - 원칙: **Spec이 진실의 원천**(헌장 §7). 기술스택·프롬프트·검색식은 → [plan.md](./plan.md).
 - 로드맵: 새 마일스톤이 아니라 **M1/M2 고도화**([ADR-0012](../../docs/decisions/0012-roadmap-m3-m4-pivot.md))로 묶는다. 보류된 M4(장애)·M5(알림)를 **무겁지 않게 흡수**(엔터프라이즈 incident board 안 만듦).

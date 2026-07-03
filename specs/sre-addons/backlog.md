@@ -7,7 +7,7 @@
 ## Tier 1 — 즉시 착수 후보 (S, 기존 스택에 규칙/설정만)
 | # | 항목 | 노력 | 근거 |
 |---|------|:---:|------|
-| 1 | **DCGM 헬스 필드 확장**(custom metrics csv: XID·ECC SBE/DBE·remapped-rows·thermal/power violation·PCIe replay·tensor/DRAM active) | S | dcgm-exporter가 data04/05에 이미 라이브. csv 하나 마운트+재시작. 아래 알림·유휴탐지의 데이터 전제 |
+| 1 | **DCGM 헬스 필드 확장**(custom metrics csv: XID·ECC SBE/DBE·remapped-rows·thermal/power violation·PCIe replay·tensor/DRAM active) | S | dcgm-exporter가 data03/04/05에 이미 라이브. csv 하나 마운트+재시작. 아래 알림·유휴탐지의 데이터 전제 |
 | 2 | **DCGM GPU 헬스 알림**(XID>0·remapped>0·DBE>0·thermal throttle 지속·타깃 down) | S | 신규 수집 0, Prometheus 규칙만. GPU=플릿 핵심자산, vLLM/RAG 중단 전 조기경보. #1 위에 얹힘 |
 | 3 | **blackbox_exporter 합성 모니터링**(:9115 HTTP/TCP/ICMP + 인증서 만료) | S | "메트릭은 초록인데 서비스는 죽은" 구멍. 프로브: 콘솔:3105·Grafana·OpenSearch:9200·Logstash:5044·vLLM /health·터널. 컨테이너 1개 |
 | 4 | **무비난 포스트모템 템플릿**(docs/, 요약·타임라인·근본원인·조치항목) | S | 1인 SRE엔 무거운 툴 과함. 타임라인은 OpenSearch+Prometheus에서 구성. /incidents 어시스턴트와 연결 |
@@ -19,7 +19,7 @@
 | 6 | **Alertmanager**(라우팅·중복제거·억제·침묵) + 온프렘 알림 브릿지(ntfy/Gotify self-host, 외부 필요시 Telegram만 예외) | M | 현재 알림 발화 계층 0(M5). Prometheus 옆 컨테이너 1개, k8s 불필요. egress 0 위해 클라우드 대신 사내 self-host. 정비 중 silence, 노드 down시 하위 GPU/포트 알림 inhibition |
 | 7 | **SLO/error budget as code**(Sloth CLI → 규칙파일 커밋, 또는 Pyrra 파일시스템 모드) | M | SLI=인프라 가용성(노드 up 비율·scrape 성공률·GPU 정상·로그 인입 신선도). 다중창 다중번레이트 알림 자동생성. Grafana에 SLO 대시보드 프로비저닝(§I-2) |
 | 8 | **사용자/프로세스별 GPU 귀속**(nvidia-smi --query-compute-apps + /proc uid→user, Ansible role) | M | 스케줄러 없어 "누가 쓰는지" 안 보임. 유휴탐지·showback·충돌해결의 공통 기반. 읽기전용(§11). gpu-model-exporter 확장으로도 가능 |
-| 9 | **유휴/좀비 GPU 탐지 + 넛지**(고VRAM·저util 지속 → 알림, 회수는 사람) | M | 4장 공유 플릿 최대 낭비원. gpu-zombie-hunter 패턴(N회 샘플링 오탐방지). 자동 kill 금지(§11), 넛지만. #8 의존 |
+| 9 | **유휴/좀비 GPU 탐지 + 넛지**(고VRAM·저util 지속 → 알림, 회수는 사람) | M | 6장 공유 플릿 최대 낭비원. gpu-zombie-hunter 패턴(N회 샘플링 오탐방지). 자동 kill 금지(§11), 넛지만. #8 의존 |
 | 10 | **vLLM 추론 SLO**(TTFT·ITL·num_requests_waiting·kv_cache·preemption + 멀티 burn-rate) | M | vLLM 잡 이미 존재(8003 Qwen3-Coder-30B). model-workload.json에 패널+recording rule. 어시스턴트 체감품질을 SLO로 |
 | 11 | **런북 자동화**(모든 알림에 runbook_url 애너테이션, Ansible playbook 준비·사람 실행) | M | docs/runbooks + Ansible role 이미 존재. 알림→런북→RAG 매칭 고리 완성. toil 직접 감소 |
 | 12 | **GPU시간 showback 리포트**(recording rule user별 GPU-hours + Grafana 주간 랭킹) | M | 과금 아닌 가시성. 공유자원 분쟁 근거. #8 의존 |

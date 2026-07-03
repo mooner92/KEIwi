@@ -24,8 +24,10 @@
 | [M2-logs](../specs/M2-logs/spec.md) | 통합 로그(OpenSearch·신호 우선) | ✅ 라이브 |
 | [M3-resources](../specs/M3-resources/spec.md) | 여유 리소스 → Overview 흡수 | 재배치 |
 | [assistant](../specs/assistant/spec.md) | 로그 어시스턴트(로컬 vLLM RAG) | ✅ 라이브 |
+| [logs-assistant](../specs/logs-assistant/spec.md) | 로그 워크벤치(/logs 임베드+어시스턴트 드로어) | ✅ 라이브 |
 | [service-map](../specs/service-map/spec.md) | 노드별 서비스/모델/포트 맵 | 🔄 구현 |
 | [krds-redesign](../specs/krds-redesign/spec.md) | KRDS 리스킨·디자인 시스템 | 🔄 |
+| [sre-addons](../specs/sre-addons/backlog.md) | SRE 추가 기능 백로그(리서치 — 착수는 선택 후) | 후보 |
 
 ## 📑 결정 기록 (ADR — `./decisions/`)
 
@@ -61,7 +63,8 @@
 | 문서 | 무엇 |
 | --- | --- |
 | [design-system/spec/](../design-system/spec/principles.md) | KRDS 토큰·색·shape·타이포 규약(ADR 0006/0007) |
-| [testing.md](./testing.md) | 단위·시각 QA·기능 테스트·격리 빌드 절차 |
+| [specs/design/](../specs/design/README.md) | KRDS 기반 **이식형 디자인 스펙**(디자인 SoT — 타 프로젝트 복사용) |
+| [testing.md](./testing.md) | 단위·시각 QA·기능 테스트(`logs-workbench-test.mjs`·`embed-host-test.mjs`)·격리 빌드 절차 |
 | [prompts/M1-console.md](./prompts/M1-console.md) | 마일스톤 빌드 프롬프트 |
 
 ---

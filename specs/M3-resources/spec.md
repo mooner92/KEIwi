@@ -1,6 +1,6 @@
 # M3 여유 리소스 (Overview 통합) — Spec (WHAT + WHY)
 
-- 상태: 초안 (착수 2026-06-29)
+- 상태: 구현 완료·라이브 (Overview 흡수, ADR-0012 — 잔여는 [tasks.md](./tasks.md) Phase 5 일부)
 - 권위: 이 spec은 [`Constitution.md`](../../Constitution.md)에 종속된다. 충돌 시 헌장이 이긴다.
 - 원칙: **Spec이 진실의 원천**(헌장 §7). 기술스택·임계·메트릭 선택은 여기서 다루지 않는다 → [plan.md](./plan.md).
 - 로드맵: M3는 별도 탭이 아니라 **Overview에 흡수**([ADR-0012](../../docs/decisions/0012-roadmap-m3-m4-pivot.md)). 새 수집 없이 **M1 메트릭 재사용**.

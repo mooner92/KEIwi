@@ -1,7 +1,7 @@
 # 서비스 맵 — Tasks
 
 - 권위: [spec.md](./spec.md)/[plan.md](./plan.md). `[x]`=완료 · `[ ]`=잔여 · `[server]`=사람 적용(§11).
-- 상태: 설계 완료(spec/plan), 구현 대기(사용자 IA 합의 후 착수).
+- 상태: v2.1 라이브 — Phase 0~6 완료(Playwright 검증, 2026-07-02). 잔여는 백로그(B02~B04).
 
 ## Phase 0 — 설계 ✅
 - [x] T000 spec.md (WHAT·WHY·수용기준·범위 v1/v2)

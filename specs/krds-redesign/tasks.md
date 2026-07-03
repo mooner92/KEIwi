@@ -32,7 +32,7 @@
 - [x] T034 layout.tsx(토큰 CSS import·FOUC inline script·suppressHydrationWarning)
 - [x] T035 theme-toggle.tsx(useSyncExternalStore·쿠키) + top-bar 배치
 - [x] T036 verify 통과 + Playwright 라이트/다크 한 화면
-- [ ] T037 **배포** — `sudo systemctl restart keiwi-console`(사람, §11)
+- [x] T037 **배포** — 라이브 반영됨(이후 반복 배포, §11)
 
 ## Phase 3 — 컴포넌트 구현 ⬜
 - [ ] T040 묶음 A 구현(+Storybook/스토리, a11y)

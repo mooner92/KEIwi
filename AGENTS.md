@@ -19,10 +19,11 @@
 | 🛠️ `docs/runbooks/` | 운영 런북 — `node-onboarding` · `rsyslog-omfile-flood` |
 | ✍️ `docs/prompts/` | 마일스톤별 빌드 프롬프트 |
 | ✅ `docs/testing.md` | 시각 QA(Playwright) 절차 |
-| 📋 `specs/<name>/` | SDD 삼분(`spec`·`plan`·`tasks`[·`research`]) — M1-console·M2-logs·M3-resources·assistant·service-map·krds-redesign |
+| 📋 `specs/<name>/` | SDD 삼분(`spec`·`plan`·`tasks`[·`research`]) — M1-console·M2-logs·M3-resources·assistant·logs-assistant(로그 워크벤치)·service-map·krds-redesign·sre-addons(백로그) |
+| 🎨 `specs/design/` | **이식형 디자인 시스템 스펙**(KRDS 기반, 디자인 SoT — 다른 프로젝트 복사 가능) |
 | 🎨 `design-system/spec/` | KRDS 토큰·색·shape·타이포 규약(ADR 0006/0007) |
-| 🤖 `infra/` | 관제 스택 — 레포는 **권장본 생성만**, 라이브 적용은 사람(§11·§12). `monitoring/`·`logging/`·`ansible/` |
-| 🖥️ `apps/console/` | KEIwi 콘솔 (Next.js 16 · KRDS) |
+| 🤖 `infra/` | 관제 스택 — 레포는 **권장본 생성만**, 라이브 적용은 사람(§11·§12). `monitoring/`(prometheus·grafana 프로비저닝=바인드 마운트·`docker-compose.yml` 권장본·gpu-model/port-exporter·터널)·`logging/`·`ansible/` |
+| 🖥️ `apps/console/` | KEIwi 콘솔 (Next.js 16 · KRDS) — 검증 스크립트는 `scripts/`(screenshot·logs-workbench-test·embed-host-test·assistant-func-test) |
 
 ## 🔄 워크플로 (SDD)
 
@@ -37,7 +38,7 @@
 ## 🖥️ 콘솔 실행법 (`apps/console`)
 
 > [!NOTE]
-> 콘솔 명령은 `apps/console`에서 실행합니다. dev 포트는 **3105**(라이브 스택과 분리). 콘솔은 라이브로 `.next`를 서빙하므로 **`npm run build`·재시작은 사람이**(§11·§12) — 에이전트 검증은 build 제외로 돌립니다.
+> 콘솔 명령은 `apps/console`에서 실행합니다. dev 포트는 **3105**(라이브 스택과 분리). 콘솔은 라이브로 `.next`를 서빙하므로 **`npm run build`·재시작은 사람이**(§11·§12) — 에이전트 검증은 build 제외로 돌리고, 풀 빌드/기능 검증은 **격리 빌드**(git worktree + 포트 `:3199`, [docs/testing.md](./docs/testing.md))로 합니다.
 
 ```bash
 cd apps/console
@@ -46,8 +47,12 @@ cp .env.example .env.local   # 값은 직접 채움 (커밋 금지 §13)
 npm run dev                  # http://localhost:3105
 
 # 에이전트 검증(build 제외 — 라이브 .next 보호):
-npm run typecheck && npm run lint && npm run test && npm run check:no-raw-hex
+npm run typecheck && npm run lint && npm run test && npm run check:no-raw-hex && npm run check:secrets
 npm run screenshot           # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
+
+# 격리 빌드(:3199) 위 기능 테스트 (절차·전제는 docs/testing.md):
+BASE=http://127.0.0.1:3199 node scripts/logs-workbench-test.mjs   # /logs 워크벤치 AC1~AC5
+BASE=http://127.0.0.1:3199 node scripts/embed-host-test.mjs       # 임베드 host 분기(로그인 루프 회귀 가드)
 ```
 
 - 환경변수는 `src/config/env.ts`에서 zod로 한 곳에서만 검증해 읽는다.
@@ -60,7 +65,8 @@ npm run screenshot           # Playwright 시각 QA (UI 변경 시 — docs/test
 - **M1** 통합 메트릭 콘솔 — ✅ 라이브
 - **M2** 통합 로그(OpenSearch·신호우선) — ✅ 라이브
 - **M3** 여유 리소스 → Overview 흡수 · **M4** 장애추적 보류 · **M5** 에러 알림 후순위
-- 진행: 로그 어시스턴트 · 노드 온보딩 표준 · 서비스 맵(설계) · 디자인 고도화
+- 고도화 완료: 로그 워크벤치(`/logs` 어시스턴트 통합, [specs/logs-assistant](./specs/logs-assistant/spec.md)) · 노드 온보딩 표준(data03 실증, 2026-07-03) · 서비스 맵 v2.1 · 디자인 v2([specs/design](./specs/design/README.md))
+- 다음: SRE 추가 기능 백로그([specs/sre-addons](./specs/sre-addons/backlog.md)) · M5
 
 ## 📑 ADR 색인 ([`docs/decisions/`](./docs/decisions))
 

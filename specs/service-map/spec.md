@@ -1,6 +1,6 @@
 # 서비스 맵 — Spec (WHAT · WHY)
 
-- 상태: 초안(2026-06-30)
+- 상태: 구현 완료·라이브(v2.1, 2026-07-02 — 진행 상황은 [tasks.md](./tasks.md))
 - 권위: 헌장(Constitution.md) 종속 — 충돌 시 헌장 승. [docs/inventory.yaml](../../docs/inventory.yaml) SoT(§0).
 - 원칙: Spec이 진실 원천(§7). 행동 변경은 코드보다 이 문서 먼저.
 - 관련: HOW=[plan.md](./plan.md) · 작업=[tasks.md](./tasks.md) · 근거=[ADR-0017](../../docs/decisions/0017-node-onboarding-standard.md)·[ADR-0016](../../docs/decisions/0016-gpu-drilldown-dcgm.md)·[ADR-0010](../../docs/decisions/0010-log-taxonomy.md)

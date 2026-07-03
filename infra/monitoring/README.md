@@ -14,20 +14,24 @@ flowchart LR
     NE["node-exporter :9100"]
     DC["dcgm-exporter :9400"]
     GM["gpu-model-exporter :9836"]
+    PE["port-exporter :9986"]
   end
-  NE & DC & GM -->|"scrape · 직접 도달 불가 노드는 SSH 터널(764)"| P[("Prometheus<br/>data05 :9090")]
+  NE & DC & GM & PE -->|"scrape · 같은 서브넷은 직접, 도달 불가 노드만 SSH 터널(764)"| P[("Prometheus<br/>data05 :9090")]
   P --> G["Grafana"] -->|"iframe 임베드"| C["KEIwi 콘솔"]
   P -->|"up·capacity BFF"| C
 ```
 
 ## 수집 현황 (노드 × exporter)
 
-| 노드 | node :9100 | dcgm :9400 | gpu-model :9836 | 비고 |
-| --- | :---: | :---: | :---: | --- |
-| **data05** | ✅ 컨테이너 | ✅ A40×2 | ✅ | control · 스택 호스트 |
-| **data04** | ✅ apt | ✅ RTX 6000×2 | ✅(Ansible role) | SSH 터널(764) 경유 |
-| data01·03 | ⬜ | — | — | 터널 미설정 → `no-data`(설계) |
-| data02 | ⬜ windows:9182 | — | — | 미배선(백로그) |
+| 노드 | node :9100 | dcgm :9400 | gpu-model :9836 | port :9986 | 비고 |
+| --- | :---: | :---: | :---: | :---: | --- |
+| **data05** | ✅ 컨테이너 | ✅ A40×2 | ✅ | ✅ | control · 스택 호스트 |
+| **data04** | ✅ apt | ✅ RTX 6000×2 | ✅(Ansible role) | ✅ | SSH 터널(764) 경유 |
+| **data03** | ✅ | ✅ Quadro RTX 6000×2 | ✅(Ansible role) | ✅ | **직접 스크랩**(터널 불필요 — data03 ufw가 `.105 → 9100/9400/9836/9986` 허용) · 2026-07-03 온보딩 |
+| data01 | ⬜ | — | — | — | 미접근 → `no-data`(설계) |
+| data02 | ⬜ windows:9182 | — | — | — | 미배선(백로그 B02) |
+
+GPU는 총 **6장**(data03 Quadro RTX 6000×2 · data04 RTX 6000×2 · data05 A40×2), 드라이버 플릿 표준 **535.309.01**.
 
 > [!NOTE]
 > 라이브 Prometheus/Grafana/node-exporter/dcgm **스택 자체는 `/data/monitoring`(레포 밖)**에 있습니다. 이 디렉터리는 **권장본** — `prometheus.yml`·터널 유닛·대시보드·gpu-model-exporter를 버전관리하고, 사람이 라이브에 정렬합니다.
@@ -36,10 +40,10 @@ flowchart LR
 
 | 경로 | 내용 |
 | --- | --- |
-| [`prometheus.yml`](./prometheus.yml) | scrape 잡(node·dcgm·gpu-model·vllm) — `instance`/`node` 라벨을 inventory와 일치 |
-| [`keiwi-tunnel-data04.service`](./keiwi-tunnel-data04.service) | data04 exporter(:9100/9400/9836)를 .105 도커 브리지로 노출하는 SSH 터널 |
+| [`prometheus.yml`](./prometheus.yml) | scrape 잡(node·dcgm·gpu-model·port·vllm) — `instance`/`node` 라벨을 inventory와 일치. **신규 노드의 `node` 라벨은 스크랩단에서 부여**(대시보드 `label_replace` IP 하드코딩은 104/105 레거시) |
+| [`keiwi-tunnel-data04.service`](./keiwi-tunnel-data04.service) | data04 exporter(:9100/9400/9836/9986)를 .105 도커 브리지로 노출하는 SSH 터널 — 같은 서브넷에서 직접 도달되는 노드(data03)는 터널 불필요 |
 | [`gpu-model-exporter/`](./gpu-model-exporter) | 모델↔GPU↔포트 익스포터(소스+systemd) — 배포는 Ansible role([ADR-0017](../../docs/decisions/0017-node-onboarding-standard.md)) |
-| [`grafana/provisioning/`](./grafana/provisioning) | Grafana 데이터소스·대시보드 provider(docker cp 주입) |
+| [`grafana/provisioning/`](./grafana/provisioning) | Grafana 데이터소스·대시보드 provider — 호스트 `/data/monitoring/grafana/provisioning`에 두고 **바인드 마운트**(아래 프로비저닝 표준, docker cp 금지) |
 | [`dashboards/`](./dashboards) | `model-workload.json`(모델 워크로드, node 변수) 등 |
 
 ## 적용 순서 (.105에서, 사람 — §11)
@@ -47,7 +51,10 @@ flowchart LR
 > [!WARNING] 전제
 > data04 sshd는 **포트 764**. .105의 `mooner92` 공개키가 data04 `mhchoi`에 등록돼야 합니다(`ssh-copy-id -p 764 mhchoi@192.168.1.104`). ufw active면 도커 브리지(`172.18.0.0/16`)가 터널/vLLM 포트에 닿게 **포트별로** 열어야 합니다(안 열면 타깃 down/timeout).
 
-**① data04 SSH 터널** (node :9100 · dcgm :9400 · gpu-model :9836 포워드)
+> [!NOTE] data03은 터널 없이 직접 스크랩 (2026-07-03)
+> 같은 서브넷 노드는 **직접 스크랩이 우선**(터널은 도달 불가 시만). data03은 자기 ufw에서 `.105 → 9100/9400/9836/9986`만 허용하면 끝 — 아래 ①(터널)은 data04 전용이고, ②의 `prometheus.yml`에 data03 타깃(192.168.1.103)이 이미 반영돼 있습니다.
+
+**① data04 SSH 터널** (node :9100 · dcgm :9400 · gpu-model :9836 · port :9986 포워드)
 ```bash
 sudo cp infra/monitoring/keiwi-tunnel-data04.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-tunnel-data04
@@ -55,6 +62,7 @@ systemctl status keiwi-tunnel-data04        # active 확인
 sudo ufw allow from 172.18.0.0/16 to any port 9104 proto tcp   # node
 sudo ufw allow from 172.18.0.0/16 to any port 9404 proto tcp   # dcgm
 sudo ufw allow from 172.18.0.0/16 to any port 9837 proto tcp   # gpu-model(data04)
+sudo ufw allow from 172.18.0.0/16 to any port 9987 proto tcp   # port-exporter(data04)
 ```
 
 **② Prometheus 설정 반영**
@@ -72,8 +80,9 @@ sudo systemctl enable --now prometheus-node-exporter   # :9100
 > [!NOTE] GPU 모델 익스포터(:9836)는 수동이 아니라 **Ansible role**
 > ```bash
 > cd infra/ansible
-> ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K
+> ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04
 > ```
+> NOPASSWD sudo가 전 노드 표준(`/etc/sudoers.d/90-keiwi-ansible`)이라 `-K` 불필요([infra/ansible](../ansible/README.md)).
 > 상세·터널·대시보드 node 변수까지 = [`docs/runbooks/node-onboarding.md` §3](../../docs/runbooks/node-onboarding.md). ([infra/ansible](../ansible/README.md))
 
 ## 모델 워크로드 대시보드 (`dashboards/model-workload.json`)
@@ -110,8 +119,8 @@ sudo docker rm -f grafana && sudo docker-compose up -d grafana
 
 ```bash
 # up 타깃(노드별)
-curl -s 'http://localhost:9090/api/v1/query?query=up' | grep -o '192.168.1.10[45]:[0-9]*'
-#   기대: 192.168.1.104:9100/9400, 192.168.1.105:9100/9400
+curl -s 'http://localhost:9090/api/v1/query?query=up' | grep -o '192.168.1.10[345]:[0-9]*'
+#   기대: 192.168.1.103/104/105 각각 :9100/:9400 (+ gpu-model·port 타깃)
 # 모델↔GPU (node 라벨)
 curl -s localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info{node="data04"}'
 ```
@@ -134,6 +143,9 @@ sudo docker-compose rm -sf grafana && sudo docker-compose up -d grafana
 # ③ 확인 — 익명 조회 200:
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/dashboards/home   # 200이면 OK(익명)
 ```
+
+> [!WARNING] 알려진 이슈 — 시스템 대시보드(uid `rYdddlPWk`) 익명 403
+> 이 대시보드만 익명 뷰어에서 403(대시보드 개별 권한). Grafana UI에서 해당 대시보드 권한에 `Viewer: View` 추가가 필요 — 적용 대기(2026-07-03 기준).
 
 ## 노드 추가/삭제
 

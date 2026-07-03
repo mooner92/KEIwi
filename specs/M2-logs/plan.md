@@ -1,6 +1,6 @@
 # M2 통합 로그 — Plan (HOW)
 
-- 상태: 진행 중
+- 상태: 완료(라이브 — 잔여는 [tasks.md](./tasks.md) 백로그)
 - 권위: [spec.md](./spec.md) 종속. 헌장 우선.
 - 관련: 작업=[tasks.md](./tasks.md) · 근거=[research.md](./research.md) · 결정=[ADR-0008](../../docs/decisions/0008-log-pipeline.md)(로그 파이프라인)/[ADR-0009](../../docs/decisions/0009-ansible-config-mgmt.md)(Ansible)
 

@@ -2,13 +2,13 @@
 
 > **KEIwi**("키위")는 KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·로깅·진단**하고, *어느 서버가 여유 있는지*를 판단해 GPU 작업 배치를 돕는 **온프레미스 관제 시스템**입니다.
 >
-> 단일 운영 콘솔은 **Grafana**이고, KEIwi 콘솔(**Next.js 16**)은 그 위에 얹힌 **브랜드 front door** — Grafana를 iframe으로 임베드하고, 플릿 상태·여유 리소스·로그 어시스턴트 같은 **커스텀 뷰만** 더합니다(대시보드를 재구현하지 않습니다). 메트릭은 **Prometheus**(node-exporter·DCGM·gpu-model-exporter), 로그는 **Filebeat → Logstash → OpenSearch**로 모으고, 로그 어시스턴트는 **사내 GPU의 로컬 vLLM**으로 답합니다(외부 전송 0). 모든 화면은 **Cloudflare Zero Trust** 뒤(사내 전용)에 둡니다.
+> 단일 운영 콘솔은 **Grafana**이고, KEIwi 콘솔(**Next.js 16**)은 그 위에 얹힌 **브랜드 front door** — Grafana를 iframe으로 임베드하고, 플릿 상태·여유 리소스·로그 어시스턴트 같은 **커스텀 뷰만** 더합니다(대시보드를 재구현하지 않습니다). 메트릭은 **Prometheus**(node-exporter·DCGM·gpu-model-exporter·port-exporter), 로그는 **Filebeat → Logstash → OpenSearch**로 모으고, 로그 어시스턴트는 **사내 GPU의 로컬 vLLM**으로 답합니다(외부 전송 0). 모든 화면은 **Cloudflare Zero Trust** 뒤(사내 전용)에 둡니다.
 
 | 항목 | 상태 |
 | --- | --- |
-| 상태 | 🟢 **M1 메트릭 · M2 로그 라이브** — 콘솔(Overview·Logs·Resources·어시스턴트) 가동, 플릿 상태/용량 판정/로그 신호·RAG 진단 검증 완료 |
-| 플릿 | 🖥️ 5노드 `data01~05`(`192.168.1.101~105`) · control=`data05` · GPU: data04 Quadro RTX 6000×2 · data05 A40×2 |
-| 메트릭 | Prometheus + node-exporter(:9100) · DCGM(:9400) · **gpu-model-exporter(:9836, 모델↔GPU)** |
+| 상태 | 🟢 **M1 메트릭 · M2 로그(워크벤치) 라이브** — 콘솔(Overview·Logs 워크벤치·Resources·어시스턴트) 가동, 플릿 상태/용량 판정/신호→인플레이스 RAG 진단 검증 완료 |
+| 플릿 | 🖥️ 5노드 `data01~05`(`192.168.1.101~105`) · control=`data05` · **3 정상**(data03·04·05 — data03은 2026-07-03 온보딩) · 2 데이터 없음(data01 미접근 · data02 Windows 백로그) · **GPU 6장**: data03·04 Quadro RTX 6000×2씩 + data05 A40×2 (드라이버 표준 535) |
+| 메트릭 | Prometheus + node-exporter(:9100) · DCGM(:9400) · **gpu-model-exporter(:9836, 모델↔GPU)** · port-exporter(:9986, 포트↔프로세스) |
 | 로그 | Filebeat(journald) → Logstash(:5044) → **OpenSearch `keiwi-logs-*`**(365d 보존) → Grafana |
 | 어시스턴트 | 🤖 로컬 vLLM(Qwen3-Coder-30B) + BM25 RAG · **읽기 전용 · egress 0 · 서버검증 인용** |
 | 디자인 | KRDS 토큰(Pretendard GOV · 라이트/다크) · Tailwind v4 |
@@ -36,8 +36,8 @@
 
 ```mermaid
 flowchart TD
-    Fleet["🖥️ 연구 서버 플릿 data01–05"]
-    Fleet -->|"node-exporter · DCGM · gpu-model-exporter"| Prom["Prometheus (data05)"]
+    Fleet["🖥️ 연구 서버 플릿 data01–05<br/>(정상 3: data03·04·05 · GPU 6장)"]
+    Fleet -->|"node-exporter · DCGM · gpu-model·port-exporter<br/>직접 스크랩(data03·05) / SSH 터널(data04)"| Prom["Prometheus (data05)"]
     Fleet -->|"Filebeat journald → :5044"| LS["Logstash (data05)"]
     LS --> OS[("OpenSearch<br/>keiwi-logs-*")]
     Prom --> Graf["Grafana — 단일 운영 콘솔"]
@@ -90,13 +90,16 @@ KEIwi/
 │  ├─ prompts/            #   ✍️ 마일스톤 빌드 프롬프트
 │  └─ testing.md          #   ✅ 시각 QA(Playwright) 절차
 ├─ design-system/         # 🎨 KRDS 토큰·스펙(principles·color·shape·layout·typography)
-├─ specs/                 # 📋 SDD — M1-console · M2-logs · M3-resources · assistant · service-map · krds-redesign
+├─ specs/                 # 📋 SDD — M1-console · M2-logs · M3-resources · assistant · logs-assistant(워크벤치)
+│                         #    · service-map · krds-redesign · design(이식형 디자인 스펙) · sre-addons(백로그)
 ├─ infra/
-│  ├─ monitoring/         #   📈 Prometheus·Grafana 프로비저닝·대시보드·gpu-model-exporter·SSH 터널
+│  ├─ monitoring/         #   📈 Prometheus·Grafana 프로비저닝(바인드 마운트)·대시보드·compose 권장본
+│  │                      #      ·gpu-model/port-exporter·SSH 터널(keiwi-tunnel-data04)
 │  ├─ logging/            #   📜 OpenSearch+Logstash compose·파이프라인·Filebeat 표준
-│  └─ ansible/            #   🤖 에이전트 배포 role(filebeat · gpu-model-exporter) + 인벤토리
+│  └─ ansible/            #   🤖 에이전트 배포 role(filebeat · gpu-model-exporter · port-exporter) + 인벤토리
 └─ apps/
-   └─ console/            # 🖥️ KEIwi 콘솔 (Next.js 16 · KRDS) — Overview/Logs/Resources/어시스턴트
+   └─ console/            # 🖥️ KEIwi 콘솔 (Next.js 16 · KRDS) — Overview/Logs 워크벤치/Resources/어시스턴트
+                          #    검증 스크립트: scripts/(screenshot·logs-workbench-test·embed-host-test)
 ```
 
 > [!TIP]
@@ -112,9 +115,10 @@ flowchart LR
       NE["node-exporter :9100"]
       DC["dcgm-exporter :9400"]
       GM["gpu-model-exporter :9836"]
+      PE["port-exporter :9986"]
       FB["Filebeat (journald)"]
     end
-    NE & DC & GM -->|"scrape / SSH 터널(764)"| Prom[("Prometheus<br/>data05")]
+    NE & DC & GM & PE -->|"직접 스크랩(data03·05)<br/>SSH 터널(data04, :764)"| Prom[("Prometheus<br/>data05")]
     FB -->|":5044 beats"| LS["Logstash"] -->|"정규화 + service→category"| OS[("OpenSearch<br/>keiwi-logs-* · 365d")]
     Prom --> G["Grafana"]
     OS --> G
@@ -122,7 +126,7 @@ flowchart LR
     Prom & OS -->|"BFF"| C
 ```
 
-- **메트릭:** Prometheus가 각 노드의 exporter를 scrape(직접 도달 불가한 노드는 `data05`의 SSH 터널 경유). `instance` 라벨을 inventory와 정확히 일치시켜 콘솔이 up/down/no-data를 매칭합니다.
+- **메트릭:** Prometheus가 각 노드의 exporter를 scrape — **같은 서브넷에서 도달 가능하면 직접 스크랩 우선**(data03·05), 도달 불가한 노드만 SSH 터널 경유(data04 — `keiwi-tunnel-data04`, 로컬 9104/9404/9837/9987). 신규 노드의 `node` 라벨은 Prometheus 스크랩단에서 부여하고, `instance` 라벨을 inventory와 정확히 일치시켜 콘솔이 up/down/no-data를 매칭합니다.
 - **로그:** Filebeat(journald) → Logstash가 `fleet_node`/`service`/`log_level` 정규화 + `service→category` 분류([ADR-0010](./docs/decisions/0010-log-taxonomy.md)) → OpenSearch `keiwi-logs-*`(ISM 365d 보존) → Grafana(신호 우선 대시보드, [ADR-0011](./docs/decisions/0011-signal-first-log-ux.md)).
 - **어시스턴트:** 신호(또는 자유 질의)를 OpenSearch에서 검색 → 번호 근거로 프롬프트 구성 → **로컬 vLLM**이 인용과 함께 진단([ADR-0014](./docs/decisions/0014-log-assistant.md)·[0015](./docs/decisions/0015-assistant-exploratory-query.md)).
 
@@ -142,7 +146,7 @@ flowchart LR
 | 헌장 | 불변 규칙·권위 순서·SDD·안전(§11/§12/§13) | [Constitution.md](./Constitution.md) |
 | 목차 | 디렉터리 지도·읽기 순서·ADR 색인 | [AGENTS.md](./AGENTS.md) |
 | 플릿 SoT | 노드·exporters 단일 기준 | [docs/inventory.yaml](./docs/inventory.yaml) |
-| 스펙(SDD) | M1-console · M2-logs · M3-resources · assistant · service-map | [specs/](./specs) |
+| 스펙(SDD) | M1-console · M2-logs · M3-resources · assistant · logs-assistant · service-map · design(이식형) · sre-addons | [specs/](./specs) |
 | 런북 | 노드 온보딩/오프보딩 · rsyslog 폭주 대응 | [docs/runbooks/](./docs/runbooks) |
 | 디자인 시스템 | KRDS 토큰·색·shape·타이포 규약 | [design-system/spec/](./design-system/spec) |
 | 시각 QA | Playwright 스크린샷 검증 절차 | [docs/testing.md](./docs/testing.md) |
@@ -179,11 +183,11 @@ flowchart LR
 | 영역 | 선택 | 비고 |
 | --- | --- | --- |
 | 콘솔 | **Next.js 16** App Router + React 19 + TS | Tailwind v4(`@theme` · KRDS 토큰 · raw hex 금지) · zod(env 검증) · vitest · force-dynamic · 서버 전용 BFF |
-| 메트릭 | **Prometheus** | node-exporter(:9100) · DCGM(:9400) · gpu-model-exporter(:9836, 모델↔GPU↔포트). 직접 도달 불가 노드는 SSH 터널(:764) |
+| 메트릭 | **Prometheus** | node-exporter(:9100) · DCGM(:9400) · gpu-model-exporter(:9836, 모델↔GPU) · port-exporter(:9986, 포트↔프로세스). 직접 스크랩 우선(data03·05), 도달 불가 노드만 SSH 터널(:764 — data04) |
 | 로그 | **OpenSearch** (ES 7.10 호환) | Filebeat(journald) → Logstash(:5044, `service→category`) → `keiwi-logs-*`(ISM 365d) |
-| 대시보드 | **Grafana** | 단일 운영 콘솔 · `grafana-opensearch-datasource` · iframe kiosk 임베드(테마 동기화) |
+| 대시보드 | **Grafana** | 단일 운영 콘솔 · `grafana-opensearch-datasource` · iframe kiosk 임베드(테마 동기화 · 접속 host 분기) · 익명 뷰어(LAN 조회 전용) · 프로비저닝=바인드 마운트 |
 | 어시스턴트 | **로컬 vLLM** (Qwen3-Coder-30B) | BM25 RAG · 읽기 전용 · 외부 egress 0 · 서버검증 번호 인용 · 인젝션 격리 · GPU 단일 인플라이트 |
-| 배포 | **Ansible** (agentless) | role-per-agent(filebeat · gpu-model-exporter) · inventory.yaml SoT · 적용은 사람(§11) |
+| 배포 | **Ansible** (agentless) | role-per-agent(filebeat · gpu-model-exporter · port-exporter) · inventory.yaml SoT · 전 노드 NOPASSWD sudo(`-K` 불필요) · 적용은 사람(§11) |
 | 디자인 | **KRDS** 토큰 | Pretendard GOV · 라이트/다크 · `design-system/spec/` |
 | 접근 | **Cloudflare Zero Trust** | 사내 전용 · 콘솔/Grafana 모두 Access 뒤 |
 
@@ -209,7 +213,7 @@ flowchart LR
 
 - 콘솔·Grafana는 **Cloudflare Zero Trust Access** 뒤(또는 사내망 한정). SSH는 비표준 포트(:764).
 - 어시스턴트는 **외부 전송 0** — 검색(내부 OpenSearch)·생성(사내 GPU vLLM)이 모두 망 안. 읽기 전용이라 조치를 자동 적용하지 않는다.
-- 시크릿(키·비번·`.env.local`)은 **레포 밖**(§13). 인벤토리/Ansible에도 평문 비번 없음(무비번 sudo 또는 `-K` 프롬프트).
+- 시크릿(키·비번·`.env.local`)은 **레포 밖**(§13). 인벤토리/Ansible에도 평문 비번 없음 — 전 노드 무비번 sudo(`/etc/sudoers.d/90-keiwi-ansible`) 적용으로 `-K` 불필요.
 - 메트릭·로그·모델이 전부 **온프레미스**라 데이터가 망 밖으로 나가지 않습니다.
 
 ---
@@ -225,7 +229,8 @@ flowchart LR
 | **M3** | 여유 리소스("free" 판정 + 작업 배치) → **Overview 흡수** | 재배치 |
 | **M4** | 장애 추적·시각화 | **보류**(M2 신호뷰로 충족) |
 | **M5** | 크리티컬 에러 알림(에러→책임자) | 후순위 |
-| **진행** | 로그 어시스턴트 · 노드 온보딩 표준 · 서비스 맵(설계) · 디자인 고도화 | 🔄 |
+| **고도화** | 로그 워크벤치(`/logs` 어시스턴트 통합) · 노드 온보딩 표준(data03 실증, 2026-07-03) · 서비스 맵 v2.1 · 디자인 v2(이식형 스펙 [specs/design](./specs/design/README.md)) | ✅ 완료 |
+| **다음** | SRE 추가 기능 백로그([specs/sre-addons](./specs/sre-addons/backlog.md)) · M5 에러 알림 | 🔄 |
 
 ```mermaid
 gantt
@@ -236,12 +241,14 @@ gantt
     M2 통합 로그(라이브)          :done, m2, after m1, 3d
     M3 여유 리소스 → Overview 흡수 :done, m3, after m2, 2d
     로그 어시스턴트(RAG)          :done, m4, after m3, 2d
+    로그 워크벤치(/logs 통합)     :done, m5w, after m4, 2d
     section 인프라
-    Ansible 노드 온보딩 표준      :active, i1, after m4, 5d
-    서비스 맵(설계→구현)          :        i2, after i1, 7d
+    노드 온보딩 표준(data03 실증) :done, i1, after m4, 5d
+    서비스 맵 v2.1(구현)          :done, i2, after i1, 3d
     section 품질
-    디자인 시스템 고도화(KRDS+)   :active, q1, after m4, 7d
-    M5 에러 알림                  :        q2, after i2, 7d
+    디자인 v2(이식형 스펙)        :done, q1, after m4, 5d
+    SRE 추가기능 백로그 착수      :active, q2, after i2, 5d
+    M5 에러 알림                  :        q3, after q2, 7d
 ```
 
 > [!NOTE]
