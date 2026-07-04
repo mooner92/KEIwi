@@ -18,6 +18,16 @@ const LEVEL: Record<string, { badge: string; label: string }> = {
   warn: { badge: "bg-warning-50 text-warning-700", label: "WARN" },
 };
 
+// @timestamp(UTC ISO) → KST "MM-DD HH:MM:SS". 고정 오프셋(+9h)·UTC 파트로 산출해
+// 서버/클라 로컬 tz에 무관(하이드레이션 안전). 파싱 실패 시 "".
+function fmtKST(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const d = new Date(t + 9 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+}
+
 /**
  * 로그 워크벤치 — 좌 Grafana 로그 임베드 + 우 접이식 어시스턴트 드로어(specs/logs-assistant).
  * 업계 표준 2계층 패턴: 콘텐츠 옆 상주 패널 + 데이터 지점(신호 행) 인라인 진입점.
@@ -107,7 +117,8 @@ export function LogsWorkbench({
       <div
         className={[
           "grid min-h-0 flex-1 grid-cols-1 gap-3",
-          open ? "lg:grid-cols-[minmax(0,1fr)_minmax(340px,26rem)]" : "",
+          // 임베드:어시스턴트 ≈ 3:1 (드로어를 폭에 비례해 확대 — 넓은 모니터에서도 유지)
+          open ? "lg:grid-cols-[minmax(0,3fr)_minmax(360px,1fr)]" : "",
         ].join(" ")}
       >
         {/* 좌 — Grafana 로그 임베드 (§I-2 재구현 금지) */}
@@ -180,6 +191,9 @@ export function LogsWorkbench({
                               className={`rounded-sm px-1 font-semibold ${lv.badge}`}
                             >
                               {lv.label}
+                            </span>
+                            <span className="tnum shrink-0 text-ink-subtle" title={s.timestamp}>
+                              {fmtKST(s.timestamp)}
                             </span>
                             <span className="tnum min-w-0 truncate text-ink-subtle">
                               {s.fleetNode} · {s.service}

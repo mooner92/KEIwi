@@ -28,6 +28,11 @@ export function resolveFleetCapacity(
   const mem = new Map(raw.memAvail.map((s) => [s.instance, s.value]));
   const utilByInst = groupGpu(raw.gpuUtil);
   const vramByInst = groupGpu(raw.gpuVramFree);
+  const usedByInst = groupGpu(raw.gpuVramUsedMib ?? []);
+  const totalByInst = groupGpu(raw.gpuVramTotalMib ?? []);
+  const MIB = 1024 * 1024;
+  const sumMib = (m: Map<string, number> | undefined) =>
+    m ? [...m.values()].reduce((a, b) => a + b, 0) * MIB : undefined;
 
   return nodes.map((node) => {
     const nodeInst = node.exporters.node;
@@ -41,9 +46,17 @@ export function resolveFleetCapacity(
       verdict: judgeGeneral(cpuBusyPct, memAvailPct, policy),
     };
 
-    const gpu: GpuCapacity | null = dcgmInst
+    let gpu: GpuCapacity | null = dcgmInst
       ? judgeGpu(utilByInst.get(dcgmInst), vramByInst.get(dcgmInst), policy)
       : null;
+    // 노드 전체 GPU VRAM 절대 사용/총량(bytes) — 카드 "36/48 GiB" 표시용.
+    if (gpu && dcgmInst) {
+      const used = sumMib(usedByInst.get(dcgmInst));
+      const total = sumMib(totalByInst.get(dcgmInst));
+      if (used !== undefined && total !== undefined && total > 0) {
+        gpu = { ...gpu, vramUsedBytes: used, vramTotalBytes: total };
+      }
+    }
 
     const hasData =
       cpuBusyPct !== undefined ||

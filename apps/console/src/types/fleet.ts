@@ -57,6 +57,9 @@ export type GpuCapacity = {
   bestUtilPct: number;
   gpuCount: number;
   verdict: Verdict;
+  /** 노드 전체 GPU VRAM 사용/총량(bytes) — 절대 수치 표시용(예: 36/48 GiB). 없으면 미표시. */
+  vramUsedBytes?: number;
+  vramTotalBytes?: number;
 };
 
 /** 노드 단위 여유 판정 결과(순수 함수 산출). */
@@ -80,4 +83,6 @@ export type CapacityRaw = {
   memAvail: MetricSample[]; // ip:9100
   gpuUtil: GpuSample[]; // ip:9400 (per GPU)
   gpuVramFree: GpuSample[]; // ip:9400 (per GPU, 가용 VRAM%)
+  gpuVramUsedMib?: GpuSample[]; // ip:9400 (per GPU, 사용 VRAM MiB) — 절대 수치 표시용
+  gpuVramTotalMib?: GpuSample[]; // ip:9400 (per GPU, 총 VRAM MiB)
 };

@@ -27,6 +27,15 @@ export function NodeCard({
 }) {
   const gpu = capacity?.gpu ?? null;
   const general = capacity?.general;
+  // GPU 배지: 절대 수치(예 "36/48 GiB")를 우선 — 없으면 가용 VRAM% 폴백.
+  const GIB = 1024 ** 3;
+  const hasVram = gpu?.vramTotalBytes !== undefined && gpu.vramTotalBytes > 0;
+  const gpuDetail =
+    gpu && gpu.verdict !== "unknown"
+      ? hasVram
+        ? `${Math.round((gpu.vramUsedBytes ?? 0) / GIB)}/${Math.round((gpu.vramTotalBytes ?? 0) / GIB)} GiB`
+        : `VRAM ${Math.round(gpu.bestVramFreePct)}%`
+      : undefined;
   const body = (
     <>
       <span
@@ -48,15 +57,12 @@ export function NodeCard({
               <CapacityBadge
                 axis="GPU"
                 verdict={gpu.verdict}
-                detail={
-                  gpu.verdict === "unknown"
-                    ? undefined
-                    : `VRAM ${Math.round(gpu.bestVramFreePct)}%`
-                }
+                detail={gpuDetail}
+                hideVerdictLabel={gpu.verdict !== "unknown"}
                 title={
                   gpu.verdict === "unknown"
                     ? "GPU 메트릭 없음"
-                    : `가장 여유한 GPU 기준 · util ${Math.round(gpu.bestUtilPct)}% · GPU ${gpu.gpuCount}장`
+                    : `${gpu.verdict === "free" ? "여유" : gpu.verdict === "busy" ? "바쁨" : "가득"} · 가용 VRAM ${Math.round(gpu.bestVramFreePct)}% · util ${Math.round(gpu.bestUtilPct)}% · GPU ${gpu.gpuCount}장`
                 }
               />
             ) : null}

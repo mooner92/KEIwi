@@ -19,11 +19,14 @@ export function CapacityBadge({
   verdict,
   detail,
   title,
+  hideVerdictLabel = false,
 }: {
   axis: string;
   verdict: Verdict;
   detail?: string;
   title?: string;
+  /** true면 등급 단어(바쁨 등) 생략 — 대신 detail 수치로 표현(색은 등급 유지, 수치=텍스트라 §17 OK). */
+  hideVerdictLabel?: boolean;
 }) {
   const v = MAP[verdict];
   return (
@@ -32,7 +35,7 @@ export function CapacityBadge({
       className={`inline-flex items-center gap-1 rounded-sm px-1 py-px text-[10px] font-medium ${v.bg} ${v.text}`}
     >
       <span className="opacity-70">{axis}</span>
-      <span>{v.label}</span>
+      {hideVerdictLabel ? null : <span>{v.label}</span>}
       {detail ? <span className="tnum opacity-80">{detail}</span> : null}
     </span>
   );

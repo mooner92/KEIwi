@@ -152,11 +152,14 @@ export function aggregateGpuModels(rows: GpuModel[]): GpuModelAgg[] {
  * 실패는 throw → 호출부(getFleetCapacity)가 전부 unknown으로 안전 귀결(거짓 "여유" 금지).
  */
 export async function queryCapacity(): Promise<CapacityRaw> {
-  const [cpuIdle, memAvail, gpuUtil, gpuVramFree] = await Promise.all([
+  const [cpuIdle, memAvail, gpuUtil, gpuVramFree, gpuVramUsed, gpuVramTotal] = await Promise.all([
     promQuery(`avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))`),
     promQuery(`100*node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes`),
     promQuery(`DCGM_FI_DEV_GPU_UTIL`),
     promQuery(`100*DCGM_FI_DEV_FB_FREE/(DCGM_FI_DEV_FB_FREE+DCGM_FI_DEV_FB_USED)`),
+    // 절대 VRAM(MiB) — 카드에 "36/48 GiB" 수치 표시용. total = used+free(FB_TOTAL 부재 노드 대비 안정).
+    promQuery(`DCGM_FI_DEV_FB_USED`),
+    promQuery(`DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE`),
   ]);
   const nodeSamples = (rows: PromSample[]) =>
     rows
@@ -172,5 +175,7 @@ export async function queryCapacity(): Promise<CapacityRaw> {
     memAvail: nodeSamples(memAvail),
     gpuUtil: gpuSamples(gpuUtil),
     gpuVramFree: gpuSamples(gpuVramFree),
+    gpuVramUsedMib: gpuSamples(gpuVramUsed),
+    gpuVramTotalMib: gpuSamples(gpuVramTotal),
   };
 }
