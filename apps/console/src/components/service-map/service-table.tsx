@@ -41,6 +41,11 @@ export async function ServiceTable({ node }: { node?: string }) {
       <section className="flex min-h-0 flex-col rounded-lg border border-border bg-surface shadow-1">
         <header className="border-b border-border px-3 py-2">
           <h3 className="font-display text-sm font-semibold text-ink">
+            {/* KRDS 패널 헤더 좌측 브랜드 틱 — 워크벤치 "현재 신호"와 동일 문법(일관성) */}
+            <span
+              aria-hidden
+              className="mr-2 inline-block h-3.5 w-[3px] rounded-full bg-brand align-[-2px]"
+            />
             GPU 프로세스 <span className="font-normal text-ink-muted">· {models.length}</span>
           </h3>
         </header>
@@ -78,6 +83,11 @@ export async function ServiceTable({ node }: { node?: string }) {
       <section className="flex min-h-0 flex-col rounded-lg border border-border bg-surface shadow-1">
         <header className="border-b border-border px-3 py-2">
           <h3 className="font-display text-sm font-semibold text-ink">
+            {/* KRDS 패널 헤더 좌측 브랜드 틱 — 워크벤치 "현재 신호"와 동일 문법(일관성) */}
+            <span
+              aria-hidden
+              className="mr-2 inline-block h-3.5 w-[3px] rounded-full bg-brand align-[-2px]"
+            />
             리스닝 포트 <span className="font-normal text-ink-muted">· {ports.length}</span>
           </h3>
         </header>

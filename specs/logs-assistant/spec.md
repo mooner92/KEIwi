@@ -1,6 +1,6 @@
 # 로그×어시스턴트 통합 (Logs Workbench) — Spec
 
-> 2026-07-02. 상태: v1 라이브(2026-07-02 배포·Playwright 16/16). 권위: 헌장(§I-2 Grafana 재구현 금지 · 읽기 전용) · ADR-0014(어시스턴트).
+> 2026-07-02. 상태: v1 라이브(2026-07-02 배포·Playwright 16/16) · **v2 스펙 확정(2026-07-04, 구현 대기)**. 권위: 헌장(§I-2 Grafana 재구현 금지 · 읽기 전용) · ADR-0014(어시스턴트).
 > 트리거(사용자): "로그에서 에러가 발생했을 때 **그게 뭔지 즉시 설명** 듣고 싶다 — 사이드바 어시스턴트를 더 쓰기 쉽게 통합."
 
 ## WHY — 리서치 근거 (2026-07-02 웹 조사)
@@ -41,3 +41,23 @@ Elastic AI Assistant·Grafana Assistant·Datadog Bits AI/Watchdog·New Relic AI�
 - [x] T03 `components/assistant/logs-workbench.tsx`(client) — 드로어·신호목록·토글(Ctrl+I·localStorage)·리셋 배너·전체화면 링크
 - [x] T04 `logs/page.tsx` 서버 조립(searchLogs+getGrafanaLogs+resolveGrafanaBase) · `logs-embed.tsx` 제거
 - [x] T05 검증 — typecheck·lint·test·no-raw-hex + 격리 빌드 Playwright(드로어·인플레이스 분석·딥링크·토글·라이트/다크·무스크롤) 스크린샷
+
+---
+
+## v2 (2026-07-04)
+
+> 트리거(사용자, 2026-07-04): 실사용에서 **임베드 < 어시스턴트** — "그라파나는 유심히 안 보게 됨." 워크벤치의 무게중심을 어시스턴트로 재배분.
+> **비율 이력**: 4:1(v1) → 3:1(1차 조정) → **1:1**(v2 재개정).
+
+### 수용 기준 (AC — v1 AC6에서 이어서)
+- **AC7** 임베드:어시스턴트 드로어 폭 = **1:1**(lg+). 근거: 사용자 사용 패턴(위 트리거).
+- **AC8** 드로어에 **필터 칩**: 레벨(ERROR·WARN) · 노드(data0N), 각 칩에 **카운트 병기**(참고 UI의 좌측 필터 패널 문법). 칩 선택 → **신호 목록 필터 + Grafana 임베드 var(`fleet_node`·`log_level`) 동시 구동**.
+- **AC9** 좌측 내비에서 **어시스턴트 항목 제거**(통합 로그로 일원화). `/incidents` 라우트는 존치 — 드로어 "전체 화면에서 계속 →" 딥링크 전용.
+- **AC10** KRDS 폴리시: 패널 헤더 좌측 **브랜드 틱** · 신호 active 행 좌측 **액센트 바**.
+
+### Tasks — V2
+- [ ] V01 워크벤치 분할 1:1 (AC7)
+- [ ] V02 필터 칩(레벨·노드·카운트) — 신호 목록 + 임베드 var 동시 필터 (AC8)
+- [ ] V03 내비 어시스턴트 제거 · `/incidents` 딥링크 존치 (AC9)
+- [ ] V04 패널 헤더 브랜드 틱 · active 행 액센트 바 (AC10)
+- [ ] V05 검증 — typecheck·lint·test·no-raw-hex + 격리 빌드 Playwright(1:1·칩 동시 필터·내비·라이트/다크)

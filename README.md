@@ -172,9 +172,9 @@ flowchart LR
 | 경로 | 화면 | 내용 |
 | --- | --- | --- |
 | `/overview` | **Overview** | 플릿 상태(up/down/no-data) + **여유 GPU 판정**·작업 배치 힌트. 노드 클릭 → **시스템·GPU·모델·서비스**(네이티브 카탈로그: GPU 프로세스·리스닝 포트 + 진단 링크) 드릴다운 |
-| `/logs` | **Logs 워크벤치** | 통합 로그(Grafana `keiwi-logs` 임베드) + **우측 어시스턴트 드로어** — 신호 클릭 → 이동 없이 즉시 진단, 근거 로그 "이 시점 →" → 임베드 시간창 점프, `Ctrl+I` 토글 ([specs/logs-assistant](./specs/logs-assistant/spec.md)) |
+| `/logs` | **Logs 워크벤치** | 통합 로그(Grafana `keiwi-logs` 임베드) + **우측 어시스턴트 드로어** — **필터 칩**(레벨·노드, 신호 목록과 임베드를 동시 필터), 신호 클릭 → 이동 없이 즉시 진단, 근거 로그 "이 시점 →" → 임베드 시간창 점프, `Ctrl+I` 토글 ([specs/logs-assistant](./specs/logs-assistant/spec.md)) |
 | `/resources` | **Resources** | 용량 상세(M3 → Overview에 흡수, [ADR-0012](./docs/decisions/0012-roadmap-m3-m4-pivot.md)) |
-| `/incidents` | **어시스턴트** | 현재 신호(error·warn) → "분석" → 로컬 vLLM RAG 진단(근거 인용·런북 매칭) |
+| `/incidents` | **어시스턴트** (내비 미노출 — 워크벤치 심화 링크 전용) | 현재 신호(error·warn) → "분석" → 로컬 vLLM RAG 진단(근거 인용·런북 매칭). `/logs` 드로어의 "전체 화면에서 계속 →"로 진입 |
 
 ---
 

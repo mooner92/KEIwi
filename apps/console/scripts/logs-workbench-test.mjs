@@ -1,4 +1,4 @@
-// 로그 워크벤치 기능 테스트 (specs/logs-assistant AC1~AC5) — Playwright + 스크린샷.
+// 로그 워크벤치 기능 테스트 (specs/logs-assistant AC1~AC5 + v2 필터 칩 F1~F4) — Playwright + 스크린샷.
 // 사용: node scripts/logs-workbench-test.mjs  (BASE, OUT 환경변수 지원)
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
@@ -25,6 +25,49 @@ const signalRows = drawer.locator("ul button");
 const nSignals = await signalRows.count();
 check("AC1 현재 신호 목록", nSignals > 0, `${nSignals}건`);
 await shot("01-logs-default");
+
+// ── F1: 레벨 칩 클릭 → 목록 건수 필터 + "표시 n" 카운트 반영 ──────────────
+const levelChips = drawer.getByRole("group", { name: "레벨 필터" }).getByRole("button");
+if (await levelChips.count()) {
+  const chip = levelChips.first();
+  const chipCount = Number(((await chip.locator("span.tnum").textContent()) || "").trim());
+  await chip.click();
+  await page.waitForTimeout(300);
+  const nAfter = await signalRows.count();
+  check(
+    "F1 레벨 칩 → 목록 필터",
+    nAfter === chipCount && nAfter <= nSignals,
+    `${nSignals}→${nAfter} (칩 ${chipCount})`,
+  );
+  check("F1 '표시 n / 전체 m' 카운트", await drawer.getByText(/표시 \d+ \/ 전체 \d+/).isVisible());
+  await shot("07-level-chip");
+  await chip.click(); // 해제 — 이후 AC들은 전체 목록 기준
+  await page.waitForTimeout(200);
+} else {
+  check("F1 레벨 칩 존재", false, "칩 0개");
+}
+
+// ── F2/F3: 노드 칩 → iframe src에 var-fleet_node 주입 · 리셋(전체) → 제거 ──
+const nodeChips = drawer.getByRole("group", { name: "노드 필터" }).getByRole("button");
+const iframeSrc = async () =>
+  (await page.locator("iframe[title^='Grafana']").first().getAttribute("src")) || "";
+if (await nodeChips.count()) {
+  const nodeName = (((await nodeChips.first().locator("[data-chip-label]").textContent()) || "")).trim();
+  await nodeChips.first().click();
+  await page.waitForTimeout(500);
+  const src = await iframeSrc();
+  check(
+    "F2 노드 칩 → var-fleet_node",
+    src.includes(`var-fleet_node=${encodeURIComponent(nodeName)}`),
+    src.slice(-100),
+  );
+  await shot("08-node-chip");
+  await drawer.getByRole("button", { name: "전체", exact: true }).click();
+  await page.waitForTimeout(500);
+  check("F3 리셋 → var-fleet_node 제거", !(await iframeSrc()).includes("var-fleet_node="));
+} else {
+  check("F2 노드 칩 존재", false, "칩 0개");
+}
 
 // ── AC2: 신호 클릭 → 인플레이스 자동 분석(이동 없음) ─────────────────────
 await signalRows.first().click();
@@ -84,6 +127,12 @@ check("AC4 헤더 버튼 열림", await page.getByRole("complementary", { name: 
 // ── AC5: 전체 화면에서 계속 → /incidents ─────────────────────────────────
 const deep = page.getByRole("link", { name: /전체 화면에서 계속/ });
 check("AC5 심화 링크", ((await deep.getAttribute("href")) || "").startsWith("/incidents"));
+
+// ── F4: 내비에 "어시스턴트" 부재(통합 로그 일원화) + /incidents 직접 접근 200 ──
+const sideNav = page.locator("nav[aria-label='섹션 메뉴']");
+check("F4 내비 어시스턴트 부재", (await sideNav.getByText("어시스턴트").count()) === 0);
+const incResp = await page.goto(`${BASE}/incidents`, { waitUntil: "domcontentloaded" });
+check("F4 /incidents 직접 접근 200", !!incResp && incResp.status() === 200);
 
 // ── 탭 순서(별건): /overview = 시스템·GPU·모델·서비스, 기본 활성 = 시스템 ──
 await page.goto(`${BASE}/overview`, { waitUntil: "networkidle" });

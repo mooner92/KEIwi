@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { LogDoc } from "@/lib/opensearch";
 import { GrafanaTabs, type EmbedTimeOverride } from "@/components/grafana/grafana-tabs";
@@ -28,11 +28,50 @@ function fmtKST(iso: string): string {
   return `${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 }
 
+// 배열 토글(in/out) — 필터 칩 공용. 빈 배열 = 전체(필터 없음).
+function toggleIn(arr: string[], v: string): string[] {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+}
+
+// KRDS 인터랙티브 칩(pill·03-components) — 선택 = ✓+브랜드 보더(색 단독 금지), 카운트 병기.
+function FilterChip({
+  label,
+  count,
+  selected,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={[
+        "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors",
+        selected
+          ? "border-brand bg-surface-2 text-brand"
+          : "border-border text-ink-muted hover:text-ink",
+      ].join(" ")}
+    >
+      {selected ? <span aria-hidden>✓</span> : null}
+      {/* data-chip-label: 기능 테스트가 카운트와 분리해 라벨만 읽는 훅 */}
+      <span data-chip-label>{label}</span>
+      <span className="tnum text-ink-subtle">{count}</span>
+    </button>
+  );
+}
+
 /**
  * 로그 워크벤치 — 좌 Grafana 로그 임베드 + 우 접이식 어시스턴트 드로어(specs/logs-assistant).
  * 업계 표준 2계층 패턴: 콘텐츠 옆 상주 패널 + 데이터 지점(신호 행) 인라인 진입점.
  * 신호 클릭 → 이동 없이 인플레이스 분석(AC2) · 근거 "이 시점 →" → 임베드 시간창 점프(AC3)
  * · 토글 Ctrl/Cmd+I + localStorage(AC4) · 심화는 /incidents 풀페이지(AC5).
+ * v2: 필터 칩(레벨·노드, 카운트 병기)이 신호 목록과 Grafana 임베드(var-fleet_node·var-log_level)를
+ * 동시에 구동 — 임베드:어시스턴트 1:1(어시스턴트 활용 우선).
  */
 export function LogsWorkbench({
   signals,
@@ -44,6 +83,36 @@ export function LogsWorkbench({
   const [open, setOpen] = useState(true); // 기본 열림(발견성) — 저장된 닫힘만 복원
   const [selected, setSelected] = useState<LogDoc | null>(null);
   const [focus, setFocus] = useState<EmbedTimeOverride | null>(null);
+  // 필터 칩 상태 — 빈 배열 = 전체(참고 UI: 체크형 필터+카운트). 목록과 임베드를 동시에 구동.
+  const [levels, setLevels] = useState<string[]>([]);
+  const [nodesSel, setNodesSel] = useState<string[]>([]);
+
+  // 칩 후보·카운트 — 신호 배열에 실제 존재하는 레벨/노드만 노출(없는 값의 죽은 칩 방지).
+  const levelOpts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of signals) m.set(s.level, (m.get(s.level) ?? 0) + 1);
+    const rank: Record<string, number> = { error: 0, warn: 1 }; // 심각도 우선 정렬
+    return [...m.entries()].sort(
+      ([a], [b]) => (rank[a] ?? 9) - (rank[b] ?? 9) || a.localeCompare(b),
+    );
+  }, [signals]);
+  const nodeOpts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of signals) m.set(s.fleetNode, (m.get(s.fleetNode) ?? 0) + 1);
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b)); // data03·04·05…
+  }, [signals]);
+
+  const hasFilter = levels.length > 0 || nodesSel.length > 0;
+  // 선택 신호가 필터 밖이어도 selected는 유지 — 분석 중인 것을 필터가 끊지 않는다.
+  const filtered = useMemo(
+    () =>
+      signals.filter(
+        (s) =>
+          (levels.length === 0 || levels.includes(s.level)) &&
+          (nodesSel.length === 0 || nodesSel.includes(s.fleetNode)),
+      ),
+    [signals, levels, nodesSel],
+  );
 
   useEffect(() => {
     // 저장된 닫힘 상태 복원 — SSR과 첫 클라이언트 렌더를 일치시키려면(하이드레이션 안전)
@@ -81,6 +150,17 @@ export function LogsWorkbench({
     });
   };
 
+  // 필터 → 임베드 연동(핵심 가치): 칩이 목록뿐 아니라 Grafana iframe도 구동.
+  // var 이름 fleet_node·log_level = 실제 로그 대시보드의 템플릿 변수와 동일.
+  const filterVars: Record<string, string[]> = {};
+  if (nodesSel.length) filterVars.fleet_node = nodesSel;
+  if (levels.length) filterVars.log_level = levels;
+  const override: EmbedTimeOverride | null = focus
+    ? { ...focus, vars: { ...filterVars, ...focus.vars } } // 근거 딥링크가 필터보다 우선
+    : Object.keys(filterVars).length
+      ? { vars: filterVars }
+      : null;
+
   const deepDiveHref = selected
     ? `/incidents?service=${encodeURIComponent(selected.service)}&node=${encodeURIComponent(selected.fleetNode)}&q=${encodeURIComponent(selected.message.slice(0, 160))}`
     : "/incidents";
@@ -117,8 +197,8 @@ export function LogsWorkbench({
       <div
         className={[
           "grid min-h-0 flex-1 grid-cols-1 gap-3",
-          // 임베드:어시스턴트 ≈ 3:1 (드로어를 폭에 비례해 확대 — 넓은 모니터에서도 유지)
-          open ? "lg:grid-cols-[minmax(0,3fr)_minmax(360px,1fr)]" : "",
+          // 임베드:어시스턴트 = 1:1 — 임베드는 유심히 안 보게 되므로 어시스턴트 활용 우선(2026-07-04 사용자 지시)
+          open ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "",
         ].join(" ")}
       >
         {/* 좌 — Grafana 로그 임베드 (§I-2 재구현 금지) */}
@@ -140,7 +220,7 @@ export function LogsWorkbench({
               <GrafanaTabs
                 baseUrl={grafana.baseUrl}
                 dashboards={grafana.dashboards}
-                timeOverride={focus}
+                timeOverride={override}
               />
             </div>
           ) : (
@@ -161,22 +241,75 @@ export function LogsWorkbench({
             <section className="flex max-h-[45%] min-h-0 shrink-0 flex-col rounded-lg border border-border bg-surface shadow-1">
               <header className="flex items-baseline justify-between gap-2 border-b border-border px-3 py-2">
                 <h2 className="font-display text-sm font-semibold tracking-tight text-ink">
+                  {/* KRDS 패널 헤더 좌측 브랜드 틱(04-patterns) — 섹션 식별 강화 */}
+                  <span
+                    aria-hidden
+                    className="mr-2 inline-block h-3.5 w-[3px] rounded-full bg-brand align-[-2px]"
+                  />
                   현재 신호{" "}
                   <span className="font-normal text-ink-muted">· 24h error·warn</span>
                 </h2>
-                <span className="tnum text-xs text-ink-subtle">{signals.length}건</span>
+                <span className="tnum text-xs text-ink-subtle">
+                  {hasFilter ? `표시 ${filtered.length} / 전체 ${signals.length}` : `${signals.length}건`}
+                </span>
               </header>
+              {/* 필터 칩 바 — 레벨·노드 체크형 필터(카운트 병기). 목록과 임베드를 동시에 좁힌다. */}
+              {signals.length > 0 && (
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border px-3 py-2">
+                  <div role="group" aria-label="레벨 필터" className="flex flex-wrap items-center gap-1.5">
+                    {levelOpts.map(([lv, n]) => (
+                      <FilterChip
+                        key={lv}
+                        label={LEVEL[lv]?.label ?? lv.toUpperCase()}
+                        count={n}
+                        selected={levels.includes(lv)}
+                        onClick={() => setLevels((prev) => toggleIn(prev, lv))}
+                      />
+                    ))}
+                  </div>
+                  {levelOpts.length > 0 && nodeOpts.length > 0 && (
+                    <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+                  )}
+                  <div role="group" aria-label="노드 필터" className="flex flex-wrap items-center gap-1.5">
+                    {nodeOpts.map(([nd, n]) => (
+                      <FilterChip
+                        key={nd}
+                        label={nd}
+                        count={n}
+                        selected={nodesSel.includes(nd)}
+                        onClick={() => setNodesSel((prev) => toggleIn(prev, nd))}
+                      />
+                    ))}
+                  </div>
+                  {hasFilter && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLevels([]);
+                        setNodesSel([]);
+                      }}
+                      className="ml-auto inline-flex h-7 items-center rounded-full border border-border px-2.5 text-xs font-medium text-info-700 hover:bg-surface-2"
+                    >
+                      전체
+                    </button>
+                  )}
+                </div>
+              )}
               {signals.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-ink-muted">
                   지금 신호 없음(정상) 또는 데이터 없음
                 </p>
+              ) : filtered.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-ink-muted">
+                  필터 조건에 맞는 신호 없음 — 칩을 해제해 보세요
+                </p>
               ) : (
                 <ul className="min-h-0 divide-y divide-border overflow-y-auto">
-                  {signals.map((s) => {
+                  {filtered.map((s) => {
                     const lv = LEVEL[s.level] ?? { badge: "bg-neutral-100 text-ink-muted", label: s.level };
                     const active = selected?.id === s.id;
                     return (
-                      <li key={s.id}>
+                      <li key={s.id} className="relative">
                         <button
                           type="button"
                           onClick={() => setSelected(s)}
@@ -186,6 +319,13 @@ export function LogsWorkbench({
                             active ? "bg-surface-2" : "hover:bg-surface-2",
                           ].join(" ")}
                         >
+                          {/* KRDS 활성 행 좌측 액센트 바 — 분석 중인 신호를 시각적으로 고정 */}
+                          {active && (
+                            <span
+                              aria-hidden
+                              className="absolute inset-y-0 left-0 w-[3px] bg-brand"
+                            />
+                          )}
                           <span className="flex items-center gap-2 text-[11px]">
                             <span
                               className={`rounded-sm px-1 font-semibold ${lv.badge}`}

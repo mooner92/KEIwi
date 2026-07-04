@@ -6,14 +6,22 @@ import { useTheme } from "@/lib/use-theme";
 type Dashboard = { uid: string; label: string };
 type Tab = { key: string; label: string; kind: "service" | "grafana"; dash?: Dashboard };
 
-/** 시간창/변수 강제 지정 — 어시스턴트 근거 로그 "이 시점 →" 딥링크(specs/logs-assistant AC3). */
-export type EmbedTimeOverride = { from: string; to: string; vars?: Record<string, string> };
+/**
+ * 시간창/변수 강제 지정 — 어시스턴트 근거 로그 "이 시점 →" 딥링크(specs/logs-assistant AC3)
+ * + 워크벤치 필터 칩의 var 주입(vars만 지정 가능). 배열 값 = Grafana 멀티밸류
+ * (var-k=a&var-k=b 반복) 관례.
+ */
+export type EmbedTimeOverride = {
+  from?: string;
+  to?: string;
+  vars?: Record<string, string | string[]>;
+};
 
 // 임베드 URL 조립: 입력(경로/슬러그/쿼리/전체 URL 무엇이든)을 경로+쿼리로 분해해
 // kiosk(크롬 숨김)·theme(콘솔 테마 매칭 — 다크 동기화)를 올바르게 병합(? 중복 방지).
 // 기존 쿼리(var-*, from/to, refresh 등)는 보존하고 kiosk/theme만 갱신한다.
 // instance가 주어지면 노드 드릴다운 — 기존 var-instance를 치환해 해당 노드로 고정.
-// override가 주어지면 from/to(및 지정 var)를 치환 — iframe 내부는 못 건드려도 src는 콘솔 소유.
+// override가 주어지면 from/to(둘 다 있을 때만)·지정 var를 치환 — iframe 내부는 못 건드려도 src는 콘솔 소유.
 function buildEmbedSrc(
   baseUrl: string,
   entry: string,
@@ -29,6 +37,8 @@ function buildEmbedSrc(
   const qIdx = e.indexOf("?");
   const path = (qIdx === -1 ? e : e.slice(0, qIdx)).replace(/^\/+|\/+$/g, "");
   const existing = qIdx === -1 ? "" : e.slice(qIdx + 1);
+  // from/to 치환은 둘 다 있을 때만(딥링크) — vars만 온 필터 override는 시간창을 건드리지 않음.
+  const hasWindow = Boolean(override?.from && override?.to);
   const overrideVarKeys = Object.keys(override?.vars ?? {}).map((k) => `var-${k.toLowerCase()}=`);
   const params = existing
     .split("&")
@@ -39,7 +49,7 @@ function buildEmbedSrc(
         !/^theme=/i.test(p) &&
         !(instance && /^var-(instance|node|host)=/i.test(p)) &&
         !(nodeName && /^var-nodename=/i.test(p)) &&
-        !(override && /^(from|to)=/i.test(p)) &&
+        !(hasWindow && /^(from|to)=/i.test(p)) &&
         !overrideVarKeys.some((k) => p.toLowerCase().startsWith(k)),
     );
   if (nodeName) params.push(`var-nodename=${encodeURIComponent(nodeName)}`);
@@ -50,12 +60,17 @@ function buildEmbedSrc(
     params.push(`var-instance=${v}`, `var-node=${v}`, `var-host=${v}`);
   }
   if (override) {
-    params.push(
-      `from=${encodeURIComponent(override.from)}`,
-      `to=${encodeURIComponent(override.to)}`,
-    );
+    if (hasWindow && override.from && override.to) {
+      params.push(
+        `from=${encodeURIComponent(override.from)}`,
+        `to=${encodeURIComponent(override.to)}`,
+      );
+    }
     for (const [k, v] of Object.entries(override.vars ?? {})) {
-      params.push(`var-${k}=${encodeURIComponent(v)}`); // 대시보드에 없는 var는 Grafana가 무시
+      // 배열 = 같은 키 반복 push(var-k=a&var-k=b — Grafana 멀티밸류 관례).
+      for (const one of Array.isArray(v) ? v : [v]) {
+        params.push(`var-${k}=${encodeURIComponent(one)}`); // 대시보드에 없는 var는 Grafana가 무시
+      }
     }
   }
   params.push("kiosk", `theme=${theme}`);

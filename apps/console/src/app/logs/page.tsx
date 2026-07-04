@@ -13,14 +13,15 @@ export const dynamic = "force-dynamic";
  * 상호작용(신호 선택·인플레이스 분석·딥링크·토글)은 클라이언트 워크벤치가 담당.
  */
 export default async function LogsPage() {
-  // 현재 신호 — 대시보드와 같은 눈높이(24h error·warn, 노이즈 제외 — ADR-0015)
+  // 현재 신호 — 대시보드와 같은 눈높이(24h error·warn, 노이즈 제외 — ADR-0015).
+  // size 60: 워크벤치 필터 칩(레벨·노드)의 모수 확보 — 12건이면 노드별 분포가 안 잡힘.
   let signals: LogDoc[] = [];
   try {
     signals = await searchLogs({
       levels: ["error", "warn"],
       from: "now-24h",
       excludeNoise: true,
-      size: 12,
+      size: 60,
     });
   } catch {
     signals = [];
