@@ -1,0 +1,10 @@
+---
+# roles/smartctl-exporter/handlers/main.yml
+# 바이너리/유닛 변경 시에만 restart(멱등).
+
+- name: restart smartctl-exporter
+  ansible.builtin.systemd:
+    name: keiwi-smartctl-exporter
+    state: restarted
+    enabled: true
+    daemon_reload: true

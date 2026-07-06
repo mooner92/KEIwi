@@ -26,3 +26,22 @@
   tags: [port]
   roles:
     - port-exporter
+
+- name: 디스크/NVMe SMART 익스포터 (모든 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [smartctl]
+  roles:
+    - smartctl-exporter
+
+# node-exporter 미사용 수집기(systemd·textfile) 활성화 + OS 위생 메트릭.
+# apt node-exporter 노드(data03/04)만 실제 적용 — data05(컨테이너)는 role이 자동 스킵
+# (docker-compose.yml의 node-exporter command로 동일 플래그 부여). 알림 규칙은 만들지 않음.
+- name: OS 위생 수집기 (node-exporter textfile·systemd, apt 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [node-hygiene]
+  roles:
+    - node-hygiene

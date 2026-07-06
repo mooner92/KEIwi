@@ -19,6 +19,12 @@
 global:
   scrape_interval: 15s
 
+# Recording rules(사전집계) 로드. 현재 record: 규칙만(alert 규칙 없음 — 알림 보류 중).
+# 이 경로는 compose prometheus 서비스의 바인드 마운트(/data/monitoring/rules → /etc/prometheus/rules)
+# 로 채워진다. 레포 원본: infra/monitoring/rules/*.yml (사람이 라이브 경로에 복사, §11).
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
 scrape_configs:
   - job_name: "prometheus"
     static_configs:
@@ -83,6 +89,30 @@ scrape_configs:
         labels:
           instance: "192.168.1.103:9400"
           node: "data03"
+
+  # 디스크/NVMe SMART 익스포터(:9633, 고장 예측). root로 동작(raw device ioctl).
+  # 수집만 — alert 규칙 미생성(알림 보류). instance 라벨은 <ip>:9633로 명시(콘솔 매칭).
+  - job_name: "smartctl-exporter"
+    static_configs:
+      # data05 — 호스트 systemd 익스포터. 도커 브리지 게이트웨이로 스크랩(gpu-model/port와 동형).
+      - targets: ["172.18.0.1:9633"]
+        labels:
+          instance: "192.168.1.105:9633"
+          node: "data05"
+      # data03 — 직접 스크랩. 전제: data03 ufw가 .105→9633 허용.
+      - targets: ["192.168.1.103:9633"]
+        labels:
+          instance: "192.168.1.103:9633"
+          node: "data03"
+      # data04 — 직접 도달 불가 → SSH 터널 필요(아직 미추가라 주석). 활성화 순서:
+      #   1) keiwi-tunnel-data04.service에 `-L 172.18.0.1:9634:localhost:9633` 추가
+      #      (※ 172.18.0.1:9633은 data05 호스트 익스포터가 점유 → data04는 9634로 분리)
+      #   2) systemctl restart keiwi-tunnel-data04 (active 확인)
+      #   3) 아래 3줄 주석 해제
+      # - targets: ["172.18.0.1:9634"]
+      #   labels:
+      #     instance: "192.168.1.104:9633"
+      #     node: "data04"
 
   # vLLM 추론 서버 메트릭 — 모델 워크로드(요청/토큰/지연/KV캐시).
   # data05 호스트의 vLLM 포트(0.0.0.0 바인딩)를 도커 브리지 게이트웨이로 스크랩.

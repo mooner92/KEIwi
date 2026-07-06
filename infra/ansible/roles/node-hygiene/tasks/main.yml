@@ -1,0 +1,93 @@
+---
+# roles/node-hygiene/tasks/main.yml — node-exporter 미사용 수집기(systemd·textfile) 활성화 + OS 위생 수집기.
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+# 대상: apt로 node-exporter가 깔린 노드(data03/04). data05는 컨테이너 → 이 role은 자동 스킵(compose로 설정).
+# 알림 규칙은 만들지 않는다(사용자 보류) — 메트릭 노출까지만.
+
+- name: apt node-exporter 설치 여부 확인(ARGS 파일 존재 = apt 노드)
+  ansible.builtin.stat:
+    path: "{{ node_hygiene_defaults_file }}"
+  register: _nodeexp_default
+  check_mode: false   # --check에서도 실제 확인 → 아래 가드(_nodeexp_default.stat.exists)가 신뢰 가능
+
+- name: "apt node-exporter 없으면 안내 후 스킵(예: data05 컨테이너 노드)"
+  ansible.builtin.debug:
+    msg: >-
+      {{ node_hygiene_defaults_file }} 없음 — apt node-exporter 미설치({{ inventory_hostname }}).
+      node-hygiene role 스킵. 컨테이너 노드(data05)는 docker-compose.yml의 node-exporter command로 설정.
+  when: not _nodeexp_default.stat.exists
+
+- name: textfile 수집 디렉터리 보장(node-exporter가 읽음)
+  ansible.builtin.file:
+    path: "{{ node_hygiene_textfile_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"   # world-readable — node-exporter(prometheus 사용자)가 *.prom을 읽는다
+  when: _nodeexp_default.stat.exists
+
+- name: node-exporter ARGS에 systemd·textfile 수집기 플래그 주입(멱등)
+  # 주의: 기존 ARGS를 통째로 교체한다. 온보딩 기본값(ARGS="")을 전제.
+  #       노드에 커스텀 ARGS가 있다면 node_hygiene_extra_collectors에 합쳐 override 할 것.
+  ansible.builtin.lineinfile:
+    path: "{{ node_hygiene_defaults_file }}"
+    regexp: '^ARGS='
+    line: 'ARGS="{{ node_hygiene_node_exporter_args }}"'
+    backup: true
+  when: _nodeexp_default.stat.exists
+  notify: restart node-exporter (apt)
+
+- name: 적용 스탬프 파일 보장(최초 1회 생성 — mtime=마지막 적용 시각)
+  ansible.builtin.copy:
+    dest: "{{ node_hygiene_marker }}"
+    content: "keiwi node-hygiene apply marker\n"
+    owner: root
+    group: root
+    mode: "0644"
+    force: false   # 이미 있으면 건드리지 않음 → mtime 보존(변경 시에만 핸들러가 touch)
+  when: _nodeexp_default.stat.exists
+
+- name: OS 위생 textfile 수집 스크립트 배포
+  ansible.builtin.template:
+    src: keiwi-node-hygiene.sh.j2
+    dest: "{{ node_hygiene_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: _nodeexp_default.stat.exists
+  notify:
+    - stamp node-hygiene apply
+    - run node-hygiene once
+
+- name: 수집기 실행 유닛(oneshot) 배포
+  ansible.builtin.template:
+    src: keiwi-node-hygiene.service.j2
+    dest: /etc/systemd/system/keiwi-node-hygiene.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: _nodeexp_default.stat.exists
+  notify:
+    - stamp node-hygiene apply
+    - run node-hygiene once
+
+- name: 수집기 주기 타이머 유닛 배포
+  ansible.builtin.template:
+    src: keiwi-node-hygiene.timer.j2
+    dest: /etc/systemd/system/keiwi-node-hygiene.timer
+    owner: root
+    group: root
+    mode: "0644"
+  when: _nodeexp_default.stat.exists
+  notify:
+    - stamp node-hygiene apply
+
+- name: 수집 타이머 enable + 기동
+  ansible.builtin.systemd:
+    name: keiwi-node-hygiene.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+  # --check에선 유닛 파일이 실제로 안 써져 systemctl이 못 찾음 → 드라이런 스킵(실적용에서만 기동).
+  when: _nodeexp_default.stat.exists and not ansible_check_mode

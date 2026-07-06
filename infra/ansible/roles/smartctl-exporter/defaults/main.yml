@@ -1,0 +1,18 @@
+---
+# roles/smartctl-exporter/defaults/main.yml — 디스크/NVMe SMART 익스포터 기본값
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
+
+# 익스포터가 바인드할 포트(자기 노드 :9633/metrics). prometheus-community 기본값.
+smartctl_exporter_port: 9633
+
+# 대상 노드에 바이너리를 둘 위치.
+smartctl_exporter_install_dir: /opt/keiwi/smartctl-exporter
+
+# 배포할 prometheus-community/smartctl_exporter 바이너리(레포 vendored 본 — control 노드 경로).
+# egress 0(§ 인프라) → 대상에서 온라인 다운로드 금지. 오프라인/사내 미러로 받은
+# linux-amd64 바이너리를 아래 경로에 두면 그대로 배포한다(중복 방지 위해 roles/files 복제 안 함).
+smartctl_exporter_bin_src: "{{ playbook_dir }}/../../monitoring/smartctl-exporter/smartctl_exporter"
+
+# 대상에서 smartctl(smartmontools) 실행 파일 경로(Debian/Ubuntu 기본). 익스포터가 shell out 한다.
+smartctl_path: /usr/sbin/smartctl
