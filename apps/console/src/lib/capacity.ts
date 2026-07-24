@@ -5,6 +5,7 @@ import type {
   GpuCapacity,
   Verdict,
   GpuSample,
+  NodeGpuSample,
 } from "@/types/fleet";
 import {
   DEFAULT_CAPACITY_POLICY,
@@ -33,6 +34,9 @@ export function resolveFleetCapacity(
   const MIB = 1024 * 1024;
   const sumMib = (m: Map<string, number> | undefined) =>
     m ? [...m.values()].reduce((a, b) => a + b, 0) * MIB : undefined;
+  // gpu-model-exporter VRAM(bytes)은 node 라벨 → node.id로 매핑(DCGM 없는 GPU 폴백).
+  const modelUsedByNode = groupNodeGpu(raw.gpuModelUsedBytes ?? []);
+  const modelTotalByNode = groupNodeGpu(raw.gpuModelTotalBytes ?? []);
 
   return nodes.map((node) => {
     const nodeInst = node.exporters.node;
@@ -54,8 +58,18 @@ export function resolveFleetCapacity(
       const used = sumMib(usedByInst.get(dcgmInst));
       const total = sumMib(totalByInst.get(dcgmInst));
       if (used !== undefined && total !== undefined && total > 0) {
-        gpu = { ...gpu, vramUsedBytes: used, vramTotalBytes: total };
+        gpu = { ...gpu, vramUsedBytes: used, vramTotalBytes: total, source: "dcgm" };
       }
+    }
+    // 폴백: DCGM이 없거나(예 data01 Tesla M4 드라이버 418) 데이터를 못 읽을 때,
+    // gpu-model-exporter VRAM(bytes)로 배지를 채운다(util 미상 → VRAM만으로 판정).
+    if (!gpu || gpu.verdict === "unknown") {
+      const gpuFromModel = judgeGpuFromModelVram(
+        modelUsedByNode.get(node.id),
+        modelTotalByNode.get(node.id),
+        policy,
+      );
+      if (gpuFromModel) gpu = gpuFromModel;
     }
 
     const hasData =
@@ -79,6 +93,55 @@ function groupGpu(samples: GpuSample[]): Map<string, Map<string, number>> {
     m.set(s.gpu, s.value);
   }
   return out;
+}
+
+/** node → (gpu → value) — gpu-model-exporter(node 라벨)용. */
+function groupNodeGpu(samples: NodeGpuSample[]): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const s of samples) {
+    let m = out.get(s.node);
+    if (!m) {
+      m = new Map();
+      out.set(s.node, m);
+    }
+    m.set(s.gpu, s.value);
+  }
+  return out;
+}
+
+/**
+ * gpu-model-exporter VRAM(bytes)만으로 GPU 판정(폴백 — DCGM 없는 노드).
+ * util 정보가 없으므로 VRAM 여유%로만 판정하고, source="gpu-model"로 표시(배지 전용,
+ * 배치 추천에서는 제외 — bestUtilPct=0은 실측 아님). 데이터 없으면 null.
+ */
+function judgeGpuFromModelVram(
+  used: Map<string, number> | undefined,
+  total: Map<string, number> | undefined,
+  p: CapacityPolicy,
+): GpuCapacity | null {
+  if (!total || total.size === 0) return null;
+  let bestFreePct = -1;
+  let usedSum = 0;
+  let totalSum = 0;
+  for (const [g, t] of total) {
+    const u = used?.get(g) ?? 0;
+    totalSum += t;
+    usedSum += u;
+    const freePct = t > 0 ? ((t - u) / t) * 100 : 0;
+    if (freePct > bestFreePct) bestFreePct = freePct;
+  }
+  const verdict: Verdict =
+    bestFreePct < p.gpuVramFullPct ? "full" : bestFreePct >= p.gpuVramFreePct ? "free" : "busy";
+  return {
+    present: true,
+    bestVramFreePct: bestFreePct,
+    bestUtilPct: 0,
+    gpuCount: total.size,
+    verdict,
+    vramUsedBytes: usedSum,
+    vramTotalBytes: totalSum,
+    source: "gpu-model",
+  };
 }
 
 function judgeGeneral(
@@ -151,7 +214,8 @@ export function recommendGpuPlacement(
   caps: NodeCapacity[],
 ): { nodeId: string; vramFreePct: number } | null {
   const free = caps
-    .filter((c) => c.gpu?.verdict === "free")
+    // gpu-model 폴백(util 미상·소용량 M4 등)은 배치 추천에서 제외 — DCGM 실측 GPU만.
+    .filter((c) => c.gpu?.verdict === "free" && c.gpu?.source !== "gpu-model")
     .sort((a, b) => (b.gpu?.bestVramFreePct ?? 0) - (a.gpu?.bestVramFreePct ?? 0));
   const top = free[0];
   return top && top.gpu

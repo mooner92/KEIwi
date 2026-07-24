@@ -91,6 +91,51 @@ describe("resolveFleetCapacity — GPU축 (binding = 가용 VRAM)", () => {
   });
 });
 
+describe("resolveFleetCapacity — GPU 폴백(gpu-model, DCGM 없는 노드 예: data01 Tesla M4)", () => {
+  const GIB = 1024 ** 3;
+  it("DCGM 없고 gpu-model VRAM만 → 배지용 GpuCapacity(source=gpu-model·VRAM 판정)", () => {
+    const raw: CapacityRaw = {
+      ...EMPTY,
+      gpuModelTotalBytes: [{ node: "data1", gpu: "0", value: 4 * GIB }],
+      gpuModelUsedBytes: [{ node: "data1", gpu: "0", value: 1 * GIB }], // 75% free
+    };
+    const gpu = resolveFleetCapacity([cpuNode("1")], raw)[0].gpu!;
+    expect(gpu.present).toBe(true);
+    expect(gpu.source).toBe("gpu-model");
+    expect(gpu.verdict).toBe("free"); // 75% free ≥ 50
+    expect(gpu.bestUtilPct).toBe(0); // util 미상
+    expect(gpu.vramTotalBytes).toBe(4 * GIB);
+    expect(gpu.vramUsedBytes).toBe(1 * GIB);
+  });
+
+  it("gpu-model 폴백은 배치 추천에서 제외(util 미상·소용량)", () => {
+    const raw: CapacityRaw = {
+      ...EMPTY,
+      // 폴백 노드는 100% 여유여도, DCGM free 노드가 있으면 그쪽을 추천
+      gpuModelTotalBytes: [{ node: "data1", gpu: "0", value: 4 * GIB }],
+      gpuModelUsedBytes: [{ node: "data1", gpu: "0", value: 0 }],
+      gpuVramFree: [{ instance: "192.168.1.4:9400", gpu: "0", value: 60 }],
+      gpuUtil: [{ instance: "192.168.1.4:9400", gpu: "0", value: 0 }],
+    };
+    const rec = recommendGpuPlacement(resolveFleetCapacity([cpuNode("1"), gpuNode("4")], raw));
+    expect(rec?.nodeId).toBe("data4"); // data1(폴백) 아님
+  });
+
+  it("DCGM이 있으면 폴백보다 DCGM 우선(source=dcgm)", () => {
+    const raw: CapacityRaw = {
+      ...EMPTY,
+      gpuVramFree: [{ instance: "192.168.1.4:9400", gpu: "0", value: 78 }],
+      gpuUtil: [{ instance: "192.168.1.4:9400", gpu: "0", value: 0 }],
+      gpuVramUsedMib: [{ instance: "192.168.1.4:9400", gpu: "0", value: 1024 }],
+      gpuVramTotalMib: [{ instance: "192.168.1.4:9400", gpu: "0", value: 49152 }],
+      gpuModelTotalBytes: [{ node: "data4", gpu: "0", value: 999 * GIB }],
+    };
+    const gpu = resolveFleetCapacity([gpuNode("4")], raw)[0].gpu!;
+    expect(gpu.source).toBe("dcgm");
+    expect(gpu.vramTotalBytes).toBe(49152 * 1024 * 1024); // DCGM 값(48 GiB), 폴백 999 아님
+  });
+});
+
 describe("recommendGpuPlacement", () => {
   const nodes = [gpuNode("4"), gpuNode("5"), cpuNode("1")];
   it("GPU free 노드 중 가용 VRAM 최대를 추천", () => {

@@ -8,11 +8,11 @@
 nodes:
   - id: data01                 # 안정적 식별자 (변하지 않음)
     ip: 192.168.1.101
-    hostname: ""               # 알면 채움
-    os: ubuntu                 # ubuntu | windows
-    role: target               # target | stack-host
-    gpu: null                  # 예: "A40 x2" | null
-    exporters:                 # 있는 것만. 포트는 기본값(확인 필요)
+    hostname: "DataLX01"       # node_uname_info 확인(2026-07-24 온보딩)
+    os: ubuntu                 # 16.04 xenial(EOL) — py3.6·모던 node_exporter 바이너리·filebeat 보류
+    role: target
+    gpu: "Tesla M4 x1"         # 4GB, 드라이버 418 → DCGM 불가(gpu-model-exporter만·카드 배지는 gpu-model 폴백)
+    exporters:                 # dcgm 없음(드라이버 418). 메트릭만, 로그(filebeat)는 xenial로 보류.
       node: "192.168.1.101:9100"
 
   - id: data02

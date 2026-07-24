@@ -152,7 +152,7 @@ export function aggregateGpuModels(rows: GpuModel[]): GpuModelAgg[] {
  * 실패는 throw → 호출부(getFleetCapacity)가 전부 unknown으로 안전 귀결(거짓 "여유" 금지).
  */
 export async function queryCapacity(): Promise<CapacityRaw> {
-  const [cpuIdle, memAvail, gpuUtil, gpuVramFree, gpuVramUsed, gpuVramTotal] = await Promise.all([
+  const [cpuIdle, memAvail, gpuUtil, gpuVramFree, gpuVramUsed, gpuVramTotal, gpuModelUsed, gpuModelTotal] = await Promise.all([
     promQuery(`avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m]))`),
     promQuery(`100*node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes`),
     promQuery(`DCGM_FI_DEV_GPU_UTIL`),
@@ -160,6 +160,9 @@ export async function queryCapacity(): Promise<CapacityRaw> {
     // 절대 VRAM(MiB) — 카드에 "36/48 GiB" 수치 표시용. total = used+free(FB_TOTAL 부재 노드 대비 안정).
     promQuery(`DCGM_FI_DEV_FB_USED`),
     promQuery(`DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE`),
+    // gpu-model-exporter VRAM(bytes, node 라벨) — DCGM 없는 GPU(data01 Tesla M4) 배지 폴백.
+    promQuery(`gpu_vram_used_bytes`),
+    promQuery(`gpu_vram_total_bytes`),
   ]);
   const nodeSamples = (rows: PromSample[]) =>
     rows
@@ -169,6 +172,11 @@ export async function queryCapacity(): Promise<CapacityRaw> {
     rows
       .map((r) => ({ instance: r.metric.instance ?? "", gpu: r.metric.gpu ?? "", value: r.value }))
       .filter((s) => s.instance !== "");
+  // gpu-model-exporter는 node 라벨(instance 아님)로 노드를 식별한다.
+  const nodeGpuSamples = (rows: PromSample[]) =>
+    rows
+      .map((r) => ({ node: r.metric.node ?? "", gpu: r.metric.gpu ?? "", value: r.value }))
+      .filter((s) => s.node !== "");
   return {
     // idle rate(0~1) → busy%(0~100)
     cpuBusy: nodeSamples(cpuIdle).map((s) => ({ instance: s.instance, value: 100 * (1 - s.value) })),
@@ -177,5 +185,7 @@ export async function queryCapacity(): Promise<CapacityRaw> {
     gpuVramFree: gpuSamples(gpuVramFree),
     gpuVramUsedMib: gpuSamples(gpuVramUsed),
     gpuVramTotalMib: gpuSamples(gpuVramTotal),
+    gpuModelUsedBytes: nodeGpuSamples(gpuModelUsed),
+    gpuModelTotalBytes: nodeGpuSamples(gpuModelTotal),
   };
 }

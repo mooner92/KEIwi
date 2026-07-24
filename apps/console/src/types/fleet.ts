@@ -60,6 +60,8 @@ export type GpuCapacity = {
   /** 노드 전체 GPU VRAM 사용/총량(bytes) — 절대 수치 표시용(예: 36/48 GiB). 없으면 미표시. */
   vramUsedBytes?: number;
   vramTotalBytes?: number;
+  /** 판정 근거 — "dcgm"(기본, util 포함) | "gpu-model"(DCGM 없는 GPU 폴백, VRAM만·util 미상). */
+  source?: "dcgm" | "gpu-model";
 };
 
 /** 노드 단위 여유 판정 결과(순수 함수 산출). */
@@ -76,6 +78,8 @@ export type NodeCapacity = {
 export type MetricSample = { instance: string; value: number };
 /** GPU 표본 — DCGM은 노드당 복수 GPU라 gpu 라벨로 같은 물리 GPU의 util↔VRAM을 짝짓는다. */
 export type GpuSample = { instance: string; gpu: string; value: number };
+/** gpu-model-exporter 표본 — node 라벨 기준(DCGM 없는 GPU 폴백용). value=bytes. */
+export type NodeGpuSample = { node: string; gpu: string; value: number };
 
 /** queryCapacity() 산출 = resolveFleetCapacity() 입력(순수 분리 — 테스트 가능). */
 export type CapacityRaw = {
@@ -85,4 +89,8 @@ export type CapacityRaw = {
   gpuVramFree: GpuSample[]; // ip:9400 (per GPU, 가용 VRAM%)
   gpuVramUsedMib?: GpuSample[]; // ip:9400 (per GPU, 사용 VRAM MiB) — 절대 수치 표시용
   gpuVramTotalMib?: GpuSample[]; // ip:9400 (per GPU, 총 VRAM MiB)
+  // gpu-model-exporter VRAM(bytes, node 라벨) — DCGM 없는 GPU(예 data01 Tesla M4 드라이버 418)
+  // 노드 카드 배지 폴백. DCGM이 있으면 우선, 없거나 unknown일 때만 사용.
+  gpuModelUsedBytes?: NodeGpuSample[];
+  gpuModelTotalBytes?: NodeGpuSample[];
 };
