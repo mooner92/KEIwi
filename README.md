@@ -7,9 +7,9 @@
 | 항목 | 상태 |
 | --- | --- |
 | 상태 | 🟢 **M1 메트릭 · M2 로그(워크벤치) 라이브** — 콘솔(Overview·Logs 워크벤치·Resources·어시스턴트) 가동, 플릿 상태/용량 판정/신호→인플레이스 RAG 진단 검증 완료 |
-| 플릿 | 🖥️ 5노드 `data01~05`(`192.168.1.101~105`) · control=`data05` · **3 정상**(data03·04·05 — data03은 2026-07-03 온보딩) · 2 데이터 없음(data01 미접근 · data02 Windows 백로그) · **GPU 6장**: data03·04 Quadro RTX 6000×2씩 + data05 A40×2 (드라이버 표준 535) |
+| 플릿 | 🖥️ 5노드 `data01~05`(`192.168.1.101~105`) · control=`data05` · **4 수집**(data01·03·04·05 — data01은 2026-07-24 온보딩: 메트릭+로그, 단 Tesla M4는 드라이버 418이라 DCGM 불가 → gpu-model만) · data02(Windows) 백로그 · **DCGM GPU 6장**: data03·04 Quadro RTX 6000×2씩 + data05 A40×2 (드라이버 535) |
 | 메트릭 | Prometheus + node-exporter(:9100) · DCGM(:9400) · **gpu-model-exporter(:9836, 모델↔GPU)** · port-exporter(:9986, 포트↔프로세스) |
-| 로그 | Filebeat(journald) → Logstash(:5044) → **OpenSearch `keiwi-logs-*`**(365d 보존) → Grafana |
+| 로그 | Filebeat(journald) → Logstash(:5044) → **OpenSearch `keiwi-logs-*`**(365d 보존) → Grafana. 구형 우분투(data01 xenial)는 8.x apt 불가라 **7.17 벤더링**([`filebeat-xenial`](./infra/logging/filebeat-xenial/README.md)) |
 | 어시스턴트 | 🤖 로컬 vLLM(Qwen3-Coder-30B) + BM25 RAG · **읽기 전용 · egress 0 · 서버검증 인용** |
 | 디자인 | KRDS 토큰(Pretendard GOV · 라이트/다크) · Tailwind v4 |
 | 배포 | 🔒 사내 전용(Cloudflare Zero Trust) · 에이전트=Ansible role · **적용은 사람**(헌장 §11) |
@@ -36,7 +36,7 @@
 
 ```mermaid
 flowchart TD
-    Fleet["🖥️ 연구 서버 플릿 data01–05<br/>(정상 3: data03·04·05 · GPU 6장)"]
+    Fleet["🖥️ 연구 서버 플릿 data01–05<br/>(수집 4: data01·03·04·05 · DCGM GPU 6장)"]
     Fleet -->|"node-exporter · DCGM · gpu-model·port-exporter<br/>직접 스크랩(data03·05) / SSH 터널(data04)"| Prom["Prometheus (data05)"]
     Fleet -->|"Filebeat journald → :5044"| LS["Logstash (data05)"]
     LS --> OS[("OpenSearch<br/>keiwi-logs-*")]
@@ -148,6 +148,7 @@ flowchart LR
 | 플릿 SoT | 노드·exporters 단일 기준 | [docs/inventory.yaml](./docs/inventory.yaml) |
 | 스펙(SDD) | M1-console · M2-logs · M3-resources · assistant · logs-assistant · service-map · design(이식형) · sre-addons | [specs/](./specs) |
 | 런북 | 노드 온보딩/오프보딩 · rsyslog 폭주 대응 | [docs/runbooks/](./docs/runbooks) |
+| 브랜치/기여 | `main`/`dev` + `feat·fix·chore·docs·infra` 규약·PR 흐름 | [docs/branching.md](./docs/branching.md) |
 | 디자인 시스템 | KRDS 토큰·색·shape·타이포 규약 | [design-system/spec/](./design-system/spec) |
 | 시각 QA | Playwright 스크린샷 검증 절차 | [docs/testing.md](./docs/testing.md) |
 
@@ -229,7 +230,7 @@ flowchart LR
 | **M3** | 여유 리소스("free" 판정 + 작업 배치) → **Overview 흡수** | 재배치 |
 | **M4** | 장애 추적·시각화 | **보류**(M2 신호뷰로 충족) |
 | **M5** | 크리티컬 에러 알림(에러→책임자) | 후순위 |
-| **고도화** | 로그 워크벤치(`/logs` 어시스턴트 통합) · 노드 온보딩 표준(data03 실증, 2026-07-03) · 서비스 맵 v2.1 · 디자인 v2(이식형 스펙 [specs/design](./specs/design/README.md)) | ✅ 완료 |
+| **고도화** | 로그 워크벤치(`/logs` 어시스턴트 통합) · 노드 온보딩 표준(data03 2026-07-03 · **data01 xenial 2026-07-24**: 메트릭+로그) · 서비스 맵 v2.1 · 디자인 v2(이식형 스펙 [specs/design](./specs/design/README.md)) | ✅ 완료 |
 | **다음** | SRE 추가 기능 백로그([specs/sre-addons](./specs/sre-addons/backlog.md)) · M5 에러 알림 | 🔄 |
 
 ```mermaid

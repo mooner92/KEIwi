@@ -18,3 +18,8 @@ coverage/
 # Python 빌드 산출물 (exporter py_compile 등)
 __pycache__/
 *.pyc
+
+# 벤더링 exporter 바이너리 (오프라인 벤더링 — 용량/라이선스로 레포에 담지 않음. 각 README 절차로 재현)
+infra/monitoring/smartctl-exporter/smartctl_exporter
+infra/logging/filebeat-xenial/filebeat-*-linux-*/
+*.tar.gz
