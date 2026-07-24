@@ -14,7 +14,14 @@ import os
 import pwd
 import re
 import subprocess
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+try:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+except ImportError:  # py3.6(data01): ThreadingHTTPServer는 3.7+ — MixIn으로 동등 구성
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from socketserver import ThreadingMixIn
+
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
 
 PORT = int(os.environ.get("GPU_MODEL_EXPORTER_PORT", "9836"))
 
@@ -39,7 +46,7 @@ def _user_for_pid(pid):
 
 def _run(args):
     try:
-        return subprocess.run(args, capture_output=True, text=True, timeout=10).stdout
+        return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10).stdout
     except Exception:
         return ""
 

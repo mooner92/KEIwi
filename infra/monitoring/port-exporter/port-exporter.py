@@ -2,7 +2,7 @@
 """Tiny Prometheus exporter: which process listens on which port (per node).
 
 `node-exporter`/`dcgm` give numeric metrics but not "포트↔프로그램". This walks
-`ss -tulnpH` (listening TCP + bound UDP with process) and exposes:
+`ss -tulnp` (listening TCP + bound UDP with process) and exposes:
 
   keiwi_listening_port_info{port,proto,process,pid,user} 1
 
@@ -14,7 +14,14 @@ import os
 import pwd
 import re
 import subprocess
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+try:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+except ImportError:  # py3.6(data01): ThreadingHTTPServer는 3.7+ — MixIn으로 동등 구성
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from socketserver import ThreadingMixIn
+
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
 
 PORT = int(os.environ.get("PORT_EXPORTER_PORT", "9986"))
 _PROC = re.compile(r'\(\("([^"]+)",pid=(\d+)')
@@ -45,8 +52,14 @@ def _user_for_pid(pid):
 def _rows():
     """Return deduped [(proto, port, process, pid)] of listening sockets."""
     try:
+        # -H(no-header)는 iproute2 4.9+ 전용 — 16.04(data01) 호환 위해 미사용, 헤더는 아래 파서가 필터.
+        # stdout/stderr=PIPE + universal_newlines: capture_output/text(3.7+) 대신 py3.6 호환 표기.
         out = subprocess.run(
-            ["ss", "-tulnpH"], capture_output=True, text=True, timeout=10
+            ["ss", "-tulnp"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=10,
         ).stdout
     except Exception:
         return []

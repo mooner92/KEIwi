@@ -44,6 +44,10 @@ scrape_configs:
       - targets: ["192.168.1.103:9836"]
         labels:
           node: "data03"
+      # data01 — Tesla M4 x1(드라이버 418 — DCGM 불가, gpu-model만. 2026-07-24)
+      - targets: ["192.168.1.101:9836"]
+        labels:
+          node: "data01"
 
   # 리스닝 포트↔프로세스 익스포터(:9986). 서비스 맵 v2. node 라벨로 노드 구분.
   - job_name: "port-exporter"
@@ -59,6 +63,10 @@ scrape_configs:
       - targets: ["192.168.1.103:9986"]
         labels:
           node: "data03"
+      # data01 — 직접 스크랩(2026-07-24 온보딩)
+      - targets: ["192.168.1.101:9986"]
+        labels:
+          node: "data01"
 
   - job_name: "node-exporter"
     static_configs:
@@ -73,6 +81,10 @@ scrape_configs:
       - targets: ["192.168.1.103:9100"]
         labels:
           instance: "192.168.1.103:9100"
+      # data01 — 직접 스크랩(2026-07-24 온보딩, 16.04·모던 바이너리 1.8.2·방화벽 없음)
+      - targets: ["192.168.1.101:9100"]
+        labels:
+          instance: "192.168.1.101:9100"
 
   - job_name: "dcgm-exporter"
     static_configs:
