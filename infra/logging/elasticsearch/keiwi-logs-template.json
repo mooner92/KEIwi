@@ -1,0 +1,23 @@
+{
+  "index_patterns": ["keiwi-logs-*"],
+  "priority": 200,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "fleet_node": { "type": "keyword" },
+        "log_level": { "type": "keyword" },
+        "log_level_source": { "type": "keyword" },
+        "service": { "type": "keyword" },
+        "category": { "type": "keyword" },
+        "host_name": { "type": "keyword" },
+        "message": { "type": "text" }
+      }
+    }
+  },
+  "_meta": { "managed-by": "KEIwi M2 (ADR-0008, ADR-0010)" }
+}

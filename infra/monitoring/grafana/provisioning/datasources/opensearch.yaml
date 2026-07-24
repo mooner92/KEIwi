@@ -1,0 +1,48 @@
+# KEIwi M2 통합 로그 — Grafana OpenSearch 데이터소스 (프로비저닝, 권장본)
+#
+# 에이전트는 생성만, 적용은 사람이 한다(헌장 §11). 라이브 직접수정 금지(§12).
+# 시크릿 없음(§13) — security off(내부망 + Cloudflare Access 뒤).
+#
+# 왜 OpenSearch 전용 플러그인인가:
+#   라이브 Grafana(v12)의 내장 elasticsearch 플러그인이 부팅마다 자동업데이트
+#   (12.5.4→12.6.5)를 read-only 경로에서 시도하다 실패 → elasticsearch 타입이
+#   깨져 그 타입의 데이터소스가 "not found". OpenSearch 전용 데이터소스 플러그인은
+#   쓰기가능 경로(/var/lib/grafana/plugins)에 설치돼 권한·중복·자동업데이트 문제가
+#   없고, OpenSearch 연결의 공식 경로. uid 는 keiwi-logs-es 로 고정(대시보드가 참조).
+#
+# 적용(사람이, data05):
+#   1) 플러그인 설치:
+#        sudo docker exec grafana grafana cli plugins install grafana-opensearch-datasource
+#   2) 기존 elasticsearch 데이터소스 프로비저닝 제거 + 이 파일 주입:
+#        sudo docker exec grafana rm -f /etc/grafana/provisioning/datasources/elasticsearch.yaml
+#        sudo docker cp .../datasources/opensearch.yaml \
+#            grafana:/etc/grafana/provisioning/datasources/opensearch.yaml
+#   3) sudo docker restart grafana
+#
+# 참고: OpenSearch 가 compatibility.override_main_response_version=true 로 7.10.2 를
+#       보고해도, 여기서 flavor/version 을 명시하므로 플러그인이 OpenSearch 로 동작.
+
+apiVersion: 1
+
+datasources:
+  - name: keiwi-logs-es
+    uid: keiwi-logs-es
+    type: grafana-opensearch-datasource
+    access: proxy
+    url: http://opensearch:9200
+    # 인덱스 패턴(일자 롤오버 와일드카드). ES/OS 데이터소스의 표준 index 필드.
+    database: "keiwi-logs-*"
+    isDefault: false
+    # 프로비저닝 관리 → UI 편집 잠금(드리프트 방지)
+    editable: false
+    jsonData:
+      # 명시(자동탐지에 의존하지 않음 — 호환모드 7.10.2 보고와 무관하게 OpenSearch 로 동작)
+      flavor: OpenSearch
+      version: "2.17.1"
+      timeField: "@timestamp"
+      # 로그 패널 표준 필드(공유 계약)
+      logLevelField: log_level
+      logMessageField: message
+      maxConcurrentShardRequests: 5
+      # PPL 비사용(표준 Lucene/쿼리 사용)
+      pplEnabled: false

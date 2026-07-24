@@ -1,0 +1,56 @@
+---
+# roles/gpu-model-exporter/tasks/main.yml — GPU 모델 익스포터 설치 + systemd (멱등)
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+# 익스포터는 자기 노드 GPU만 nvidia-smi+/proc로 본다 → GPU 노드([gpu] 그룹)에만 적용.
+# data05의 기존 PM2 실행을 systemd로 수렴(드리프트 해소, ADR-0017).
+
+- name: nvidia-smi 존재 확인(GPU 노드 가드)
+  ansible.builtin.command: which nvidia-smi
+  register: _nvsmi
+  changed_when: false
+  failed_when: false
+  check_mode: false   # --check에서도 실제 실행 → 가드(_nvsmi.rc)가 신뢰 가능
+
+- name: GPU 없으면 스킵
+  ansible.builtin.debug:
+    msg: "nvidia-smi 없음 — gpu-model-exporter 대상 아님({{ inventory_hostname }})"
+  when: _nvsmi.rc != 0
+
+- name: 설치 디렉터리 보장
+  ansible.builtin.file:
+    path: "{{ gpu_model_exporter_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: _nvsmi.rc == 0
+
+- name: 익스포터 스크립트 배포(레포 vendored 본)
+  ansible.builtin.copy:
+    src: "{{ gpu_model_exporter_src }}"
+    dest: "{{ gpu_model_exporter_install_dir }}/gpu-model-exporter.py"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart gpu-model-exporter
+  when: _nvsmi.rc == 0
+
+- name: systemd 유닛 배포(포트·경로 파라미터화)
+  ansible.builtin.template:
+    src: keiwi-gpu-model-exporter.service.j2
+    dest: /etc/systemd/system/keiwi-gpu-model-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart gpu-model-exporter
+  when: _nvsmi.rc == 0
+
+- name: 서비스 enable + 기동
+  ansible.builtin.systemd:
+    name: keiwi-gpu-model-exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+  # --check에선 유닛 파일이 실제로 안 써져 systemctl이 못 찾음 → 드라이런에선 스킵(실적용에서만 기동).
+  when: _nvsmi.rc == 0 and not ansible_check_mode

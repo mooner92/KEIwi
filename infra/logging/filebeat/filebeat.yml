@@ -1,0 +1,140 @@
+# infra/logging/filebeat/filebeat.yml — KEIwi 통합 로그 수집기(Filebeat) 표준 설정 (참조용)
+#
+# 에이전트 생성, 사람 적용 (헌장 §11). 라이브 직접 수정 금지 (§12).
+# 이 파일은 "표준 참조본"이다. 실제 서버 배포는 Ansible 템플릿(filebeat.yml.j2)이 이 표준을
+# 그대로 따르고, fleet_node만 host_vars로 주입한다. 여기 값을 직접 손으로 바꿔도 동작은 한다.
+#
+# 역할: 각 서버(data04·data05 우선)의 시스템 로그(journald) + 선택 앱 로그(vLLM 등)를
+#       data05의 Logstash(:5044)로 전송한다. Logstash가 필드 정규화(@timestamp, fleet_node,
+#       log_level, service, message, host_name)를 책임지므로, Filebeat는 "원본 + fleet_node"만
+#       붙여서 보낸다. (Kibana 미사용 — 단일 콘솔=Grafana, 헌장 §I-2.)
+#
+# 데이터 흐름: Filebeat(이 호스트) → Logstash(data05:5044) → Elasticsearch(keiwi-logs-*) → Grafana
+#
+# 적용(사람이, 헌장 §11):
+#   1) Filebeat 8.x 설치 (deb 권장):
+#        curl -L -O https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-8.15.0-amd64.deb
+#        sudo dpkg -i filebeat-8.15.0-amd64.deb
+#   2) 이 파일을 /etc/filebeat/filebeat.yml 로 복사 후, 이 호스트에 맞게 fleet_node 수정
+#        (data04 → "data04", data05 → "data05").
+#        sudo install -m 0600 -o root -g root infra/logging/filebeat/filebeat.yml /etc/filebeat/filebeat.yml
+#   3) 설정 검증 → 기동:
+#        sudo filebeat test config -c /etc/filebeat/filebeat.yml
+#        sudo filebeat test output -c /etc/filebeat/filebeat.yml   # data05:5044 연결 확인
+#        sudo systemctl enable --now filebeat
+#   4) 확인: Grafana Logs 대시보드(uid=keiwi-logs)에서 node 변수로 이 서버가 보이는지.
+#
+# 전제:
+#   · journald 입력은 시스템 저널 접근 권한이 필요하다. Filebeat는 보통 root로 도므로 OK.
+#     (저널 영속 저장 권장: /var/log/journal 존재. 없으면 휘발성 /run/log/journal만 읽힘.)
+#   · 이 호스트에서 Logstash(data05:5044)로 TCP 도달 가능해야 한다. data04→data05는 내부망 직통
+#     (192.168.1.105). 도달 불가 노드(data01~03 등)는 수집 안 됨 = 콘솔에서 "데이터 없음"(설계).
+#
+# 시크릿: 없음. ES는 내부망+Cloudflare Access 뒤 xpack.security 비활성(§13)이라 Logstash 출력에
+#         인증 자격증명을 쓰지 않는다. 토큰·비밀번호를 이 파일에 절대 박지 않는다 (§13).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 전역: 이 서버를 식별하는 fleet_node. 모든 이벤트에 루트 필드로 붙인다.
+#   ▸▸ 배포 시 반드시 이 호스트 값으로 바꾼다: data04 | data05  ◀◀
+#   (Ansible 템플릿에서는 {{ fleet_node }} 로 host_vars 주입 — 이 표준본은 기본값을 둔다.)
+# -----------------------------------------------------------------------------
+processors:
+  - add_fields:
+      target: ""                 # target:"" → 루트에 직접. (기본 target은 "fields"라 중첩됨 → 피함)
+      fields:
+        fleet_node: "CHANGEME"   # ← 반드시 호스트값으로 교체: data04 | data05. (Ansible 배포면 host_vars로 자동 주입)
+  # host.name 등 호스트 메타데이터 보강(이미 forwarded 태그면 건너뜀). Logstash가 host_name으로 정규화.
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+
+# -----------------------------------------------------------------------------
+# 입력(inputs)
+# -----------------------------------------------------------------------------
+filebeat.inputs:
+  # (1) 시스템 로그 — journald (systemd 저널). 기본 활성.
+  - type: journald
+    id: keiwi-systemd-journal
+    enabled: true
+    # 안전한 첫 기동: 저장된 커서가 있으면 이어서, 없으면 tail(신규 로그만) → 과거 전체 재수집 방지.
+    #   과거 로그 백필이 필요하면 seek: head 로 일시 변경 후 되돌린다.
+    seek: cursor
+    cursor_seek_fallback: tail
+    # 선택: 특정 unit/우선순위만 수집하려면 include_matches로 좁힌다(기본은 전체 시스템 로그).
+    #   include_matches:
+    #     - _SYSTEMD_UNIT=ssh.service
+    #     - _SYSTEMD_UNIT=docker.service
+    #     - "syslog.priority<=4"        # err(3)·warn(4) 이상만
+    fields_under_root: true
+    fields:
+      service_source: journald   # Logstash가 service 정규화 시 참고용 힌트(보조). 표준 service는 Logstash가 결정.
+
+  # (2) 앱 로그(예: vLLM) — 파일 입력. 경로가 호스트마다 달라 기본 비활성.
+  #   ▸▸ vLLM이 도는 서버(data05 등)에서만 enabled: true 로 켜고 paths를 실제 경로로 맞춘다.  ◀◀
+  #   vLLM을 systemd 유닛으로 돌리면 이미 (1) journald로 수집되니 이 블록은 불필요할 수 있다.
+  #   파일로 직접 떨어뜨릴 때만 사용.
+  - type: filestream
+    id: keiwi-vllm-logs
+    enabled: false
+    paths:
+      - /var/log/vllm/*.log       # ← 실제 vLLM 로그 경로로 교체(예: /data/logs/vllm/*.log).
+    # JSON 한 줄(ndjson) 로그면 아래 파서를 켜서 구조화(선택). 평문 로그면 주석 유지.
+    # parsers:
+    #   - ndjson:
+    #       target: ""
+    #       overwrite_keys: false
+    #       add_error_key: true
+    fields_under_root: true
+    fields:
+      service_source: vllm        # service 힌트. 표준 service 결정은 Logstash.
+
+# -----------------------------------------------------------------------------
+# 출력(output) — data05의 Logstash(beats input :5044) 단일 경로.
+#   ES로 직접 보내지 않는다(정규화는 Logstash 담당). ES 출력은 사용하지 않음.
+# -----------------------------------------------------------------------------
+output.logstash:
+  # data05의 Logstash. 내부망 IP 사용(호스트명 'data05'가 DNS로 안 잡힐 수 있어 IP 권장).
+  #   · data04에서: 192.168.1.105:5044 (내부망 직통)
+  #   · data05 자기 자신에서: 127.0.0.1:5044 도 가능(원하면 교체).
+  hosts: ["192.168.1.105:5044"]
+  # 안전 기본값: 끊기면 무한 재시도(로그 유실 방지). 워커 1, 압축 보수적.
+  loadbalance: false
+  worker: 1
+  compression_level: 3
+  ttl: 0
+  # 전송 보장: 큐가 차면 입력을 백프레셔로 막아 ES/Logstash 과부하 방지(기본 동작).
+
+# ES 직접 출력은 비활성(주석). 정규화를 우회하므로 사용 금지.
+# output.elasticsearch:
+#   hosts: ["http://192.168.1.105:9200"]   # ← 사용하지 않음(Logstash 경유 원칙)
+
+# -----------------------------------------------------------------------------
+# 내부 큐 — 메모리 큐(기본). 보수적 크기로 과도한 메모리 사용 방지.
+# -----------------------------------------------------------------------------
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
+
+# -----------------------------------------------------------------------------
+# Filebeat 자체 로깅 — 파일로, 회전 보관. (운영 가시성)
+# -----------------------------------------------------------------------------
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0640
+
+# -----------------------------------------------------------------------------
+# 비활성화 명시: Kibana 셋업/대시보드 로딩 안 함(단일 콘솔=Grafana, 헌장 §I-2).
+#   Logstash 출력 경로에서는 ES 템플릿/ILM 관리도 Filebeat가 하지 않는다.
+# -----------------------------------------------------------------------------
+setup.kibana.host: ""
+setup.dashboards.enabled: false
+setup.ilm.enabled: false
+setup.template.enabled: false
+
+# Filebeat X-Pack 모니터링은 비활성(내부망·시크릿 없음 원칙 단순화).
+monitoring.enabled: false

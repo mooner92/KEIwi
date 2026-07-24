@@ -1,0 +1,63 @@
+---
+# roles/filebeat/tasks/main.yml — Filebeat 설치 + 설정 + enable (멱등)
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+#
+# 흐름: Elastic APT 저장소 등록 → filebeat 설치 → 계약대로 설정 템플릿 배포 → enable+기동.
+#       data04는 docker 없음(apt 패키지). data05도 호스트에서 journald를 읽도록 apt 설치.
+
+- name: APT 선행 패키지(https repo·gpg) 설치
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - gnupg
+      - ca-certificates
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: APT keyrings 디렉터리 보장
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Elastic GPG 키 설치(멱등)
+  ansible.builtin.get_url:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    dest: /etc/apt/keyrings/elastic.asc
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: "Elastic {{ filebeat_es_major }}.x APT 저장소 등록"
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/elastic.asc] https://artifacts.elastic.co/packages/{{ filebeat_es_major }}.x/apt stable main"
+    filename: "elastic-{{ filebeat_es_major }}.x"
+    state: present
+    update_cache: true
+
+- name: Filebeat 설치
+  ansible.builtin.apt:
+    name: filebeat
+    state: present
+
+- name: Filebeat 설정 배포(계약 필드·journald 입력·logstash 출력)
+  ansible.builtin.template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: "0600"   # filebeat는 설정파일이 group/other 쓰기 가능하면 경고/거부
+    backup: true
+  notify: restart filebeat
+
+- name: Filebeat 서비스 enable + 기동
+  ansible.builtin.systemd:
+    name: filebeat
+    state: started
+    enabled: true
+    daemon_reload: true

@@ -1,0 +1,109 @@
+# =============================================================================
+# KEIwi M2 통합 로그 — 검색 스택 (data05) · "권장본"
+# -----------------------------------------------------------------------------
+# 저장 엔진 = OpenSearch (Elasticsearch의 Apache-2.0 포크, ES-API 호환). ADR-0008 개정:
+#   elastic.co 레지스트리(Cloudflare R2)가 이 호스트에서 큰 이미지 전송을 끊어 ES 이미지를
+#   받지 못함 → Docker Hub에서 받히는 OpenSearch로 전환. 데이터흐름/표준필드/콘솔/인덱스
+#   템플릿은 동일(ES 7.10 호환 모드로 Grafana ES 데이터소스가 그대로 동작).
+#
+# 에이전트가 레포에 **생성**, data05에서 **기동(적용)은 사람**(헌장 §11/§12).
+# 라이브 모니터링 스택(/data/monitoring/...)은 건드리지 않는다 — 이 스택은 **별도 compose**.
+#
+# 구성:  Filebeat(각 서버) → Logstash(data05:5044) → OpenSearch(data05) → Grafana(ES 데이터소스, 호환)
+# 시크릿 없음(§13): security 비활성. 내부망 + Cloudflare Access 뒤. 외부 노출 금지.
+#
+# ── 적용 절차 (data05에서, 사람이) ───────────────────────────────────────────
+#  0) 커널(필수):  sudo sysctl -w vm.max_map_count=262144
+#                  echo 'vm.max_map_count=262144' | sudo tee /etc/sysctl.d/99-keiwi-elk.conf
+#  1) 환경값:  cp .env.example .env  → MONITORING_NETWORK 확인(보통 monitoring_default). 커밋 금지.
+#  2) 공유 네트워크: Grafana가 'opensearch:9200'을 컨테이너명으로 찾도록 monitoring 망 합류(아래).
+#  3) 기동:  docker-compose -f docker-compose.yml --env-file .env up -d   (v2면 docker compose)
+#  4) 인덱스 템플릿(필수 — keyword 매핑, OpenSearch 컴포저블 템플릿 API는 ES와 동일):
+#       curl -s -X PUT 'http://localhost:9200/_index_template/keiwi-logs' \
+#         -H 'Content-Type: application/json' -d @elasticsearch/keiwi-logs-template.json
+#  5) 검증:  curl -s localhost:9200/_cluster/health | grep -o '"status":"[a-z]*"'
+#            curl -s 'localhost:9200/_cat/indices/keiwi-logs-*?v'
+#  6) Grafana 데이터소스: provisioning/datasources/elasticsearch.yaml 참고(type=elasticsearch,
+#     url=http://opensearch:9200, esVersion 7.10.0 — OpenSearch 호환 모드).
+# =============================================================================
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION:-2.17.1}
+    container_name: keiwi-opensearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      # 보안 끔: 내부망 + Cloudflare Access 뒤, 레포에 시크릿 없음(§13)
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      # Grafana의 Elasticsearch 데이터소스가 그대로 붙도록 ES 7.10 버전으로 보고(호환 모드)
+      - compatibility.override_main_response_version=true
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS:--Xms1g -Xmx1g}"
+      - cluster.name=keiwi-logs
+      - node.name=keiwi-os-data05
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - osdata:/usr/share/opensearch/data
+    ports:
+      # 호스트 검증용 localhost 노출(외부 비노출). Grafana는 공유 도커망으로 접근.
+      - "${ES_HOST_BIND:-127.0.0.1}:${ES_HTTP_PORT:-9200}:9200"
+    networks:
+      - elk
+      - monitoring
+    healthcheck:
+      # 포트 오픈 체크(curl 부재 무관). depends_on 게이팅은 안 함.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9200' 2>/dev/null || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  logstash:
+    # OpenSearch output 플러그인 내장 Logstash OSS 이미지(Docker Hub). 태그 안 받히면 .env로 변경.
+    image: opensearchproject/logstash-oss-with-opensearch-output-plugin:${LOGSTASH_OS_VERSION:-8.9.0}
+    container_name: keiwi-logstash
+    restart: unless-stopped
+    # OpenSearch 컨테이너 시작 후 기동(헬스 게이팅 안 함 — output이 자체 재시도).
+    depends_on:
+      - opensearch
+    environment:
+      - "LS_JAVA_OPTS=${LS_JAVA_OPTS:--Xms512m -Xmx512m}"
+      # OSS Logstash라 XPACK_* env 미설정(있으면 unknown setting으로 기동 실패).
+      # 파이프라인이 ${OPENSEARCH_HOSTS} 로 읽는다.
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline.yml:/usr/share/logstash/config/pipelines.yml:ro
+    ports:
+      - "${LOGSTASH_BEATS_PORT:-5044}:5044"
+    networks:
+      - elk
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9600' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+volumes:
+  osdata:
+    # 영속 볼륨(로그 데이터). 완전 삭제는 'docker-compose down -v'(주의: 로그 전손실).
+    driver: local
+
+networks:
+  # 내부 전용: OpenSearch ↔ Logstash. 이 compose가 생성/소유.
+  elk:
+    driver: bridge
+  # 외부 공유: 기존 모니터링 스택(grafana)이 만든 네트워크에 합류(.env의 MONITORING_NETWORK).
+  monitoring:
+    external: true
+    name: ${MONITORING_NETWORK:-monitoring_default}

@@ -1,0 +1,17 @@
+# KEIwi 통합 로그 — Logstash 파이프라인 정의 (권장본)
+#
+# 에이전트는 생성만, 적용은 사람이 한다(헌장 §11).
+#
+# ⚠️ 파일명 주의: Logstash가 실제로 읽는 파일명은 "pipelines.yml"(복수형)이다.
+#    이 레포에서는 공유 계약상 pipeline.yml 로 두되, 컨테이너에 마운트할 때
+#    반드시 config/pipelines.yml 경로로 올린다:
+#      ./infra/logging/logstash/pipeline.yml      -> /usr/share/logstash/config/pipelines.yml
+#      ./infra/logging/logstash/pipeline/logs.conf -> /usr/share/logstash/pipeline/logs.conf
+#      ./infra/logging/logstash/logstash.yml       -> /usr/share/logstash/config/logstash.yml
+#
+# 단일 파이프라인(keiwi-logs): beats:5044 입력 → 정규화 필터 → ES(keiwi-logs-*) 출력.
+
+- pipeline.id: keiwi-logs
+  path.config: "/usr/share/logstash/pipeline/logs.conf"
+  pipeline.workers: 2
+  pipeline.batch.size: 125

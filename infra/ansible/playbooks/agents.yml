@@ -1,0 +1,47 @@
+---
+# playbooks/agents.yml — 노드별 모니터링 에이전트 적용(GPU 모델 익스포터 등).
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 로그(filebeat)는 playbooks/logging.yml 참조.
+# 실행(사람, control=data05):
+#   cd infra/ansible
+#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K --check --diff
+#   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K
+#   ※ -K(--ask-become-pass): 대상의 sudo가 NOPASSWD가 아니면 필요(예 data04 mhchoi).
+#     "BECOME password:" 프롬프트에 그 노드 sudo 비번 입력(레포 저장 안 함 §13).
+#
+# 향후 node-exporter·dcgm-exporter role도 여기에 묶는다(ADR-0017 백로그).
+
+- name: GPU 모델 익스포터 (GPU 노드)
+  hosts: gpu
+  become: true
+  gather_facts: true
+  tags: [gpu-model]
+  roles:
+    - gpu-model-exporter
+
+- name: 리스닝 포트↔프로세스 익스포터 (모든 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [port]
+  roles:
+    - port-exporter
+
+- name: 디스크/NVMe SMART 익스포터 (모든 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [smartctl]
+  roles:
+    - smartctl-exporter
+
+# node-exporter 미사용 수집기(systemd·textfile) 활성화 + OS 위생 메트릭.
+# apt node-exporter 노드(data03/04)만 실제 적용 — data05(컨테이너)는 role이 자동 스킵
+# (docker-compose.yml의 node-exporter command로 동일 플래그 부여). 알림 규칙은 만들지 않음.
+- name: OS 위생 수집기 (node-exporter textfile·systemd, apt 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [node-hygiene]
+  roles:
+    - node-hygiene

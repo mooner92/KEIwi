@@ -1,0 +1,25 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.log
+.DS_Store
+
+# 로컬 툴/에이전트 상태 (커밋 금지)
+.omc/
+.claude/
+
+# env: 실값은 전부 무시, 예시만 추적
+.env
+.env.*
+!.env.example
+
+# Python 빌드 산출물 (exporter py_compile 등)
+__pycache__/
+*.pyc
+
+# 벤더링 exporter 바이너리 (오프라인 벤더링 — 용량/라이선스로 레포에 담지 않음. 각 README 절차로 재현)
+infra/monitoring/smartctl-exporter/smartctl_exporter
+infra/logging/filebeat-xenial/filebeat-*-linux-*/
+*.tar.gz

@@ -1,0 +1,33 @@
+# KEIwi — Grafana 대시보드 프로비저닝 provider (권장본)
+#
+# 에이전트는 생성만, 적용은 사람이 한다(헌장 §11). 라이브 직접수정 금지(§12).
+#
+# 무엇: 아래 path 의 *.json 대시보드를 Grafana 가 자동 로드한다. M2 로그 대시보드
+#       (logs.json, uid=keiwi-logs)를 UI 임포트 없이 주입하기 위함.
+#       라이브 Grafana 가 provisioning 디렉터리를 호스트 바인드하지 않으므로,
+#       이 파일과 logs.json 을 컨테이너 안 경로로 docker cp 한 뒤 grafana 재시작한다.
+#
+# 적용(사람이, data05):
+#   sudo docker cp .../provisioning/dashboards/keiwi-dashboards.yaml \
+#       grafana:/etc/grafana/provisioning/dashboards/keiwi-dashboards.yaml
+#   sudo docker exec grafana mkdir -p /etc/grafana/provisioning/dashboards/keiwi
+#   sudo docker cp .../dashboards/logs.json \
+#       grafana:/etc/grafana/provisioning/dashboards/keiwi/logs.json
+#   sudo docker restart grafana
+#
+# 주의: docker cp 주입은 컨테이너 "재생성" 시 사라진다(볼륨 아님). 영구화하려면
+#       라이브 compose 에 provisioning 바인드 마운트 추가(별도 작업). 레포가 원본.
+
+apiVersion: 1
+
+providers:
+  - name: keiwi
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/keiwi
+      foldersFromFilesStructure: false

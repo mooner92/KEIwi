@@ -1,0 +1,105 @@
+# KEIwi Prometheus recording rules — 사전집계(record:)만. ⚠️ alert 규칙 절대 금지.
+#
+# 목적: 콘솔·대시보드·향후 SLO/showback(#7·#12)이 반복 쓰는 비싼 쿼리를 미리 집계해
+#       (1) 대시보드 로드/드릴다운 지연 축소 (2) SLO·용량계획·귀속의 "공통 분모" 확보.
+# 성격: 에이전트는 생성만, 적용은 사람(헌장 §11). 라이브(/data/monitoring/rules/)는 직접 수정 금지(§12).
+#
+# 네이밍 규약(Prometheus 공식): level:metric:operation
+#   level=집계 수준(instance) · metric=원 메트릭 의미 · operation=연산(ratio/rate5m/…)
+#
+# 배선: prometheus.yml 의 rule_files: ["/etc/prometheus/rules/*.yml"] 로 로드.
+#       compose prometheus 서비스에 /data/monitoring/rules 바인드 마운트 필요(README/applySteps 참고).
+#
+# ⚠️ 이 파일에는 record: 규칙만 존재한다. alert: 키가 하나라도 있으면 헌장 위반(알림 보류 중).
+
+groups:
+  # ─────────────────────────────────────────────────────────────────────────
+  # 1) 노드 자원 사용률 — CPU·메모리·로드 (콘솔 노드 드릴다운 공통 분모)
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: keiwi_node_resource
+    interval: 30s
+    rules:
+      # CPU 사용률(idle 아닌 비율). 0~1. legend에서 *100 하거나 percentunit 단위로 표시.
+      - record: instance:node_cpu_busy:ratio5m
+        expr: 1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))
+
+      # iowait 비율(디스크 병목 조기 신호). 0~1.
+      - record: instance:node_cpu_iowait:ratio5m
+        expr: avg by (instance) (rate(node_cpu_seconds_total{mode="iowait"}[5m]))
+
+      # 메모리 사용률(가용 기준). 0~1. MemAvailable 우선(캐시/버퍼 회수 반영).
+      - record: instance:node_mem_used:ratio
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+
+      # 코어당 로드(정규화). 1 넘으면 코어 수 초과 부하.
+      - record: instance:node_load1_per_core:ratio
+        expr: node_load1 / count by (instance) (node_cpu_seconds_total{mode="idle"})
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 2) 디스크/파일시스템 — 사용률 + 24h 소진 예측(용량계획, T1-9)
+  #    fstype 필터: 실제 영속 FS만(가상/임시 FS 제외) → 카디널리티·오탐 억제.
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: keiwi_node_filesystem
+    interval: 30s
+    rules:
+      # 파일시스템 사용률. 0~1. instance·device·mountpoint·fstype 라벨 유지(마운트별 세분).
+      - record: instance:node_fs_used:ratio
+        expr: |
+          1 - (
+            node_filesystem_avail_bytes{fstype=~"ext4|ext3|xfs|btrfs|zfs|vfat"}
+            /
+            node_filesystem_size_bytes{fstype=~"ext4|ext3|xfs|btrfs|zfs|vfat"}
+          )
+
+      # inode 사용률. 0~1. 대용량 소파일(로그 365d·데이터셋)에서 바이트보다 먼저 참.
+      - record: instance:node_fs_files_used:ratio
+        expr: |
+          1 - (
+            node_filesystem_files_free{fstype=~"ext4|ext3|xfs|btrfs|zfs"}
+            /
+            node_filesystem_files{fstype=~"ext4|ext3|xfs|btrfs|zfs"}
+          )
+
+      # 24시간 뒤 예측 가용 바이트(선형회귀 6h 창). <0 이면 24h 내 소진 예측.
+      # recording rule 로만 사전집계 — 알림은 보류(#6 켜질 때 이 시리즈를 참조).
+      - record: instance:node_fs_avail:predict24h_bytes
+        expr: |
+          predict_linear(
+            node_filesystem_avail_bytes{fstype=~"ext4|ext3|xfs|btrfs|zfs"}[6h],
+            86400
+          )
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 3) 네트워크·디스크 I/O throughput — 가상 IF 제외, instance 단위 합산
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: keiwi_node_io
+    interval: 30s
+    rules:
+      - record: instance:node_net_receive:rate5m
+        expr: |
+          sum by (instance) (
+            rate(node_network_receive_bytes_total{device!~"lo|veth.*|docker.*|br-.*|virbr.*|tap.*"}[5m])
+          )
+
+      - record: instance:node_net_transmit:rate5m
+        expr: |
+          sum by (instance) (
+            rate(node_network_transmit_bytes_total{device!~"lo|veth.*|docker.*|br-.*|virbr.*|tap.*"}[5m])
+          )
+
+      - record: instance:node_disk_read:rate5m
+        expr: sum by (instance) (rate(node_disk_read_bytes_total[5m]))
+
+      - record: instance:node_disk_written:rate5m
+        expr: sum by (instance) (rate(node_disk_written_bytes_total[5m]))
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 4) OS 위생 요약 — systemd 실패 유닛 수(A1 textfile+systemd 심화 전제).
+  #    메트릭 없으면 시리즈 비어 안전(대시보드 빈 패널).
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: keiwi_node_health
+    interval: 60s
+    rules:
+      # 노드별 failed 상태 systemd 유닛 개수. 0 이 정상.
+      - record: instance:node_systemd_units_failed:count
+        expr: sum by (instance) (node_systemd_unit_state{state="failed"} == bool 1)

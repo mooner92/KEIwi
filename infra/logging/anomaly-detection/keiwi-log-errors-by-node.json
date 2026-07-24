@@ -1,0 +1,17 @@
+{
+  "name": "keiwi-log-errors-by-node",
+  "description": "노드별 error/warn 로그량 이상탐지(RCF) — 관찰 모드. 알림 미연결(specs/sre-addons/aiops-beyond-chat §Tier1-0 게이트: 비지도 출력은 대시보드/다이제스트만). 첫 48h는 학습 중이라 튜닝 금지.",
+  "time_field": "@timestamp",
+  "indices": ["keiwi-logs-*"],
+  "filter_query": { "terms": { "log_level": ["error", "warn"] } },
+  "detection_interval": { "period": { "interval": 10, "unit": "Minutes" } },
+  "window_delay": { "period": { "interval": 2, "unit": "Minutes" } },
+  "category_field": ["fleet_node"],
+  "feature_attributes": [
+    {
+      "feature_name": "error_warn_count",
+      "feature_enabled": true,
+      "aggregation_query": { "errwarn_count": { "value_count": { "field": "log_level" } } }
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Tiny Prometheus exporter: which process listens on which port (per node).
+
+`node-exporter`/`dcgm` give numeric metrics but not "포트↔프로그램". This walks
+`ss -tulnp` (listening TCP + bound UDP with process) and exposes:
+
+  keiwi_listening_port_info{port,proto,process,pid,user} 1
+
+Stdlib only. Run on the host as root (ss -p needs privilege to see processes).
+Prometheus scrapes it (a `node` label is added per scrape target).
+  python3 port-exporter.py            # serves :9986/metrics
+"""
+import os
+import pwd
+import re
+import subprocess
+try:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+except ImportError:  # py3.6(data01): ThreadingHTTPServer는 3.7+ — MixIn으로 동등 구성
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from socketserver import ThreadingMixIn
+
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
+
+PORT = int(os.environ.get("PORT_EXPORTER_PORT", "9986"))
+_PROC = re.compile(r'\(\("([^"]+)",pid=(\d+)')
+
+
+def _label(v):
+    return str(v).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _user_for_pid(pid):
+    """PID 소유 OS 계정명. 계약대로 unknown / uid:<n> 폴백."""
+    if not pid:
+        return "unknown"
+    try:
+        with open(f"/proc/{pid}/status") as f:
+            for line in f:
+                if line.startswith("Uid:"):
+                    uid = int(line.split()[1])  # real uid
+                    try:
+                        return pwd.getpwuid(uid).pw_name
+                    except KeyError:
+                        return f"uid:{uid}"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _rows():
+    """Return deduped [(proto, port, process, pid)] of listening sockets."""
+    try:
+        # -H(no-header)는 iproute2 4.9+ 전용 — 16.04(data01) 호환 위해 미사용, 헤더는 아래 파서가 필터.
+        # stdout/stderr=PIPE + universal_newlines: capture_output/text(3.7+) 대신 py3.6 호환 표기.
+        out = subprocess.run(
+            ["ss", "-tulnp"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=10,
+        ).stdout
+    except Exception:
+        return []
+    seen, rows = set(), []
+    for line in out.strip().splitlines():
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+        proto = parts[0]  # tcp | udp
+        # Local address:port — field 4 (Netid State Recv-Q Send-Q Local Peer Process).
+        local = parts[4]
+        if ":" not in local:
+            continue
+        port = local.rsplit(":", 1)[1]
+        if not port.isdigit():
+            continue
+        m = _PROC.search(line)
+        process = m.group(1) if m else "unknown"
+        pid = m.group(2) if m else ""
+        # dedup 0.0.0.0 vs [::] (같은 포트/프로세스) — proto+port+pid 기준.
+        key = (proto, port, pid or process)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((proto, port, process, pid))
+    return rows
+
+
+def collect():
+    lines = [
+        "# HELP keiwi_listening_port_info A process listening on a port (value always 1).",
+        "# TYPE keiwi_listening_port_info gauge",
+    ]
+    for proto, port, process, pid in _rows():
+        user = _user_for_pid(pid)  # PID 소유 OS 계정 (SRE 백로그 #8: 사용자별 귀속)
+        labels = (
+            f'port="{_label(port)}",proto="{_label(proto)}",'
+            f'process="{_label(process)}",pid="{_label(pid)}",'
+            f'user="{_label(user)}"'
+        )
+        lines.append(f"keiwi_listening_port_info{{{labels}}} 1")
+    return "\n".join(lines) + "\n"
+
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path not in ("/metrics", "/"):
+            self.send_response(404)
+            self.end_headers()
+            return
+        body = collect().encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; version=0.0.4")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_):
+        pass  # quiet
+
+
+if __name__ == "__main__":
+    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

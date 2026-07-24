@@ -1,0 +1,30 @@
+# KEIwi GPU model exporter — systemd 유닛 (재현가능 배포본)
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 현재 라이브는 PM2로 실행 중(data05) — 이 유닛은
+# 호스트 재구성 시 코드만으로 복구 가능하게 한 표준 배포 옵션. PM2 유지도 가능(README 참조).
+#
+# 적용(사람이, 각 GPU 호스트):
+#   sudo cp keiwi-gpu-model-exporter.service /etc/systemd/system/
+#   # ExecStart 의 스크립트 경로를 실제 배포 위치로 맞춘 뒤:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-gpu-model-exporter
+#   curl -s localhost:9836/metrics | head      # 동작 확인
+
+[Unit]
+Description=KEIwi GPU model exporter (which model on which GPU -> :9836/metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# nvidia-smi + /proc 읽기. 컴퓨트앱 PID 소유자를 보려면 권한이 필요할 수 있음(필요 시 User 조정).
+ExecStart=/usr/bin/python3 /opt/keiwi/gpu-model-exporter/gpu-model-exporter.py
+Environment=GPU_MODEL_EXPORTER_PORT=9836
+Restart=on-failure
+RestartSec=5
+# 하드닝(읽기 전용 익스포터 — 시스템 수정 안 함)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

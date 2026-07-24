@@ -1,0 +1,23 @@
+---
+# roles/filebeat/defaults/main.yml — Filebeat 역할 기본값
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
+# 환경별로 바꿀 값은 여기(또는 inventory host_vars / -e)로 override 한다.
+
+# Logstash(beats input) — data05. 계약: output → data05:5044.
+# data05 자신도 같은 IP로 접근 가능(Logstash는 호스트 0.0.0.0:5044 바인드 전제).
+# data05 로컬만 쓰려면 host_vars로 logstash_host=localhost override 가능.
+logstash_host: "192.168.1.105"
+logstash_port: 5044
+
+# fleet_node: 보통 inventory에서 호스트별로 지정한다(data04|data05).
+# 미지정 시 안전 기본값으로 inventory_hostname 사용(인벤토리 호스트명=계약 노드 id).
+fleet_node: "{{ inventory_hostname }}"
+
+# Elastic APT 저장소 메이저(계약: ES 8.x 단일노드). Filebeat도 8.x로 맞춘다.
+filebeat_es_major: "8"
+
+# 선택 파일 입력(예: vLLM 로그). 비어있으면 journald만 수집한다.
+# 예) filebeat_extra_log_paths:
+#       - /var/log/vllm/*.log
+filebeat_extra_log_paths: []

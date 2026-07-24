@@ -1,0 +1,36 @@
+# KEIwi SSH 터널 — data04 node-exporter를 .105 Prometheus(컨테이너)에 노출
+#
+# data04(192.168.1.104:9100)는 .105에서 직접 도달 불가 → SSH 터널로 노출한다.
+# .105 호스트의 172.18.0.1:9104(도커 브리지 게이트웨이) → data04의 localhost:9100.
+# 적용(사람이, 헌장 §11):
+#   sudo cp infra/monitoring/keiwi-tunnel-data04.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-tunnel-data04
+#
+# 전제:
+#   · data04에 node-exporter(localhost:9100) + DCGM exporter(localhost:9400)가 떠 있어야 함.
+#   · .105에서 'ssh data04'가 키 인증으로 동작해야 함(~/.ssh/config의 Host data04, 또는
+#     아래 ExecStart의 data04를 mooner92@192.168.1.104로 교체).
+#   · 172.18.0.1 바인딩이 막히면 0.0.0.0:9104로 바꾸고 Prometheus 타깃도 172.18.0.1:9104 유지.
+
+[Unit]
+Description=KEIwi SSH tunnel (data04 node:9104 + DCGM:9404 + gpu-model:9837 + port:9987)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=mooner92
+ExecStart=/usr/bin/ssh -N \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=accept-new \
+  -p 764 \
+  -L 172.18.0.1:9104:localhost:9100 \
+  -L 172.18.0.1:9404:localhost:9400 \
+  -L 172.18.0.1:9837:localhost:9836 \
+  -L 172.18.0.1:9987:localhost:9986 \
+  mhchoi@192.168.1.104
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

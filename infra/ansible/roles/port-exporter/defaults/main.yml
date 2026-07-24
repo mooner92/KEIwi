@@ -1,0 +1,8 @@
+---
+# roles/port-exporter/defaults/main.yml — 리스닝 포트↔프로세스 익스포터 기본값
+# 에이전트 생성, 사람 적용(§11). 시크릿 없음(§13).
+
+port_exporter_port: 9986
+port_exporter_install_dir: /opt/keiwi/port-exporter
+# 레포 vendored 본을 그대로 배포(중복 방지).
+port_exporter_src: "{{ playbook_dir }}/../../monitoring/port-exporter/port-exporter.py"

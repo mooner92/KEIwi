@@ -1,0 +1,28 @@
+# KEIwi port exporter — systemd 유닛 (재현가능 배포본, 수동 참고)
+#
+# 에이전트 생성, 사람 적용(§11). 표준 배포는 Ansible role(port-exporter, ADR-0017).
+# 수동 적용(각 노드, root):
+#   sudo mkdir -p /opt/keiwi/port-exporter
+#   sudo cp infra/monitoring/port-exporter/port-exporter.py /opt/keiwi/port-exporter/
+#   sudo cp keiwi-port-exporter.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-port-exporter
+#   curl -s localhost:9986/metrics | head       # 동작 확인
+
+[Unit]
+Description=KEIwi listening-port exporter (port -> process -> :9986/metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# root로 동작해야 ss -p 가 모든 프로세스명을 본다.
+ExecStart=/usr/bin/python3 /opt/keiwi/port-exporter/port-exporter.py
+Environment=PORT_EXPORTER_PORT=9986
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

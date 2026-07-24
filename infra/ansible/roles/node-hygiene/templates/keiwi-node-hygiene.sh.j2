@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# KEIwi node-hygiene textfile 수집기 (Ansible 관리 — 대상에서 직접 편집 금지)
+# node-exporter textfile 수집기가 읽는 *.prom을 "원자적으로" 생성한다.
+# 메트릭:
+#   (a) apt 대기/보안 업데이트 개수      node_apt_upgrades_pending / node_apt_security_upgrades_pending
+#   (b) reboot-required 여부             node_reboot_required
+#   (c) 마지막 ansible 적용(변경) 시각    node_ansible_last_apply_timestamp_seconds
+# 읽기 전용 점검 — 시스템을 변경하지 않는다(apt-get -s 시뮬레이션·락 없음).
+# 참고: prometheus-community/node-exporter-textfile-collector-scripts (자체 경량 구현).
+set -euo pipefail
+
+TEXTFILE_DIR="{{ node_hygiene_textfile_dir }}"
+MARKER="{{ node_hygiene_marker }}"
+OUT="${TEXTFILE_DIR}/keiwi_node_hygiene.prom"
+# 임시파일은 같은 디렉터리에 만들어 원자적 mv 보장. 확장자가 .prom이 아니라 node-exporter가 무시.
+TMP="$(mktemp "${TEXTFILE_DIR}/.keiwi_node_hygiene.XXXXXX")"
+trap 'rm -f "${TMP}"' EXIT
+
+# (a) apt 대기 업데이트 — 락 없이 시뮬레이션(-s). 실패해도 0으로 안전 폴백.
+pending=0
+security=0
+if command -v apt-get >/dev/null 2>&1; then
+  sim="$(apt-get -s -o Debug::NoLocking=true upgrade 2>/dev/null || true)"
+  pending="$(printf '%s\n' "${sim}" | grep -c '^Inst' || true)"
+  security="$(printf '%s\n' "${sim}" | grep '^Inst' | grep -Eic 'security' || true)"
+fi
+pending="${pending:-0}"
+security="${security:-0}"
+
+# (b) reboot-required (경로 두 곳 모두 확인)
+reboot=0
+if [ -f /var/run/reboot-required ] || [ -f /run/reboot-required ]; then
+  reboot=1
+fi
+
+# (c) 마지막 ansible 적용(변경) 시각 — 스탬프 파일 mtime(epoch). 없으면 0.
+apply_ts=0
+if [ -e "${MARKER}" ]; then
+  apply_ts="$(stat -c %Y "${MARKER}" 2>/dev/null || echo 0)"
+fi
+
+now="$(date +%s)"
+
+{
+  echo '# HELP node_apt_upgrades_pending apt로 설치 가능한 전체 업데이트 개수(시뮬레이션).'
+  echo '# TYPE node_apt_upgrades_pending gauge'
+  echo "node_apt_upgrades_pending ${pending}"
+  echo '# HELP node_apt_security_upgrades_pending 보안 저장소발 대기 업데이트 개수(시뮬레이션).'
+  echo '# TYPE node_apt_security_upgrades_pending gauge'
+  echo "node_apt_security_upgrades_pending ${security}"
+  echo '# HELP node_reboot_required 재부팅 필요 여부(1=필요, 0=아님).'
+  echo '# TYPE node_reboot_required gauge'
+  echo "node_reboot_required ${reboot}"
+  echo '# HELP node_ansible_last_apply_timestamp_seconds node-hygiene role 마지막 적용(변경) 시각(unix epoch).'
+  echo '# TYPE node_ansible_last_apply_timestamp_seconds gauge'
+  echo "node_ansible_last_apply_timestamp_seconds ${apply_ts}"
+  echo '# HELP node_hygiene_collector_last_run_timestamp_seconds 이 수집 스크립트의 마지막 실행 시각(unix epoch).'
+  echo '# TYPE node_hygiene_collector_last_run_timestamp_seconds gauge'
+  echo "node_hygiene_collector_last_run_timestamp_seconds ${now}"
+} > "${TMP}"
+
+# 원자적 교체 — node-exporter가 반쯤 쓰인 파일을 읽지 않도록 mv로 갈아끼운다.
+chmod 0644 "${TMP}"
+mv -f "${TMP}" "${OUT}"
+trap - EXIT

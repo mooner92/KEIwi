@@ -1,0 +1,145 @@
+# KEIwi 플릿 수집 — Prometheus 설정 (data03·data04·data05, 권장본)
+#
+# 이 파일은 .105 라이브 스택(/data/monitoring/prometheus.yml)에 적용할 "권장 버전"이다.
+# 에이전트는 생성만, 적용은 사람이 한다(헌장 §11). 라이브는 직접 수정하지 않는다.
+#
+# 핵심: 각 타깃의 instance 라벨을 KEIwi inventory(docs/inventory.yaml)의 exporters
+#       값(ip:port)과 "정확히 일치"시킨다 → 콘솔이 up/down/no-data를 올바로 매칭.
+#   · data05(로컬 컨테이너)        node-exporter:9100  → instance 192.168.1.105:9100
+#                                  dcgm-exporter:9400  → instance 192.168.1.105:9400
+#   · data04(직접 도달 불가, 터널) 172.18.0.1:9104     → instance 192.168.1.104:9100
+#       (호스트 SSH 터널: 172.18.0.1:9104 → data04:9100, keiwi-tunnel-data04.service 참고)
+#   · data03(같은 서브넷, 직접)    192.168.1.103:9100  → instance 동일(라벨 명시)
+#       (터널 불필요 — data03 ufw에서 .105 허용만. 2026-07-03 온보딩)
+#   · data01~02                    접근 미설정 → 수집 안 함 → 콘솔에서 no-data(설계된 동작)
+#
+# 적용: 이 내용을 /data/monitoring/prometheus.yml에 반영 후
+#       docker compose -f /data/monitoring/docker-compose.yml restart prometheus
+
+global:
+  scrape_interval: 15s
+
+# Recording rules(사전집계) 로드. 현재 record: 규칙만(alert 규칙 없음 — 알림 보류 중).
+# 이 경로는 compose prometheus 서비스의 바인드 마운트(/data/monitoring/rules → /etc/prometheus/rules)
+# 로 채워진다. 레포 원본: infra/monitoring/rules/*.yml (사람이 라이브 경로에 복사, §11).
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # 모델↔GPU 매핑 익스포터(:9836). node 라벨로 노드 구분(모델 대시보드 $node 변수).
+  - job_name: "gpu-model-exporter"
+    static_configs:
+      - targets: ["172.18.0.1:9836"] # data05 (로컬 호스트 익스포터, 도커 브리지)
+        labels:
+          node: "data05"
+      # data04 — SSH 터널(keiwi-tunnel-data04) 172.18.0.1:9837 → data04:9836
+      - targets: ["172.18.0.1:9837"]
+        labels:
+          node: "data04"
+      # data03 — 직접 스크랩(2026-07-03 GPU 온보딩)
+      - targets: ["192.168.1.103:9836"]
+        labels:
+          node: "data03"
+      # data01 — Tesla M4 x1(드라이버 418 — DCGM 불가, gpu-model만. 2026-07-24)
+      - targets: ["192.168.1.101:9836"]
+        labels:
+          node: "data01"
+
+  # 리스닝 포트↔프로세스 익스포터(:9986). 서비스 맵 v2. node 라벨로 노드 구분.
+  - job_name: "port-exporter"
+    static_configs:
+      - targets: ["172.18.0.1:9986"] # data05 (호스트, 도커 브리지)
+        labels:
+          node: "data05"
+      # data04 — SSH 터널(keiwi-tunnel-data04) 172.18.0.1:9987 → data04:9986
+      - targets: ["172.18.0.1:9987"]
+        labels:
+          node: "data04"
+      # data03 — 직접 스크랩(2026-07-03 온보딩). 전제: data03 ufw가 .105→9986 허용.
+      - targets: ["192.168.1.103:9986"]
+        labels:
+          node: "data03"
+      # data01 — 직접 스크랩(2026-07-24 온보딩)
+      - targets: ["192.168.1.101:9986"]
+        labels:
+          node: "data01"
+
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"] # data05 (로컬 컨테이너)
+        labels:
+          instance: "192.168.1.105:9100"
+      # data04 — SSH 터널(keiwi-tunnel-data04, 포트 764) 경유. 터널이 active여야 함.
+      - targets: ["172.18.0.1:9104"]
+        labels:
+          instance: "192.168.1.104:9100"
+      # data03 — 직접 스크랩(2026-07-03 온보딩). 전제: data03 ufw가 .105→9100 허용.
+      - targets: ["192.168.1.103:9100"]
+        labels:
+          instance: "192.168.1.103:9100"
+      # data01 — 직접 스크랩(2026-07-24 온보딩, 16.04·모던 바이너리 1.8.2·방화벽 없음)
+      - targets: ["192.168.1.101:9100"]
+        labels:
+          instance: "192.168.1.101:9100"
+
+  - job_name: "dcgm-exporter"
+    static_configs:
+      - targets: ["dcgm-exporter:9400"] # data05 GPU (A40 x2)
+        labels:
+          instance: "192.168.1.105:9400"
+      # data04 GPU(Quadro RTX 6000 x2) — SSH 터널(keiwi-tunnel-data04) 경유 172.18.0.1:9404
+      - targets: ["172.18.0.1:9404"]
+        labels:
+          instance: "192.168.1.104:9400"
+      # data03 GPU(Quadro RTX 6000 x2) — 직접 스크랩(2026-07-03). node 라벨을 스크랩단에서
+      # 부여(대시보드 label_replace의 IP 하드코딩은 104/105 레거시 — 신규 노드는 여기서 해결).
+      - targets: ["192.168.1.103:9400"]
+        labels:
+          instance: "192.168.1.103:9400"
+          node: "data03"
+
+  # 디스크/NVMe SMART 익스포터(:9633, 고장 예측). root로 동작(raw device ioctl).
+  # 수집만 — alert 규칙 미생성(알림 보류). instance 라벨은 <ip>:9633로 명시(콘솔 매칭).
+  - job_name: "smartctl-exporter"
+    static_configs:
+      # data05 — 호스트 systemd 익스포터. 도커 브리지 게이트웨이로 스크랩(gpu-model/port와 동형).
+      - targets: ["172.18.0.1:9633"]
+        labels:
+          instance: "192.168.1.105:9633"
+          node: "data05"
+      # data03 — 직접 스크랩. 전제: data03 ufw가 .105→9633 허용.
+      - targets: ["192.168.1.103:9633"]
+        labels:
+          instance: "192.168.1.103:9633"
+          node: "data03"
+      # data04 — 직접 도달 불가 → SSH 터널 필요(아직 미추가라 주석). 활성화 순서:
+      #   1) keiwi-tunnel-data04.service에 `-L 172.18.0.1:9634:localhost:9633` 추가
+      #      (※ 172.18.0.1:9633은 data05 호스트 익스포터가 점유 → data04는 9634로 분리)
+      #   2) systemctl restart keiwi-tunnel-data04 (active 확인)
+      #   3) 아래 3줄 주석 해제
+      # - targets: ["172.18.0.1:9634"]
+      #   labels:
+      #     instance: "192.168.1.104:9633"
+      #     node: "data04"
+
+  # vLLM 추론 서버 메트릭 — 모델 워크로드(요청/토큰/지연/KV캐시).
+  # data05 호스트의 vLLM 포트(0.0.0.0 바인딩)를 도커 브리지 게이트웨이로 스크랩.
+  # 모델/포트가 늘면 targets에 항목만 추가.
+  - job_name: "vllm"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "172.18.0.1:8003" # Qwen3-Coder-30B (GPU0)
+          - "172.18.0.1:8010" # Qwen2.5-VL-7B (GPU1)
+        labels:
+          node: "data05"
+    metric_relabel_configs:
+      # model_name이 전체 경로면 파일명만 남김 (/data/.../Qwen3...AWQ → Qwen3...AWQ)
+      - source_labels: [model_name]
+        regex: ".*/([^/]+)"
+        target_label: model_name
+        replacement: "${1}"

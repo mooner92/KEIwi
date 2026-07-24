@@ -1,0 +1,14 @@
+---
+# roles/gpu-model-exporter/defaults/main.yml — GPU 모델 익스포터 역할 기본값
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
+
+# 익스포터가 바인드할 포트(자기 노드 :9836/metrics).
+gpu_model_exporter_port: 9836
+
+# 대상 노드에 스크립트를 둘 위치.
+gpu_model_exporter_install_dir: /opt/keiwi/gpu-model-exporter
+
+# 배포할 익스포터 소스(레포 vendored 본 — control 노드 경로). 중복 방지 위해
+# roles/files에 복제하지 않고 infra/monitoring의 원본을 그대로 배포한다.
+gpu_model_exporter_src: "{{ playbook_dir }}/../../monitoring/gpu-model-exporter/gpu-model-exporter.py"

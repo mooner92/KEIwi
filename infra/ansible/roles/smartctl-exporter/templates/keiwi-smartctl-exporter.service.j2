@@ -1,0 +1,23 @@
+# KEIwi smartctl exporter — systemd 유닛 (Ansible 관리 — 대상에서 직접 편집 금지)
+# 원본/근거: infra/monitoring/smartctl-exporter/. 디스크/NVMe SMART → :{{ smartctl_exporter_port }}/metrics.
+# root로 동작해야 raw device(ioctl)를 읽는다. 포트·경로는 role 변수로 주입.
+[Unit]
+Description=KEIwi smartctl exporter (disk/NVMe SMART -> :{{ smartctl_exporter_port }}/metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart={{ smartctl_exporter_install_dir }}/smartctl_exporter \
+  --web.listen-address=:{{ smartctl_exporter_port }} \
+  --smartctl.path={{ smartctl_path }}
+Restart=on-failure
+RestartSec=5
+# 하드닝(읽기 전용 익스포터 — SMART만 읽음). root 유지(raw device 접근).
+# ※ PrivateDevices=true 금지: /dev 디스크를 숨겨 SMART 수집이 불가해진다.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

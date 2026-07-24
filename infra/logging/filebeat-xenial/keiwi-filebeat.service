@@ -1,0 +1,14 @@
+[Unit]
+Description=KEIwi Filebeat (data01 journald -> data05 Logstash)
+After=network.target
+
+[Service]
+# -e(stderr 로깅) 없음 → 자기 로그는 config의 logging.to_files로 파일에만(journald 자기수집 루프 차단).
+ExecStart=/opt/keiwi/filebeat/filebeat -c /opt/keiwi/filebeat/keiwi.yml \
+  --path.home /opt/keiwi/filebeat --path.config /opt/keiwi/filebeat \
+  --path.data /var/lib/keiwi-filebeat --path.logs /var/log/keiwi-filebeat
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

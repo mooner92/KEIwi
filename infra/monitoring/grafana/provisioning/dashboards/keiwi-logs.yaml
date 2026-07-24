@@ -1,0 +1,14 @@
+# KEIwi M2 — Grafana 대시보드 프로비저너(로그). 에이전트 생성, 사람 적용(§11).
+# logs.json(uid keiwi-logs)을 자동 로드한다. 라이브 Grafana provisioning 경로에 반영하고
+# logs.json을 아래 path 디렉터리에 둔다(라이브 볼륨 매핑에 맞게 경로 조정).
+# 대안: Grafana UI에서 logs.json을 수동 import(model-workload.json처럼) — 그 경우 이 파일 불필요.
+apiVersion: 1
+providers:
+  - name: keiwi-logs
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      # ↓ 라이브 Grafana 컨테이너 내부 경로. infra/monitoring/dashboards/logs.json을 여기에 마운트.
+      path: /etc/grafana/provisioning/dashboards/keiwi
+      foldersFromFilesStructure: false

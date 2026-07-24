@@ -1,0 +1,16 @@
+# KEIwi node-hygiene 수집기 — oneshot (Ansible 관리 — 대상에서 직접 편집 금지)
+# 타이머(keiwi-node-hygiene.timer)가 주기적으로 트리거. textfile .prom을 생성.
+[Unit]
+Description=KEIwi node-hygiene textfile 수집(apt·reboot·apply-time -> node-exporter textfile)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ node_hygiene_script_path }}
+# 백그라운드 위생 점검 — 우선순위 낮게.
+Nice=10
+IOSchedulingClass=idle
+# 하드닝(가벼운 읽기 점검). apt-get -s가 /var 캐시를 읽으므로 ProtectSystem=strict는 쓰지 않는다.
+NoNewPrivileges=true
+ProtectHome=true

@@ -1,0 +1,46 @@
+# KEIwi 이상탐지 밴드 — recording rules (record:만, alert 없음 — 알림 보류 중)
+#
+# z-score 밴드(평균±3σ, 1h 창): 실측이 밴드를 벗어나면 "평소와 다름"을 시각화.
+# 관찰 모드 원칙(specs/sre-addons/aiops-beyond-chat §Tier1-0): 밴드는 대시보드
+# 오버레이/다이제스트 전용 — 페이징에 직결 금지. 계절(24h 오프셋) 밴드·MAD(robust)
+# 전략은 grafana/promql-anomaly-detection 프레임워크 참고(후속 — 학습 후 확장).
+#
+# 의존: keiwi-recording.yml의 instance:node_cpu_busy:ratio5m 등(같은 rules 디렉터리,
+# 같은 평가 주기라 함께 적용하면 첫 평가 후부터 밴드 산출).
+groups:
+  - name: keiwi_anomaly_bands_cpu
+    interval: 1m
+    rules:
+      - record: instance:node_cpu_busy:avg1h
+        expr: avg_over_time(instance:node_cpu_busy:ratio5m[1h])
+      - record: instance:node_cpu_busy:stddev1h
+        expr: stddev_over_time(instance:node_cpu_busy:ratio5m[1h])
+      - record: instance:node_cpu_busy:band_upper
+        expr: clamp_max(instance:node_cpu_busy:avg1h + 3 * instance:node_cpu_busy:stddev1h, 1)
+      - record: instance:node_cpu_busy:band_lower
+        expr: clamp_min(instance:node_cpu_busy:avg1h - 3 * instance:node_cpu_busy:stddev1h, 0)
+
+  - name: keiwi_anomaly_bands_mem
+    interval: 1m
+    rules:
+      - record: instance:node_mem_used:avg1h
+        expr: avg_over_time(instance:node_mem_used:ratio[1h])
+      - record: instance:node_mem_used:stddev1h
+        expr: stddev_over_time(instance:node_mem_used:ratio[1h])
+      - record: instance:node_mem_used:band_upper
+        expr: clamp_max(instance:node_mem_used:avg1h + 3 * instance:node_mem_used:stddev1h, 1)
+      - record: instance:node_mem_used:band_lower
+        expr: clamp_min(instance:node_mem_used:avg1h - 3 * instance:node_mem_used:stddev1h, 0)
+
+  - name: keiwi_anomaly_bands_gpu
+    interval: 1m
+    rules:
+      # GPU util(%) — instance·gpu 라벨별 밴드. 스파이키한 학습 부하는 밴드가 넓어짐(정상).
+      - record: instance_gpu:dcgm_gpu_util:avg1h
+        expr: avg_over_time(DCGM_FI_DEV_GPU_UTIL[1h])
+      - record: instance_gpu:dcgm_gpu_util:stddev1h
+        expr: stddev_over_time(DCGM_FI_DEV_GPU_UTIL[1h])
+      - record: instance_gpu:dcgm_gpu_util:band_upper
+        expr: clamp_max(instance_gpu:dcgm_gpu_util:avg1h + 3 * instance_gpu:dcgm_gpu_util:stddev1h, 100)
+      - record: instance_gpu:dcgm_gpu_util:band_lower
+        expr: clamp_min(instance_gpu:dcgm_gpu_util:avg1h - 3 * instance_gpu:dcgm_gpu_util:stddev1h, 0)

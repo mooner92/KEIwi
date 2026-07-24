@@ -1,0 +1,68 @@
+---
+# roles/smartctl-exporter/tasks/main.yml — 디스크/NVMe SMART 익스포터(:9633) 멱등 배포.
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+# root로 동작해야 raw device(/dev/sd*, /dev/nvme*)의 SMART를 읽는다(systemd 유닛 root 기본).
+# 수집만 — 알림/recording rule 미생성(사용자 알림 보류).
+
+- name: vendored smartctl_exporter 바이너리 존재 확인(control 노드)
+  ansible.builtin.stat:
+    path: "{{ smartctl_exporter_bin_src }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _smartctl_bin
+  check_mode: false   # --check에서도 실제 확인 → 가드가 신뢰 가능
+
+- name: 바이너리 없으면 즉시 실패(오프라인 배치 안내)
+  ansible.builtin.assert:
+    that: _smartctl_bin.stat.exists
+    fail_msg: >-
+      smartctl_exporter 바이너리가 없습니다: {{ smartctl_exporter_bin_src }}
+      — egress 0라 대상에서 온라인 다운로드 금지. prometheus-community/smartctl_exporter의
+      linux-amd64 바이너리를 오프라인/사내 미러로 받아 위 경로에 두고 다시 실행하세요.
+    quiet: true
+  run_once: true
+
+- name: smartmontools 설치(smartctl 제공)
+  ansible.builtin.apt:
+    name: smartmontools
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: 설치 디렉터리 보장
+  ansible.builtin.file:
+    path: "{{ smartctl_exporter_install_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: 익스포터 바이너리 배포(레포 vendored 본)
+  ansible.builtin.copy:
+    src: "{{ smartctl_exporter_bin_src }}"
+    dest: "{{ smartctl_exporter_install_dir }}/smartctl_exporter"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart smartctl-exporter
+
+- name: systemd 유닛 배포(포트·경로 파라미터화)
+  ansible.builtin.template:
+    src: keiwi-smartctl-exporter.service.j2
+    dest: /etc/systemd/system/keiwi-smartctl-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart smartctl-exporter
+
+- name: 서비스 enable + 기동
+  ansible.builtin.systemd:
+    name: keiwi-smartctl-exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+  # --check에선 유닛/바이너리가 실제로 안 써져 systemctl이 못 찾음 → 실적용에서만 기동.
+  when: not ansible_check_mode

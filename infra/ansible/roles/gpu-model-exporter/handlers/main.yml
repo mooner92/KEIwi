@@ -1,0 +1,10 @@
+---
+# roles/gpu-model-exporter/handlers/main.yml
+# 스크립트/유닛 변경 시에만 restart(멱등).
+
+- name: restart gpu-model-exporter
+  ansible.builtin.systemd:
+    name: keiwi-gpu-model-exporter
+    state: restarted
+    enabled: true
+    daemon_reload: true

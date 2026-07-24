@@ -1,0 +1,37 @@
+# KEIwi 통합 로그 — Logstash 노드 설정 (data05, 권장본)
+#
+# 에이전트는 생성만, 적용은 사람이 한다(헌장 §11). 라이브 스택은 직접 수정하지 않는다(§12).
+# 이 파일은 컨테이너의 /usr/share/logstash/config/logstash.yml 로 마운트한다.
+#
+# 역할: Logstash 데몬 전역 설정. 파이프라인 정의는 pipeline.yml(→ config/pipelines.yml)에,
+#       필터 로직은 pipeline/logs.conf 에 둔다.
+#
+# 보안(§13): 내부망 + Cloudflare Access 뒤, ES는 xpack.security.enabled=false 라 시크릿 없음.
+#            따라서 이 파일·파이프라인에 비밀번호/토큰을 박지 않는다. ES 주소만 env로 주입.
+#
+# 적용(사람이, data05):
+#   docker compose -f infra/logging/docker-compose.yml up -d logstash   # (compose는 별도 산출물)
+#   docker logs -f keiwi-logstash    # "Pipeline started" + ES 연결 확인
+#
+# 힙(보수적): LS_JAVA_OPTS=-Xms512m -Xmx512m 를 compose env로 준다(ES와 한 호스트 공존 고려).
+
+node.name: keiwi-logstash
+
+# 파이프라인 정의는 pipelines.yml(=이 레포의 pipeline.yml)에서 읽는다.
+# 따라서 여기서 path.config 를 직접 지정하지 않는다(중복 정의 금지).
+
+# 모니터링 API(헬스체크/관측용). 내부망 전용.
+api.http.host: "0.0.0.0"
+api.http.port: 9600
+
+# (OSS Logstash라 xpack.* 설정 자체가 없음 — 넣으면 "unknown setting"으로 기동 실패.
+#  보안/모니터링 비활성은 기본 동작이므로 별도 설정 불필요.)
+
+# 개발/반복 편의: 파이프라인 설정 자동 리로드.
+config.reload.automatic: true
+config.reload.interval: 15s
+
+# 처리 순서는 자동(단일 파이프라인, 무리한 ordered 강제 안 함).
+pipeline.ordered: auto
+
+log.level: info

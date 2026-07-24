@@ -1,0 +1,20 @@
+# KEIwi GPU model exporter — systemd 유닛 (Ansible 관리 — 대상에서 직접 편집 금지)
+# 원본/근거: infra/monitoring/gpu-model-exporter/. 포트·경로는 role 변수로 주입.
+[Unit]
+Description=KEIwi GPU model exporter (which model on which GPU -> :{{ gpu_model_exporter_port }}/metrics)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 {{ gpu_model_exporter_install_dir }}/gpu-model-exporter.py
+Environment=GPU_MODEL_EXPORTER_PORT={{ gpu_model_exporter_port }}
+Restart=on-failure
+RestartSec=5
+# 하드닝(읽기 전용 익스포터 — 시스템 수정 안 함)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

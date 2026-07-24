@@ -1,0 +1,9 @@
+---
+# roles/port-exporter/handlers/main.yml — 스크립트/유닛 변경 시에만 restart(멱등).
+
+- name: restart port-exporter
+  ansible.builtin.systemd:
+    name: keiwi-port-exporter
+    state: restarted
+    enabled: true
+    daemon_reload: true

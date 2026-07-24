@@ -1,0 +1,33 @@
+---
+# roles/node-hygiene/defaults/main.yml — node-exporter 미사용 수집기(systemd·textfile) 기본값
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
+# 목표: 이미 라이브인 apt node-exporter(data03/04)에서 systemd·textfile 수집기를 켜고,
+#       OS 위생 메트릭(apt 보안 업데이트·reboot-required·마지막 ansible 적용 시각)을 노출.
+# data05(컨테이너)는 이 role 대상이 아니다 → infra/monitoring/docker-compose.yml에서 동일 플래그 부여.
+
+# node-exporter(apt) textfile 수집 디렉터리. node-exporter가 읽고, 수집 스크립트가 *.prom을 쓴다.
+node_hygiene_textfile_dir: /var/lib/node_exporter/textfile
+
+# Debian/Ubuntu prometheus-node-exporter 패키지의 실행 인자 파일(ARGS=). 존재 여부로 apt 노드 판별.
+node_hygiene_defaults_file: /etc/default/prometheus-node-exporter
+
+# 켤 수집기 플래그(트랙 A1). ARGS에 이 값을 주입한다.
+node_hygiene_extra_collectors:
+  - "--collector.systemd"
+  - "--collector.textfile.directory={{ node_hygiene_textfile_dir }}"
+node_hygiene_node_exporter_args: "{{ node_hygiene_extra_collectors | join(' ') }}"
+
+# apt(Debian 패키지) node-exporter 서비스명 — ARGS 변경 시 이 서비스를 재시작한다.
+node_hygiene_service_name: prometheus-node-exporter
+
+# textfile 수집 스크립트 설치 경로.
+node_hygiene_script_path: /usr/local/bin/keiwi-node-hygiene.sh
+
+# 마지막 적용(변경) 시각 스탬프 — mtime을 메트릭(node_ansible_last_apply_timestamp_seconds)으로 노출.
+# textfile 디렉터리 밖(부모)에 둬서 node-exporter가 .prom로 오해하지 않게 한다.
+node_hygiene_marker: /var/lib/node_exporter/.keiwi-apply-stamp
+
+# 수집 타이머 주기(systemd OnUnitActiveSec) 및 부팅 후 최초 지연.
+node_hygiene_timer_interval: "30min"
+node_hygiene_boot_delay: "3min"

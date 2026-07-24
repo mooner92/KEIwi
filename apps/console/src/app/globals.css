@@ -1,0 +1,241 @@
+@import "tailwindcss";
+
+/* ============================================================
+   KEIwi 디자인 토큰 — KRDS primitive 참조 (Phase 2)
+   · L0 primitive = krds_tokens.css(layout.tsx에서 import, --krds-*) — KRDS 소유, 참조만
+   · L2 @theme = 시맨틱(라이트). 다크는 아래 :root[data-theme="dark"]에서 오버라이드
+   · 브랜드(green/blue)는 확장형 정체성(ADR-0007) — 상태색과 분리(§17)
+   · 매핑 근거: design-system/spec/tokens.spec.md §4·§5, tokens.json
+   ============================================================ */
+@theme {
+  /* 서체 — Pretendard GOV 단일(typography.spec) */
+  --font-sans: var(--font-pretendard-gov);
+  --font-display: var(--font-pretendard-gov);
+  --font-mono: var(--font-pretendard-gov);
+
+  /* radius — KRDS 5단계 px (shape.spec §1) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* elevation — 부드러운 입체감(평면적 보더-온리 보완, 디자인 고도화).
+     라이트: 은은한 다중 그림자. 다크는 아래에서 약화(근흑 면 위 그림자는 면 대비로 대체). */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
+  --shadow-2: 0 2px 4px rgb(0 0 0 / 0.06), 0 4px 10px rgb(0 0 0 / 0.05);
+  --shadow-3: 0 4px 10px rgb(0 0 0 / 0.08), 0 10px 28px rgb(0 0 0 / 0.08);
+
+  /* 타입 스케일 — KRDS PC(typography.spec). 본문 17px, 줄간격 ≥1.5.
+     ※ 16px 루트에서 KRDS px 의도를 rem으로 재선언(루트 62.5%는 Tailwind rem 유틸 붕괴). */
+  --text-xs: 0.8125rem;   /* 13 body-xsmall */
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.9375rem;   /* 15 body-small */
+  --text-sm--line-height: 1.55;
+  --text-base: 1.0625rem; /* 17 body-medium (기본) */
+  --text-base--line-height: 1.6;
+  --text-lg: 1.1875rem;   /* 19 body-large / heading-small */
+  --text-lg--line-height: 1.55;
+  --text-xl: 1.5rem;      /* 24 heading-medium */
+  --text-xl--line-height: 1.4;
+  --text-2xl: 2rem;       /* 32 heading-large */
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 2.5rem;     /* 40 heading-xlarge */
+  --text-3xl--line-height: 1.3;
+
+  /* 브랜드 green (primary 정체성) — base 500 = #38B38D (ADR-0007 확장형) */
+  --color-green-50: #ecf8f3;
+  --color-green-100: #d2efe4;
+  --color-green-200: #a6dfca;
+  --color-green-300: #72ccac;
+  --color-green-400: #4cbd97;
+  --color-green-500: #38b38d;
+  --color-green-600: #2c9374;
+  --color-green-700: #25765f;
+  --color-green-800: #205e4c;
+  --color-green-900: #1b4d3f;
+
+  /* 브랜드 blue (secondary 정체성) — base 500 = #3CA2DF */
+  --color-blue-50: #ecf6fc;
+  --color-blue-100: #cee8f8;
+  --color-blue-200: #a3d6f1;
+  --color-blue-300: #6dbfe9;
+  --color-blue-400: #4cafe3;
+  --color-blue-500: #3ca2df;
+  --color-blue-600: #2f84bb;
+  --color-blue-700: #296b98;
+  --color-blue-800: #265a7d;
+  --color-blue-900: #234b67;
+
+  /* gray (크롬 뉴트럴) → KRDS light gray */
+  --color-gray-50: var(--krds-color-light-gray-5);
+  --color-gray-100: var(--krds-color-light-gray-10);
+  --color-gray-200: var(--krds-color-light-gray-20);
+  --color-gray-300: var(--krds-color-light-gray-30);
+  --color-gray-400: var(--krds-color-light-gray-40);
+  --color-gray-500: var(--krds-color-light-gray-50);
+  --color-gray-600: var(--krds-color-light-gray-60);
+  --color-gray-700: var(--krds-color-light-gray-70);
+  --color-gray-800: var(--krds-color-light-gray-80);
+  --color-gray-900: var(--krds-color-light-gray-90);
+
+  /* 시맨틱 상태 — KRDS System (라이트). 스텝 매핑 50→5/100→10/400→40/500→50/600→60/700→70 */
+  --color-success-50: var(--krds-color-light-success-5);
+  --color-success-100: var(--krds-color-light-success-10);
+  --color-success-400: var(--krds-color-light-success-40);
+  --color-success-500: var(--krds-color-light-success-50);
+  --color-success-600: var(--krds-color-light-success-60);
+  --color-success-700: var(--krds-color-light-success-70);
+
+  --color-info-50: var(--krds-color-light-information-5);
+  --color-info-100: var(--krds-color-light-information-10);
+  --color-info-500: var(--krds-color-light-information-50);
+  --color-info-600: var(--krds-color-light-information-60);
+  --color-info-700: var(--krds-color-light-information-70);
+
+  /* warning: base는 vivid -40(매직넘버 — color.spec §2/warning 특례) */
+  --color-warning-50: var(--krds-color-light-warning-5);
+  --color-warning-100: var(--krds-color-light-warning-10);
+  --color-warning-500: var(--krds-color-light-warning-40);
+  --color-warning-600: var(--krds-color-light-warning-60);
+  --color-warning-700: var(--krds-color-light-warning-70);
+
+  --color-danger-50: var(--krds-color-light-danger-5);
+  --color-danger-100: var(--krds-color-light-danger-10);
+  --color-danger-400: var(--krds-color-light-danger-40);
+  --color-danger-500: var(--krds-color-light-danger-50);
+  --color-danger-600: var(--krds-color-light-danger-60);
+  --color-danger-700: var(--krds-color-light-danger-70);
+
+  --color-neutral-50: var(--krds-color-light-gray-5);
+  --color-neutral-100: var(--krds-color-light-gray-10);
+  --color-neutral-300: var(--krds-color-light-gray-30);
+  --color-neutral-400: var(--krds-color-light-gray-40);
+  --color-neutral-500: var(--krds-color-light-gray-50);
+  --color-neutral-700: var(--krds-color-light-gray-70);
+
+  /* UI 크롬 → KRDS gray 역할 (라이트) */
+  --color-canvas: var(--krds-color-light-gray-5);
+  --color-surface: var(--krds-color-light-gray-0);
+  --color-surface-2: var(--krds-color-light-gray-10);
+  --color-border: var(--krds-color-light-gray-20);
+  --color-border-strong: var(--krds-color-light-gray-30);
+  --color-ink: var(--krds-color-light-gray-90);
+  --color-ink-muted: var(--krds-color-light-gray-70);
+  --color-ink-subtle: var(--krds-color-light-gray-50);
+  --color-chrome: var(--krds-color-light-gray-90);
+  --color-chrome-ink: var(--krds-color-light-gray-5);
+  --color-chrome-muted: var(--krds-color-light-gray-40);
+  --color-brand: var(--color-green-500); /* 우리 초록 #38B38D — ADR-0007 정체성 원복(2026-07-01). KRDS 정부블루 미채택 */
+  --color-brand-strong: var(--color-green-600);
+}
+
+/* ---- 다크(선명한 화면 = KRDS high-contrast) — 시맨틱/크롬/뉴트럴만 오버라이드 ----
+   전경(텍스트/아이콘)은 -20/-30으로 반전, 면(배경/보더)은 -90/-95 (tokens.spec §4·§5). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Primary(브랜드) — 다크에선 밝은 정부 블루(전경 대비) */
+  --color-brand: var(--color-green-300); /* 다크: 밝은 초록(근흑 면 대비) */
+  --color-brand-strong: var(--color-green-200);
+
+  /* gray 램프(직접 사용분) */
+  --color-gray-50: var(--krds-color-high-contrast-gray-95);
+  --color-gray-100: var(--krds-color-high-contrast-gray-90);
+  --color-gray-200: var(--krds-color-high-contrast-gray-80);
+  --color-gray-300: var(--krds-color-high-contrast-gray-70);
+  --color-gray-400: var(--krds-color-high-contrast-gray-60);
+  --color-gray-500: var(--krds-color-high-contrast-gray-50);
+  --color-gray-600: var(--krds-color-high-contrast-gray-40);
+  --color-gray-700: var(--krds-color-high-contrast-gray-30);
+  --color-gray-800: var(--krds-color-high-contrast-gray-20);
+  --color-gray-900: var(--krds-color-high-contrast-gray-10);
+
+  /* 상태 — KRDS high-contrast */
+  --color-success-50: var(--krds-color-high-contrast-success-95);
+  --color-success-100: var(--krds-color-high-contrast-success-90);
+  --color-success-400: var(--krds-color-high-contrast-success-40);
+  --color-success-500: var(--krds-color-high-contrast-success-50);
+  --color-success-600: var(--krds-color-high-contrast-success-30);
+  --color-success-700: var(--krds-color-high-contrast-success-20);
+
+  --color-info-50: var(--krds-color-high-contrast-information-95);
+  --color-info-100: var(--krds-color-high-contrast-information-90);
+  --color-info-500: var(--krds-color-high-contrast-information-50);
+  --color-info-600: var(--krds-color-high-contrast-information-30);
+  --color-info-700: var(--krds-color-high-contrast-information-20);
+
+  --color-warning-50: var(--krds-color-high-contrast-warning-95);
+  --color-warning-100: var(--krds-color-high-contrast-warning-90);
+  --color-warning-500: var(--krds-color-high-contrast-warning-30);
+  --color-warning-600: var(--krds-color-high-contrast-warning-30);
+  --color-warning-700: var(--krds-color-high-contrast-warning-20);
+
+  --color-danger-50: var(--krds-color-high-contrast-danger-95);
+  --color-danger-100: var(--krds-color-high-contrast-danger-90);
+  --color-danger-400: var(--krds-color-high-contrast-danger-40);
+  --color-danger-500: var(--krds-color-high-contrast-danger-50);
+  --color-danger-600: var(--krds-color-high-contrast-danger-30);
+  --color-danger-700: var(--krds-color-high-contrast-danger-20);
+
+  --color-neutral-50: var(--krds-color-high-contrast-gray-90);
+  --color-neutral-100: var(--krds-color-high-contrast-gray-80);
+  --color-neutral-300: var(--krds-color-high-contrast-gray-60);
+  --color-neutral-400: var(--krds-color-high-contrast-gray-50);
+  --color-neutral-500: var(--krds-color-high-contrast-gray-40);
+  --color-neutral-700: var(--krds-color-high-contrast-gray-20);
+
+  /* 크롬 */
+  --color-canvas: var(--krds-color-high-contrast-gray-95);
+  --color-surface: var(--krds-color-high-contrast-gray-90);
+  --color-surface-2: var(--krds-color-high-contrast-gray-80);
+  --color-border: var(--krds-color-high-contrast-gray-80);
+  --color-border-strong: var(--krds-color-high-contrast-gray-70);
+  --color-ink: var(--krds-color-high-contrast-gray-5);
+  --color-ink-muted: var(--krds-color-high-contrast-gray-20);
+  --color-ink-subtle: var(--krds-color-high-contrast-gray-30);
+  --color-chrome: var(--krds-color-high-contrast-gray-100);
+  --color-chrome-ink: var(--krds-color-high-contrast-gray-5);
+  --color-chrome-muted: var(--krds-color-high-contrast-gray-40);
+
+  /* 다크 elevation — 면(surface>canvas) 대비가 주 입체감. 그림자는 분리 보조용으로 약하게. */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 2px 6px rgb(0 0 0 / 0.4);
+  --shadow-3: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+/* ---- 베이스 ---- */
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 1.0625rem; /* KRDS 본문 17px */
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 숫자·IP·메트릭 — Pretendard GOV tabular (typography.spec §3) */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 키보드 포커스 — KRDS 더블링(2px 면 분리 + 4px 브랜드). outline은 forced-colors 폴백. */
+:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-brand);
+  border-radius: 4px;
+}
+
+/* 모션 최소 — reduced-motion 존중 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

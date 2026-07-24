@@ -1,0 +1,36 @@
+# KEIwi Filebeat — xenial(Ubuntu 16.04) 벤더링 설정 (data01)
+#
+# 왜 role(apt)이 아니라 이 파일인가: filebeat role은 Elastic 8.x APT 저장소로 설치하는데,
+# 8.x 패키지는 glibc가 xenial(2.23)보다 높아 설치 불가. 그래서 data01은 7.17.x 정적 바이너리를
+# 벤더링해 systemd로 띄운다(smartctl-exporter 벤더링 패턴과 동일). 계약(fleet_node·journald·
+# logstash 출력)은 role과 동일 — Logstash 파이프라인이 7.x journald.* 중첩 필드를 그대로 정규화.
+#
+# 노드마다 fleet_node만 바꿔 재사용(현재 data01). seek 정책이 핵심(과거 재적재 금지) — 아래 주석.
+filebeat.inputs:
+  - type: journald
+    id: keiwi-journald
+    enabled: true
+    seek: cursor
+    # 최초 실행(커서 없음)엔 head(처음)로 가 3.8G 과거를 재적재 → OpenSearch 폭주.
+    # tail(끝)로 시작해 신규만 수집. 이후엔 커서로 이어감.
+    cursor_seek_fallback: tail
+    # filebeat 자기 로그 재수집 방지(파일로깅이라 보통 불필요하나 방어적으로 유닛 제외)
+    include_matches:
+      - not _SYSTEMD_UNIT=keiwi-filebeat.service
+processors:
+  - add_fields:
+      target: ""
+      fields:
+        fleet_node: "data01"   # ← 노드별로 변경
+  - add_host_metadata:
+      netinfo.enabled: false
+output.logstash:
+  hosts: ["192.168.1.105:5044"]   # data05 Logstash(beats)
+# 자기 로그는 파일로(→ journald 미유입, 자기수집 루프 차단). role은 apt라 journald로 가지만
+# 벤더링은 systemd 유닛에서 -e를 빼고 여기서 파일로깅을 켜 루프를 끊는다.
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/keiwi-filebeat
+  name: filebeat
+  keepfiles: 3
