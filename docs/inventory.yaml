@@ -9,11 +9,12 @@ nodes:
   - id: data01                 # 안정적 식별자 (변하지 않음)
     ip: 192.168.1.101
     hostname: "DataLX01"       # node_uname_info 확인(2026-07-24 온보딩)
-    os: ubuntu                 # 16.04 xenial(EOL) — py3.6·모던 node_exporter 바이너리·filebeat 보류
+    os: ubuntu                 # 16.04 xenial(EOL) — py3.6, glibc 2.23. filebeat는 8.x apt 불가 → 7.17 벤더링
     role: target
     gpu: "Tesla M4 x1"         # 4GB, 드라이버 418 → DCGM 불가(gpu-model-exporter만·카드 배지는 gpu-model 폴백)
-    exporters:                 # dcgm 없음(드라이버 418). 메트릭만, 로그(filebeat)는 xenial로 보류.
+    exporters:                 # dcgm 없음(드라이버 418). 로그: filebeat 7.17 벤더링(infra/logging/filebeat-xenial).
       node: "192.168.1.101:9100"
+      # 로그 수집: journald → data05 Logstash(2026-07-24, fleet_node=data01). [logging] 그룹 미포함(apt role은 xenial 불가).
 
   - id: data02
     ip: 192.168.1.102

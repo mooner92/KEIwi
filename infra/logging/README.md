@@ -10,7 +10,7 @@
 
 ```mermaid
 flowchart LR
-  FB["각 서버(data03·04·05)<br/>Filebeat(journald)"] -->|":5044 beats"| LS["data05 Logstash<br/>정규화 + service→category"]
+  FB["각 서버(data01·03·04·05)<br/>Filebeat(journald)"] -->|":5044 beats"| LS["data05 Logstash<br/>정규화 + service→category"]
   LS --> OS[("OpenSearch<br/>keiwi-logs-* · ISM 365d")]
   OS --> G["Grafana<br/>(grafana-opensearch-datasource)"]
   G -->|"iframe"| C["콘솔 /logs"]
@@ -18,7 +18,7 @@ flowchart LR
 
 | 항목 | 값 |
 | --- | --- |
-| 수집 대상 | **data03·04·05**(Filebeat 가동, `fleet_node`=data03\|data04\|data05 — data03은 2026-07-03 온보딩). 수신은 data05 ufw가 `192.168.1.0/24 → 5044` 허용(서브넷 전체라 노드 추가 시 규칙 변경 불필요). data01(미접근)·data02(Windows — winlogbeat 백로그 B02)는 제외 |
+| 수집 대상 | **data01·03·04·05**(Filebeat journald). data03·04·05는 role(apt 8.x); **data01은 xenial이라 7.17 벤더링**([`filebeat-xenial/`](filebeat-xenial/README.md), 2026-07-24 온보딩). 수신은 data05 ufw가 `192.168.1.0/24 → 5044` 허용(서브넷 전체라 노드 추가 시 규칙 변경 불필요). data02(Windows — winlogbeat 백로그 B02)는 제외 |
 | 저장 | **OpenSearch**(ES 7.10 호환, Apache-2.0) — `docker-compose.yml` 컨테이너 `keiwi-opensearch`·`keiwi-logstash` |
 | 데이터소스 | Grafana **`grafana-opensearch-datasource`**(내장 ES 플러그인 v13 파손으로 전환, uid `keiwi-logs-es`) |
 | 표준 필드(계약) | `@timestamp · fleet_node · log_level · service · message · host_name` + `category · log_level_source`(ADR-0010) |
@@ -163,3 +163,4 @@ curl -s 'localhost:9200/_plugins/_ism/explain/keiwi-logs-*?pretty'      # 부착
 
 ## 노드 추가/삭제
 로그 대상 추가는 [`infra/ansible`](../ansible/README.md)(filebeat role) + 전체 절차 [`docs/runbooks/node-onboarding.md`](../../docs/runbooks/node-onboarding.md).
+**구형 우분투(≤16.04 xenial)**는 8.x apt가 불가하므로 role 대신 [`filebeat-xenial/`](filebeat-xenial/README.md)(7.17 벤더링) 절차를 따른다.
