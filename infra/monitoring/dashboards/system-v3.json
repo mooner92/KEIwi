@@ -293,7 +293,32 @@
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.101.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.103.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.104.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.105.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
@@ -346,9 +371,39 @@
         },
         "overrides": [
           {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.101.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.103.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.104.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.105.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".* 5분$" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+            ]
+          },
+          {
             "matcher": { "id": "byRegexp", "options": ".* 15분$" },
             "properties": [
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [6, 6] } }
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [2, 8] } }
             ]
           }
         ]
@@ -417,7 +472,38 @@
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.101.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.103.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.104.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.105.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".* /$" },
+            "properties": [
+              { "id": "custom.lineWidth", "value": 2 }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
@@ -469,7 +555,38 @@
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.101.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.103.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.104.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.105.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".* /$" },
+            "properties": [
+              { "id": "custom.lineWidth", "value": 2 }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
@@ -521,7 +638,32 @@
             "hideFrom": { "legend": false, "tooltip": false, "viz": false }
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.101.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.103.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.104.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.105.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
@@ -571,6 +713,30 @@
           }
         },
         "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.101.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.103.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.104.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.1\\.105.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }
+            ]
+          },
           {
             "matcher": { "id": "byRegexp", "options": ".* 송신$" },
             "properties": [

@@ -280,33 +280,33 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 0$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#5A6170" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 1$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8A909E" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 2$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E7583" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 3$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9AA0AC" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 4$" },
+            "matcher": { "id": "byRegexp", "options": ".*data03.*" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
           },
           {
-            "matcher": { "id": "byRegexp", "options": ".*GPU [5-9]$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#5A6170" } }]
+            "matcher": { "id": "byRegexp", "options": ".*data04.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "^data05.*" },
+            "matcher": { "id": "byRegexp", "options": ".*data05.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 1$" },
             "properties": [
               { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 2$" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [1, 6] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 3$" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [2, 3] } }
             ]
           }
         ]
@@ -364,7 +364,7 @@
             "properties": [
               { "id": "unit", "value": "celsius" },
               { "id": "custom.axisPlacement", "value": "left" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#5A6170" } }
+              { "id": "custom.lineStyle", "value": { "fill": "solid" } }
             ]
           },
           {
@@ -372,14 +372,24 @@
             "properties": [
               { "id": "unit", "value": "watt" },
               { "id": "custom.axisPlacement", "value": "right" },
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#9AA0AC" } }
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
             ]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "^data05.*" },
-            "properties": [
-              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
-            ]
+            "matcher": { "id": "byRegexp", "options": ".*data03.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data04.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data05.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 0 .*" },
+            "properties": [{ "id": "custom.lineWidth", "value": 2 }]
           }
         ]
       },
@@ -439,33 +449,33 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 0$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#5A6170" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 1$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#8A909E" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 2$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E7583" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 3$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9AA0AC" } }]
-          },
-          {
-            "matcher": { "id": "byRegexp", "options": ".*GPU 4$" },
+            "matcher": { "id": "byRegexp", "options": ".*data03.*" },
             "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
           },
           {
-            "matcher": { "id": "byRegexp", "options": ".*GPU [5-9]$" },
-            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#5A6170" } }]
+            "matcher": { "id": "byRegexp", "options": ".*data04.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "^data05.*" },
+            "matcher": { "id": "byRegexp", "options": ".*data05.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 1$" },
             "properties": [
               { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 4] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 2$" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [1, 6] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 3$" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [2, 3] } }
             ]
           }
         ]

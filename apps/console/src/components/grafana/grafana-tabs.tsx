@@ -195,6 +195,12 @@ export function GrafanaTabs({
             title={`Grafana — ${cur?.label ?? ""}`}
             loading="lazy"
             className="h-full w-full"
+            // 브라우저 확장이 iframe에 속성을 주입해 생기는 하이드레이션 경고를 막는다.
+            // (실측: Ruffle 확장이 data-ruffle-polyfilled를 붙여 서버 HTML과 어긋남 —
+            //  확장 없는 브라우저에서는 재현되지 않는다.) iframe은 광고차단·플래시
+            //  에뮬레이터 등이 흔히 건드리는 대상이고, 여기 속성은 전부 위 props에서
+            //  파생돼 클라이언트 전용 상태가 없으므로 억제해도 잃는 정보가 없다.
+            suppressHydrationWarning
           />
         </div>
       )}
