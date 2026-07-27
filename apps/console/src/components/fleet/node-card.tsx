@@ -3,9 +3,10 @@ import type { FleetNodeStatus, NodeStatus, NodeCapacity } from "@/types/fleet";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import { CapacityBadge } from "@/components/ui/capacity-badge";
 
-// 좌측 상태 액센트 바 — 시맨틱 토큰만.
+// 좌측 상태 바 — "문제인 카드"만 표식을 갖는다(v3 §1: 정상에는 표식조차 낭비다).
+// 정상은 투명 바로 자리만 차지해 카드마다 좌측 들여쓰기가 흔들리지 않게 한다.
 const ACCENT: Record<NodeStatus, string> = {
-  up: "bg-ink-faint",
+  up: "bg-transparent",
   down: "bg-danger",
   "no-data": "bg-border-strong",
 };
@@ -42,11 +43,12 @@ export function NodeCard({
         aria-hidden
         className={`absolute inset-y-0 left-0 w-1 ${ACCENT[node.status]}`}
       />
-      {/* 초콤팩트 밀도(콘텐츠 우선 — 임베드가 주인공): 이름+상태 1행 + 배지 1행(~56px).
+      {/* 초콤팩트 밀도(콘텐츠 우선 — 임베드가 주인공): 이름+상태 1행 + 배지 1행.
           ip·os는 텍스트 행 대신 카드 title 툴팁으로(정보 보존). */}
       <div className="px-2.5 py-1.5 pl-3" title={`${node.ip} · ${node.os}`}>
-        <div className="flex items-center justify-between gap-1.5">
-          <h3 className="truncate font-display text-sm font-semibold text-ink">
+        <div className="flex items-baseline justify-between gap-1.5">
+          {/* 노드명은 카드의 유일한 제목 — tnum이라 dataNN의 자리수가 카드마다 흔들리지 않는다 */}
+          <h3 className="tnum truncate text-md font-semibold text-ink">
             {node.id}
           </h3>
           <StatusIndicator status={node.status} compact />
@@ -83,8 +85,8 @@ export function NodeCard({
     </>
   );
 
-  // 카드 반경 = 10px(rounded-lg) — specs/design/03 공통 반경 규격
-  const base = "relative block overflow-hidden rounded-lg border bg-surface shadow-1";
+  // 카드는 떠 있지 않다 — 그림자 0, 분리는 1px 보더 + 면 명도차로(v3 §깊이)
+  const base = "relative block overflow-hidden rounded-lg border bg-surface";
 
   if (!href) {
     return <article className={`${base} border-border`}>{body}</article>;
@@ -97,12 +99,11 @@ export function NodeCard({
       aria-current={selected ? "true" : undefined}
       className={[
         base,
-        // 호버 시 살짝 떠오르는 입체감(Toss/당근형 폴리시) — reduced-motion은 globals.css가 무력화
-        "outline-none transition-all duration-150 hover:border-border-strong hover:shadow-2 hover:-translate-y-0.5",
-        // 포커스는 globals.css :focus-visible 더블링(브랜드)이 담당. 선택 상태는 브랜드 링/보더.
-        selected
-          ? "border-brand ring-1 ring-brand"
-          : "border-border",
+        // 관제 화면에서 카드가 마우스를 따라 들썩이면 소음이다 — 움직임 없이 색만 바뀐다(v3 §4)
+        "outline-none transition-colors duration-150 hover:bg-surface-2",
+        // 포커스는 globals.css :focus-visible 더블링이 담당. 선택 = 1px 초록 보더뿐(초록 예산제).
+        // 선택 카드에는 hover 보더를 걸지 않는다 — 호버가 초록 선택 표식을 덮으면 안 되므로.
+        selected ? "border-accent-line" : "border-border hover:border-border-strong",
       ].join(" ")}
     >
       {body}

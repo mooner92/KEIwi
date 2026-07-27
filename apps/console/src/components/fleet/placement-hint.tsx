@@ -25,12 +25,12 @@ export function PlacementHint({ rec }: { rec: Rec }) {
   }
 
   return (
+    // 추천은 "문제"가 아니다 — 유채색을 쓰지 않고, 눈이 가야 할 노드명만 잉크 한 단으로 세운다.
     <span title={basis} className="inline-flex items-center gap-1.5 text-xs">
       <span aria-hidden className="h-2 w-2 rounded-full bg-ink-faint" />
       <span className="text-ink-muted">
-        GPU 추천:{" "}
-        <span className="font-semibold text-ink-muted">{rec.nodeId}</span>{" "}
-        <span className="tnum">(VRAM {Math.round(rec.vramFreePct)}% 여유)</span>
+        GPU 추천: <span className="tnum font-medium text-ink">{rec.nodeId}</span>{" "}
+        <span className="tnum text-ink-subtle">(VRAM {Math.round(rec.vramFreePct)}% 여유)</span>
       </span>
     </span>
   );

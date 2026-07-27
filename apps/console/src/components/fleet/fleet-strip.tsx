@@ -65,7 +65,7 @@ export function FleetStrip({
         </span>
       </div>
       {nodes.length === 0 ? (
-        <p className="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted shadow-1">
+        <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-sm text-ink-subtle">
           inventory에 노드가 없습니다. <span className="tnum">docs/inventory.yaml</span>을 확인하세요.
         </p>
       ) : (
