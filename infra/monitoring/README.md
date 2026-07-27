@@ -85,6 +85,41 @@ sudo systemctl enable --now prometheus-node-exporter   # :9100
 > NOPASSWD sudo가 전 노드 표준(`/etc/sudoers.d/90-keiwi-ansible`)이라 `-K` 불필요([infra/ansible](../ansible/README.md)).
 > 상세·터널·대시보드 node 변수까지 = [`docs/runbooks/node-onboarding.md` §3](../../docs/runbooks/node-onboarding.md). ([infra/ansible](../ansible/README.md))
 
+## 디자인 v3 대시보드 (`dashboards/*-v3.json`)
+
+콘솔 디자인 v3(정적·Quiet Console)에 맞춘 **테마 변형**입니다. 콘솔 화면의 약 67%가 이 임베드라, 크롬만 바꾸면 "디자인이 그대로"로 보입니다 — 대시보드가 진짜 레버입니다.
+
+| 원본 | v3 변형 | uid |
+| --- | --- | --- |
+| `system.json` | `system-v3.json` | `keiwi-system-v3` |
+| `gpu.json` | `gpu-v3.json` | `keiwi-gpu-v3` |
+| `model-workload.json` | `model-workload-v3.json` | `keiwi-model-workload-v3` |
+| `logs.json` | `logs-v3.json` | `keiwi-logs-v3` |
+
+**무엇이 다른가** — 쿼리·변수·데이터소스는 **원본과 동일**(시각 표현만 변경):
+- **게이지(gauge) 전면 제거** → `stat` + 스파크라인. 알록달록한 아크가 화면을 낡아 보이게 하던 주범.
+- **전 패널 `transparent: true`** → 패널 배경·테두리를 없애 콘솔 페이지에 녹아든다.
+- **정상은 무채색**, 임계 초과 시에만 유채색(`#F79009`/`#D92D20`). 초록 임계 금지.
+- 시리즈는 중립 계조 + 선 스타일(점선)로 구분 — 색으로 구분하지 않는다.
+
+> [!NOTE] 원본과 공존한다 (prod 무손상)
+> uid가 다르므로 **추가**될 뿐입니다. 어느 대시보드를 볼지는 콘솔이 env로 정하므로, 원본을 보는 콘솔과 v3를 보는 콘솔이 같은 Grafana를 공유하며 나란히 돌 수 있습니다.
+
+```bash
+# 적용(사람, §11)
+sudo cp infra/monitoring/dashboards/{system,gpu,model-workload,logs}-v3.json \
+    /data/monitoring/grafana/provisioning/dashboards/keiwi/
+# 바인드 마운트라 30초 내 자동 반영(재시작 불필요). 확인:
+curl -s 'http://localhost:3000/api/search?query=v3' | grep -o '"uid":"[^"]*"'
+```
+
+**콘솔을 v3로 전환** — `apps/console/.env.local`의 uid를 `-v3`로 바꾸고 재시작합니다(값은 `"경로|라벨"` 쉼표 목록, 슬러그까지 써야 kiosk가 유지됨):
+```
+GRAFANA_DASHBOARD_UID=keiwi-system-v3/keiwi-system-v3?...|시스템,keiwi-gpu-v3/gpu-v3?...|GPU,keiwi-model-workload-v3/keiwi-model-workload-v3?...|모델
+GRAFANA_LOGS_DASHBOARD_UID=keiwi-logs-v3/<슬러그>|통합 로그
+```
+되돌리려면 `-v3`만 지우면 됩니다(대시보드 삭제 불필요).
+
 ## 모델 워크로드 대시보드 (`dashboards/model-workload.json`)
 
 vLLM `/metrics`(요청·토큰·지연·KV캐시) + DCGM + `gpu_model_*`(모델↔GPU). **node 템플릿 변수**로 노드 구분(data04/data05).
