@@ -28,7 +28,7 @@ export function MobileNav() {
           >
             <span>{item.label}</span>
             {item.soon && (
-              <span className="text-[10px] tracking-wide text-ink-subtle">
+              <span className="text-2xs tracking-wide text-ink-subtle">
                 {item.soon}
               </span>
             )}

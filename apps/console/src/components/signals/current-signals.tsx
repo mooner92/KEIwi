@@ -2,8 +2,8 @@ import Link from "next/link";
 import { searchLogs, type LogDoc } from "@/lib/opensearch";
 
 const LEVEL: Record<string, { text: string; label: string }> = {
-  error: { text: "text-danger-700", label: "ERROR" },
-  warn: { text: "text-warning-700", label: "WARN" },
+  error: { text: "text-danger-ink", label: "ERROR" },
+  warn: { text: "text-warn-ink", label: "WARN" },
 };
 
 /**
@@ -51,7 +51,7 @@ export async function CurrentSignals() {
             return (
               <li key={s.id} className="px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-[11px]">
+                  <span className="flex items-center gap-2 text-2xs">
                     <span className={`font-semibold ${lv.text}`}>{lv.label}</span>
                     <span className="tnum text-ink-subtle">
                       {s.fleetNode} · {s.service}
@@ -59,7 +59,7 @@ export async function CurrentSignals() {
                   </span>
                   <Link
                     href={href}
-                    className="shrink-0 text-xs font-medium text-info-700 underline underline-offset-2"
+                    className="shrink-0 text-xs font-medium text-ink-muted underline underline-offset-2"
                   >
                     분석 →
                   </Link>

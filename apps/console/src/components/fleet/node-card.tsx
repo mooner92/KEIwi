@@ -5,9 +5,9 @@ import { CapacityBadge } from "@/components/ui/capacity-badge";
 
 // 좌측 상태 액센트 바 — 시맨틱 토큰만.
 const ACCENT: Record<NodeStatus, string> = {
-  up: "bg-success-500",
-  down: "bg-danger-500",
-  "no-data": "bg-neutral-300",
+  up: "bg-ink-faint",
+  down: "bg-danger",
+  "no-data": "bg-border-strong",
 };
 
 /**

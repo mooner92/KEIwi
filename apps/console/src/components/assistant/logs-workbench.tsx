@@ -14,8 +14,8 @@ const STORE_KEY = "keiwi-logs-assist"; // 드로어 열림 상태 지속(AC4)
 const FOCUS_WINDOW_MS = 5 * 60 * 1000; // 근거 딥링크 ±5분(AC3)
 
 const LEVEL: Record<string, { badge: string; label: string }> = {
-  error: { badge: "bg-danger-50 text-danger-700", label: "ERROR" },
-  warn: { badge: "bg-warning-50 text-warning-700", label: "WARN" },
+  error: { badge: "bg-danger-bg text-danger-ink", label: "ERROR" },
+  warn: { badge: "bg-warn-bg text-warn-ink", label: "WARN" },
 };
 
 // @timestamp(UTC ISO) → KST "MM-DD HH:MM:SS". 고정 오프셋(+9h)·UTC 파트로 산출해
@@ -186,7 +186,7 @@ export function LogsWorkbench({
               ].join(" ")}
             >
               어시스턴트
-              <kbd className="rounded-sm border border-border px-1 text-[10px] text-ink-subtle">
+              <kbd className="rounded-sm border border-border px-1 text-2xs text-ink-subtle">
                 Ctrl+I
               </kbd>
             </button>
@@ -204,7 +204,7 @@ export function LogsWorkbench({
         {/* 좌 — Grafana 로그 임베드 (§I-2 재구현 금지) */}
         <section aria-label="로그 대시보드" className="flex min-h-0 flex-col gap-2">
           {focus ? (
-            <p className="flex shrink-0 items-center justify-between gap-2 rounded-md border border-info-100 bg-info-50 px-3 py-1.5 text-xs text-info-700">
+            <p className="flex shrink-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-xs text-ink-muted">
               <span>근거 로그 시점 ±5분 범위를 보는 중입니다.</span>
               <button
                 type="button"
@@ -288,7 +288,7 @@ export function LogsWorkbench({
                         setLevels([]);
                         setNodesSel([]);
                       }}
-                      className="ml-auto inline-flex h-7 items-center rounded-full border border-border px-2.5 text-xs font-medium text-info-700 hover:bg-surface-2"
+                      className="ml-auto inline-flex h-7 items-center rounded-full border border-border px-2.5 text-xs font-medium text-ink-muted hover:bg-surface-2"
                     >
                       전체
                     </button>
@@ -306,7 +306,7 @@ export function LogsWorkbench({
               ) : (
                 <ul className="min-h-0 divide-y divide-border overflow-y-auto">
                   {filtered.map((s) => {
-                    const lv = LEVEL[s.level] ?? { badge: "bg-neutral-100 text-ink-muted", label: s.level };
+                    const lv = LEVEL[s.level] ?? { badge: "bg-surface-2 text-ink-muted", label: s.level };
                     const active = selected?.id === s.id;
                     return (
                       <li key={s.id} className="relative">
@@ -326,7 +326,7 @@ export function LogsWorkbench({
                               className="absolute inset-y-0 left-0 w-[3px] bg-brand"
                             />
                           )}
-                          <span className="flex items-center gap-2 text-[11px]">
+                          <span className="flex items-center gap-2 text-2xs">
                             <span
                               className={`rounded-sm px-1 font-semibold ${lv.badge}`}
                             >
@@ -339,7 +339,7 @@ export function LogsWorkbench({
                               {s.fleetNode} · {s.service}
                             </span>
                             <span
-                              className={`ml-auto shrink-0 text-xs font-medium ${active ? "text-brand" : "text-info-700"}`}
+                              className={`ml-auto shrink-0 text-xs font-medium ${active ? "text-brand" : "text-ink-muted"}`}
                             >
                               {active ? "분석 중 ✓" : "분석 →"}
                             </span>
@@ -376,7 +376,7 @@ export function LogsWorkbench({
               외부 전송 없음 · 읽기 전용 ·{" "}
               <Link
                 href={deepDiveHref}
-                className="font-medium text-info-700 underline underline-offset-2"
+                className="font-medium text-ink-muted underline underline-offset-2"
               >
                 전체 화면에서 계속 →
               </Link>

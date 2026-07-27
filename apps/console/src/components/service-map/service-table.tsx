@@ -32,7 +32,7 @@ export async function ServiceTable({ node }: { node?: string }) {
 
   const NodeBadge = ({ n }: { n: string }) =>
     fleet && n ? (
-      <span className="tnum shrink-0 rounded-sm bg-surface-2 px-1 text-[10px] text-ink-subtle">{n}</span>
+      <span className="tnum shrink-0 rounded-sm bg-surface-2 px-1 text-2xs text-ink-subtle">{n}</span>
     ) : null;
 
   return (
@@ -64,7 +64,7 @@ export async function ServiceTable({ node }: { node?: string }) {
                     {gib(mm.vramBytes)}
                   </span>
                 </div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-subtle">
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-2xs text-ink-subtle">
                   <span>
                     {mm.framework}
                     {/* 소유자(OS 계정) — "이 모델 누구 거냐" 문의 대처용. unknown이면 생략 */}
@@ -113,11 +113,11 @@ export async function ServiceTable({ node }: { node?: string }) {
                       <span className="truncate text-ink-muted">{p.process}</span>
                       {/* 소유자(OS 계정) — "이 서비스 누구 거냐" 문의 대처용. unknown이면 생략 */}
                       {p.user !== "unknown" ? (
-                        <span className="tnum shrink-0 text-[11px] text-ink-subtle">{p.user}</span>
+                        <span className="tnum shrink-0 text-2xs text-ink-subtle">{p.user}</span>
                       ) : null}
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
-                      {known ? <span className="text-[11px] text-info-700">{known}</span> : null}
+                      {known ? <span className="text-2xs text-ink-muted">{known}</span> : null}
                       <span className="text-ink-subtle">→</span>
                     </span>
                   </Link>

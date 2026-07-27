@@ -141,7 +141,7 @@ export function AssistantPanel({
         {error ? (
           <p
             role="alert"
-            className="rounded-md border border-danger-100 bg-danger-50 px-3 py-2 text-sm text-danger-700"
+            className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-sm text-danger-ink"
           >
             {error}
           </p>
@@ -186,7 +186,7 @@ function Answer({
       {result.runbook ? (
         <p className="text-sm">
           <span className="text-ink-muted">관련 런북: </span>
-          <span className="font-medium text-success-700">{result.runbook.id}</span>{" "}
+          <span className="font-medium text-ink-muted">{result.runbook.id}</span>{" "}
           <span className="tnum text-ink-subtle">({result.runbook.path})</span>
         </p>
       ) : null}
@@ -207,7 +207,7 @@ function Answer({
                     type="button"
                     onClick={() => onEvidenceFocus(d)}
                     title="Grafana 로그를 이 시각 ±5분으로 이동"
-                    className="shrink-0 text-[11px] font-medium text-info-700 underline underline-offset-2"
+                    className="shrink-0 text-2xs font-medium text-ink-muted underline underline-offset-2"
                   >
                     이 시점 →
                   </button>

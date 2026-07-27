@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import "krds-uiux/resources/css/token/krds_tokens.css"; // L0 primitive(--krds-*) — KRDS 소유
+// KRDS 토큰 import 제거(design v3) — 정부 규격 회색 램프를 버리고 자체 뉴트럴을 쓴다.
+// 서체(Pretendard GOV)만 유지하며, 그건 fonts.ts가 자체 woff2로 로드하므로 패키지 불필요.
 import "./globals.css";
 import { pretendardGov } from "./fonts";
 import { AppShell } from "@/components/shell/app-shell";

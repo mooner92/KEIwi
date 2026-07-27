@@ -167,7 +167,7 @@ export function GrafanaTabs({
               target="_blank"
               rel="noopener noreferrer"
               title="대시보드가 비어 보이면 새 탭에서 여세요 — 인증이 필요할 수 있습니다"
-              className="ml-auto pb-1 text-xs text-info-700 underline underline-offset-2"
+              className="ml-auto pb-1 text-xs text-ink-muted underline underline-offset-2"
             >
               새 탭에서 열기 ↗
             </a>

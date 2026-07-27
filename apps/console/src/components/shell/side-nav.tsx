@@ -13,7 +13,7 @@ export function SideNav() {
       className="hidden w-56 shrink-0 flex-col border-r border-border bg-surface md:flex"
     >
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        <p className="px-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-subtle">
+        <p className="px-2.5 pb-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-subtle">
           모니터링
         </p>
         <ul className="flex flex-col gap-0.5">
@@ -32,7 +32,8 @@ export function SideNav() {
                   className={[
                     "relative flex items-center justify-between rounded-md py-2 pl-3 pr-2 text-sm transition-colors",
                     active
-                      ? "bg-surface-2 font-semibold text-brand"
+                      ? // 활성 표시는 좌측 초록 룰이 담당하고 텍스트는 ink로 둔다(초록 예산제).
+                        "bg-surface-2 font-semibold text-ink"
                       : "text-ink-muted hover:bg-surface-2 hover:text-ink",
                   ].join(" ")}
                 >
@@ -44,7 +45,7 @@ export function SideNav() {
                   )}
                   <span>{item.label}</span>
                   {item.soon && (
-                    <span className="rounded-sm border border-border px-1 text-[10px] font-medium tracking-wide text-ink-subtle">
+                    <span className="rounded-sm border border-border px-1 text-2xs font-medium tracking-wide text-ink-subtle">
                       {item.soon}
                     </span>
                   )}
@@ -54,9 +55,17 @@ export function SideNav() {
           })}
         </ul>
       </div>
-      <div className="border-t border-border px-4 py-3 text-[11px] leading-5 text-ink-subtle">
-        <p className="tnum">환경 · data05</p>
-        <p>KEIwi · M1</p>
+      <div className="flex flex-col gap-1.5 border-t border-border px-4 py-3 text-2xs leading-5 text-ink-subtle">
+        <Link
+          href="/about"
+          className="w-fit font-medium text-ink-muted underline underline-offset-2 hover:text-ink"
+        >
+          소개
+        </Link>
+        <div>
+          <p className="tnum">환경 · data05</p>
+          <p>KEIwi · M1</p>
+        </div>
       </div>
     </nav>
   );
