@@ -16,7 +16,11 @@
 - [ ] **T0-2** `[server]` (S) T0-1 배포 — `ansible-playbook playbooks/agents.yml --tags node-hygiene --check` → 실적용. **선행: T0-1.** 기대: data05에서 `node_nvidia_version_mismatch = 1` 관측(=탐지 성공 증명)
 - [ ] **T0-3** (S) 런북 `docs/runbooks/nvidia-driver-mismatch.md` 생성 — 증상(`nvidia-smi` exit 18) → 판별 3줄(`/proc/driver/nvidia/version` vs `modinfo nvidia` vs `readlink libnvidia-ml.so.1`) → 원인(무인 업그레이드 + 미재부팅) → 조치(재부팅) → 예방(ADR-0020). **선행: 없음**
 - [ ] **T0-4** `[server]` (M) **data05 재부팅으로 드라이버 수복.** 사전 확인: Q9(`:8003` 고아 소멸 → 어시스턴트 모델이 Qwen3-Coder-30B → Qwen2.5-Coder-32B로 바뀜, 의도 확인) · `:9836` 고아(`/gits/MineSweeper/...`) 처분. 사후 검증: `nvidia-smi` 정상 · 4유닛 active · `gpu_vram_total_bytes`에 data05 시리즈 복귀(ADR-0013 판정 회복) · CDI 재생성 성공 · `node_nvidia_version_mismatch = 0`. **선행: T0-2, T0-3**
-- [ ] **T0-5** `[server]` (M) **로그 인입 복구**(G0-2). 마지막 doc `2026-07-24T07:02:19.419Z`, `index_total` delta 0. Filebeat→Logstash→OpenSearch 구간 어디서 끊겼는지 특정 → 복구 → 런북 `docs/runbooks/log-ingest-stalled.md` 작성. **선행: 없음(T0-4와 병행 가능)**
+- [x] **T0-5** `[server]` (M) **로그 인입 복구**(G0-2) — **완료 2026-07-30.** 원인은 하나가 아니라 **독립 결함 2개**였다:
+  ① **수신측**(data03·04·05) — `/KEIwi`에서 `git checkout`이 `:ro` 바인드된 `logs.conf`를 다시 써 라이브 Logstash가 리로드하다 죽음(`No configuration found in the configured sources` 15초마다 반복). `docker restart keiwi-logstash`로 복구 후 백로그 flush.
+  ② **발신측**(data01) — filebeat 7.17이 지원하지 않는 `include_matches: - not _SYSTEMD_UNIT=…`(8.x 문법)가 조용히 이벤트를 전멸시킴(`output.events active=0`, 커서 6일 정지, **ERROR 0줄**, systemctl은 active). 블록 제거로 복구.
+  런북은 `docs/runbooks/log-ingestion-stopped.md`로 작성(계획한 `log-ingest-stalled.md`에서 증상 중심으로 개명). 검증: 4노드 전부 실시간 인입, 최근 24h 849k 이벤트.
+  → **이 사고가 축2(알림)의 존재 근거다.** 5.7일간 아무도 몰랐고 발견 경로는 알림이 아니라 우연한 조회였다.
 - [ ] **T0-6** `[server]` (S) **data05 sudoers 교정**(G0-4). `sudo -n -l`에서 `(ALL) NOPASSWD: ALL` **뒤에** `(ALL : ALL) ALL`이 오는 순서 문제. `visudo -cf`로 검증. 기대: `sudo -n true` rc=0. **선행: 없음.** 막고 있는 것: 축1의 data05 배포 전체
 - [ ] **T0-7** `[server]` (M) **day-1 오발화 후보 정리**(G0-3, 10건) — vllm `:8010`·data05 smartctl exporter 기동 또는 수집 제외 / systemd failed 4건(data01=2·data03=1·data04=1) / data04 `/` 86.5% 정리 / data01 메모리 90.1% 확인 / OpenSearch `yellow` unassigned_shards=37 처리. **선행: 없음.** 막고 있는 것: 축2 승격(AC-2-14)
 - [ ] **T0-8** (S) `specs/alerting/spec.md` 사실 드리프트 3건 교정(spec §2.10) — data01 수집 중 / no-data는 data02뿐 / data03 DCGM 기동 확인 / data05 systemd 수집기 미작동. **선행: 없음**
