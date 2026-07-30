@@ -62,19 +62,21 @@ policies:
         group_interval: 10m
         repeat_interval: 12h  # 경고는 하루 두 번이면 충분하다
 
-# ── 억제(inhibition) ──────────────────────────────────────────────────────
-# 노드가 통째로 죽으면 그 노드의 하위 알림(디스크·GPU온도·메모리)은 전부 파생 증상이다.
-# 원인 1건만 알리고 나머지는 억제해야 "장애 1건 = 알림 1건"이 된다.
-# Grafana 13은 이 규칙을 프로비저닝으로 지원한다(Alertmanager 별도 구축 불필요).
-muteTimings: []
-
-inhibitionRules:
-  - orgId: 1
-    # NodeDown이 firing이면
-    sourceMatchers:
-      - ["alertname", "=", "NodeDown"]
-    # 같은 node의 warning 알림은 전부 억제한다
-    targetMatchers:
-      - ["severity", "=", "warning"]
-    equal:
-      - node
+# ── 억제(inhibition)는 파일 프로비저닝으로 할 수 없다 (2026-07-30 실측) ───
+#
+# 원래 여기에 `inhibitionRules:`를 넣었다가 **Grafana가 기동에 실패했다**(포트 3000 미리스닝).
+# 공식 문서 확인 결과 파일 프로비저닝의 최상위 허용 키는 다음뿐이다:
+#   apiVersion · groups · deleteRules · contactPoints · deleteContactPoints
+#   templates · deleteTemplates · policies · resetPolicies · muteTimes · deleteMuteTimes
+# `inhibitionRules`는 **없다.** `muteTimings`도 오타였다(올바른 이름은 `muteTimes`).
+# 알 수 없는 최상위 키가 있으면 프로비저닝이 실패하고 Grafana가 뜨지 않는다.
+#
+# 억제 자체는 Grafana 내장 Alertmanager가 지원하지만 경로가 다르다 —
+# `POST /api/alertmanager/grafana/config/api/v1/alerts` (설정 API)로만 넣을 수 있고,
+# 그건 "설정을 코드로" 원칙에서 벗어난다(UI 수제와 같은 취급, 재생성 시 소실 위험).
+#
+# 그래서 지금은 **그룹핑으로 대체**한다:
+#   NodeDown(critical)은 group_wait 15s로 먼저 나가고, 파생 warning들은 group_wait 1m ·
+#   group_interval 10m으로 늦게·묶여서 나간다. 완전한 억제는 아니지만 "장애 1건에
+#   알림 10건" 도배는 막는다.
+# 진짜 억제가 필요해지면 별도 ADR로 설정 API 경로를 다루고, 그 소실 위험을 함께 적는다.
