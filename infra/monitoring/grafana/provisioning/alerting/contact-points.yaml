@@ -29,6 +29,12 @@ contactPoints:
         settings:
           recipient: "#keiwi-infra"
           token: $__env{SLACK_BOT_TOKEN}
+          # ⚠️ endpointUrl이 필수다 — 이 망에서 slack.com이 SNI 필터로 차단돼 있다(2026-07-30 실측).
+          #   slack.com/api/api.test      → TLS 리셋(Cipher is NONE, 3/3 재현). TCP는 열리는데 핸드셰이크가 죽는다.
+          #   api.slack.com/api/api.test  → {"ok":true} 정상
+          # Grafana 기본값은 https://slack.com/api/chat.postMessage 이므로 그대로 두면 전송이 실패한다.
+          # (TCP 도달성만 보고 "Slack 안 막혔다"고 판단했다가 틀렸다 — TLS 레벨까지 확인해야 한다.)
+          endpointUrl: https://api.slack.com/api/chat.postMessage
           username: KEIwi Alerts
           # 제목은 한 줄로 스캔되게 — 심각도·요약·노드만.
           title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}{{ if .CommonLabels.node }} · {{ .CommonLabels.node }}{{ end }}'
@@ -50,6 +56,12 @@ contactPoints:
         settings:
           recipient: "#keiwi-web"
           token: $__env{SLACK_BOT_TOKEN}
+          # ⚠️ endpointUrl이 필수다 — 이 망에서 slack.com이 SNI 필터로 차단돼 있다(2026-07-30 실측).
+          #   slack.com/api/api.test      → TLS 리셋(Cipher is NONE, 3/3 재현). TCP는 열리는데 핸드셰이크가 죽는다.
+          #   api.slack.com/api/api.test  → {"ok":true} 정상
+          # Grafana 기본값은 https://slack.com/api/chat.postMessage 이므로 그대로 두면 전송이 실패한다.
+          # (TCP 도달성만 보고 "Slack 안 막혔다"고 판단했다가 틀렸다 — TLS 레벨까지 확인해야 한다.)
+          endpointUrl: https://api.slack.com/api/chat.postMessage
           username: KEIwi Alerts
           title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}'
           text: |
