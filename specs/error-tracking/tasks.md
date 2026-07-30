@@ -60,7 +60,7 @@
 
 ## E3 — 콘솔 SDK (여기서만 코드가 늘어난다 — 한 번에 하나씩)
 
-- [ ] **E3-1** (S) **부팅 안전성 먼저** — `src/config/env.ts`에 `getGlitchTipDsn(): string | undefined` 추가(**throw 금지**) + `.env.example` 키 2개. **아직 `Sentry.init`은 없다.** 검증: **AC-E-3**이 이 시점에도 통과(SDK 없이도 통과해야 한다 = 기준선). **선행: E0-4**
+- [x] **E3-1** (S) **부팅 안전성 먼저** — `src/config/env.ts`에 `getGlitchTipDsn(): string | undefined` 추가(**throw 금지**) + `.env.example` 키 2개. **아직 `Sentry.init`은 없다.** 검증: **AC-E-3**이 이 시점에도 통과(SDK 없이도 통과해야 한다 = 기준선). **선행: E0-4**
 - [ ] **E3-2** (S) `@sentry/nextjs` 설치 + `next.config.ts`에 `withSentryConfig` 래핑 + `serverExternalPackages: ["@opentelemetry/api"]`. `sourcemaps:{disable:true}` · `telemetry:false` · `release:{create:false,finalize:false}`. **Turbopack에서 무효인 옵션 금지.** 검증: **AC-E-14**(#19367) · **AC-E-15**(`turbopack.root`·`allowedDevOrigins` 보존 + 클릭 동작). **선행: E3-1**
   - 실패 시: `@sentry/nextjs@10.8.0` 핀 → 재검증 → **ADR-0022에 결과 기록.** 최신 추격 금지
 - [ ] **E3-3** (M) `sentry.server.config.ts` — `beforeSend` **화이트리스트 재구성**(spec §5.4) + `serverName: "keiwi-console"` + IP 마스킹 정규식 + `enableLogs:false`·`enableMetrics:false`·`sendClientReports:false`·`tracesSampleRate:0`·`maxValueLength:500`·`ignoreErrors`. **선행: E3-2**
