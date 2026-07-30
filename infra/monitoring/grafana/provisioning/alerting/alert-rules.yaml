@@ -72,8 +72,16 @@ groups:
         condition: C
         for: 10m
         data:
+          # A: OpenSearch 문서 수 — 최근 30분
+          #
+          # ⚠️ bucketAggs를 비우면 안 된다. 비우면 이 오류가 난다:
+          #     "invalid query, missing metrics and aggregations"
+          # grafana-opensearch-datasource는 빈 bucketAggs를 거부하고 반드시 버킷을 요구한다.
+          # 이건 이미 우리 문서에 적혀 있던 실패 모드다 — infra/logging/README.md §7 트러블슈팅
+          # (logs 대시보드 패널에서 같은 오류를 겪고 date_histogram + reduce로 해결했다).
+          # 그걸 확인하지 않고 bucketAggs: []로 썼다가 규칙이 health=error로 떴다.
           - refId: A
-            relativeTimeRange: { from: 1800, to: 0 }   # 최근 30분
+            relativeTimeRange: { from: 1800, to: 0 }
             datasourceUid: keiwi-logs-es
             model:
               refId: A
@@ -83,15 +91,29 @@ groups:
               metrics:
                 - id: '1'
                   type: count
-              bucketAggs: []
+              bucketAggs:
+                - id: '2'
+                  type: date_histogram
+                  field: '@timestamp'
+                  settings:
+                    interval: '5m'
+                    min_doc_count: '0'   # 유입이 0인 구간도 0으로 채워 반환(안 채우면 빈 시리즈)
+          # B: date_histogram은 시계열을 주므로 스칼라로 축약한다(버킷 합 = 30분 총 유입).
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: sum
+              expression: A
+          # C: 임계 판정. 정상은 30분에 ≈17,600건(9.8 EPS). 100건 미만이면 사실상 정지다.
+          #    0이 아니라 100으로 둔 이유: 재시작 직후 소량만 흐르는 상태도 잡기 위해.
           - refId: C
             datasourceUid: __expr__
             model:
               refId: C
               type: threshold
-              expression: A
-              # 정상은 30분에 ≈17,600건(9.8 EPS). 100건 미만이면 사실상 정지다.
-              # 0이 아니라 100으로 둔 이유: 재시작 직후 소량만 흐르는 상태도 잡기 위해.
+              expression: B
               conditions:
                 - evaluator: { type: lt, params: [100] }
         noDataState: Alerting     # 쿼리 자체가 안 되면 그것도 장애다
