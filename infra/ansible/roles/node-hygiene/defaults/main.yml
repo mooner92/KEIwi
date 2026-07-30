@@ -31,3 +31,7 @@ node_hygiene_marker: /var/lib/node_exporter/.keiwi-apply-stamp
 # 수집 타이머 주기(systemd OnUnitActiveSec) 및 부팅 후 최초 지연.
 node_hygiene_timer_interval: "30min"
 node_hygiene_boot_delay: "3min"
+
+# systemd-networkd-wait-online --any drop-in 배포 여부 (T0-7).
+# no-carrier 포트 때문에 부팅 시 타임아웃/failed가 나는 노드용. 기본 켬.
+node_hygiene_fix_wait_online: true
