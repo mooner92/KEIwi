@@ -1,0 +1,80 @@
+# Grafana 알림 라우팅 정책 — 어디로 보내고, 얼마나 묶고, 언제 다시 알릴지
+#
+# 적용: /data/monitoring/grafana/provisioning/alerting/ 로 복사(사람, §11).
+#
+# ⚠️ provisioning으로 정책을 넣으면 Grafana UI에서 편집이 잠긴다(파일이 진실원천).
+#    바꾸려면 이 파일을 고쳐 다시 복사한다.
+#
+# ── 설계 원칙: 노이즈가 알림 체계를 죽인다 ────────────────────────────────
+# 알림이 시끄러우면 사람이 무시하고, 무시하면 알림 없는 것보다 나쁘다(거짓 안심을 준다).
+# 실제로 이 플릿은 alert 규칙 0건 상태에서 로그 인입이 5.7일간 멈춘 걸 아무도 몰랐다.
+# 그래서 첫 세트는 "확실한 것 소수"만 켜고, 2주 관찰 후 늘린다.
+#
+# ── 그룹핑이 스레딩을 대신한다 ────────────────────────────────────────────
+# Grafana Slack 알림기는 thread_ts를 지원하지 않는다(실측). 대신 group_by로 같은 종류를
+# 한 메시지에 묶고, repeat_interval을 길게 잡아 같은 알림이 반복 도배되지 않게 한다.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    # 기본 경로 — 명시적으로 라우팅되지 않은 모든 알림은 인프라 채널로.
+    receiver: slack-infra
+    # alertname+node로 묶는다: 한 노드에서 같은 알림이 여러 인스턴스로 터져도 메시지는 1건.
+    group_by:
+      - alertname
+      - node
+    # 첫 알림 전 30초 대기 — 동시에 터지는 것들을 한 메시지로 모은다.
+    group_wait: 30s
+    # 같은 그룹에 새 알림이 추가될 때 다음 통지까지의 간격.
+    group_interval: 5m
+    # 해결되지 않은 알림의 재통지 주기. 4시간 — 짧으면 도배, 길면 잊는다.
+    repeat_interval: 4h
+
+    routes:
+      # ── 앱 런타임(콘솔·API) → #keiwi-web ──────────────────────────────
+      # 인프라 담당자와 앱 담당자가 볼 것이 다르므로 채널을 나눈다.
+      # (현재는 1인이지만, 채널이 나뉘어야 음소거·검색·보존을 독립으로 관리할 수 있다)
+      - receiver: slack-web
+        object_matchers:
+          - ["domain", "=", "app"]
+        group_by: ["alertname"]
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+
+      # ── 인프라 critical — 재통지를 더 자주 ────────────────────────────
+      - receiver: slack-infra
+        object_matchers:
+          - ["domain", "=", "infra"]
+          - ["severity", "=", "critical"]
+        group_by: ["alertname", "node"]
+        group_wait: 15s      # critical은 덜 기다린다
+        group_interval: 5m
+        repeat_interval: 1h  # 해결될 때까지 1시간마다 상기
+
+      # ── 인프라 warning — 조용하게 ─────────────────────────────────────
+      - receiver: slack-infra
+        object_matchers:
+          - ["domain", "=", "infra"]
+          - ["severity", "=", "warning"]
+        group_by: ["alertname"]
+        group_wait: 1m
+        group_interval: 10m
+        repeat_interval: 12h  # 경고는 하루 두 번이면 충분하다
+
+# ── 억제(inhibition) ──────────────────────────────────────────────────────
+# 노드가 통째로 죽으면 그 노드의 하위 알림(디스크·GPU온도·메모리)은 전부 파생 증상이다.
+# 원인 1건만 알리고 나머지는 억제해야 "장애 1건 = 알림 1건"이 된다.
+# Grafana 13은 이 규칙을 프로비저닝으로 지원한다(Alertmanager 별도 구축 불필요).
+muteTimings: []
+
+inhibitionRules:
+  - orgId: 1
+    # NodeDown이 firing이면
+    sourceMatchers:
+      - ["alertname", "=", "NodeDown"]
+    # 같은 node의 warning 알림은 전부 억제한다
+    targetMatchers:
+      - ["severity", "=", "warning"]
+    equal:
+      - node
