@@ -1,0 +1,72 @@
+# KEIwi 에러 트래킹 — GlitchTip 자체호스팅 (specs/error-tracking, ADR-0022)
+#
+# 정본 upstream/compose.sample.yml 에서 벗어난 것은 spec §2.2 표의 항목뿐이다:
+#   ① postgres: trust 인증 제거 → 비밀번호 (정본 주석 스스로 권장)
+#   ② web 포트: 0.0.0.0:8000 → 127.0.0.1 + 172.18.0.1 두 줄 (LAN 로그인화면 비노출,
+#      Prometheus는 컨테이너라 127.0.0.1에 닿지 못함. cloudflared는 호스트 프로세스[E0-1]라 127.0.0.1로 충분)
+#   ③ mem_limit 3건 — data05는 A40×2 연구 GPU 노드라 관측 도구가 연구 워크로드와 경합 금지
+# 시크릿(.env)은 /data/glitchtip/.env (root 0600, §13) — 이 파일에 값이 없다.
+#
+# 적용(사람, §11): /data/glitchtip/ 에 이 파일 복사 → check-env.sh 통과 → postgres 먼저
+# 기동 → 헬스 확인 → web (첫 마이그레이션 레이스를 절차로 흡수, tasks E1-3).
+# ⚠️ compose 1.29 'ContainerConfig' 버그: 재생성은 docker rm -f 후 up -d.
+x-environment: &default-environment
+  DATABASE_URL: postgres://glitchtip:${POSTGRES_PASSWORD}@postgres:5432/glitchtip
+  VALKEY_URL: redis://valkey:6379
+  SECRET_KEY: ${SECRET_KEY}
+  EMAIL_URL: consolemail:// # SMTP 없음 — 알림은 Slack webhook이 담당(spec §4)
+  GLITCHTIP_DOMAIN: https://glitchtip.excusa.uk # Slack 메시지의 이슈 링크를 만든다(§2.3)
+  DEFAULT_FROM_EMAIL: keiwi@excusa.uk
+  ENABLE_ADMIN: "False"
+  ENABLE_OPENAPI: "False"
+  GLITCHTIP_ENABLE_MCP: "False"
+  GLITCHTIP_ENABLE_DUCKDB: "False"
+  # 가입 차단 — 첫 사용자(관리자) 생성 후에도 등록 폐쇄(내부 전용)
+  ENABLE_USER_REGISTRATION: "False"
+  ENABLE_OPEN_USER_REGISTRATION: "False"
+  # 보존 — spec §2.5. 이벤트 90일(콘솔 에러는 90일이면 패턴 파악에 충분, 디스크 보호)
+  GLITCHTIP_EVENT_RETENTION_DAYS: "90"
+  GLITCHTIP_UPTIME_RETENTION_DAYS: "90"
+  # uptime 모니터가 사내 사설 IP(콘솔 :3105 등)를 체크해야 한다 — 기본 False면
+  # warning만 남기고 조용히 차단된다[조사]. E0-2에서 키 실존 확인(UPTIME 전용 키).
+  GLITCHTIP_UPTIME_ALLOW_PRIVATE_IPS: "True"
+
+x-depends_on: &default-depends_on
+  - postgres
+  - valkey
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: glitchtip
+      POSTGRES_DB: glitchtip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # 정본의 trust 인증 제거(§2.2 ①)
+    restart: unless-stopped
+    mem_limit: 512m
+    volumes:
+      - pg-data:/var/lib/postgresql
+    # 호스트 포트 미노출 — 호스트 PG 16.14가 127.0.0.1:5432 라이브[E0-1/GV-7]
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    mem_limit: 256m
+
+  web:
+    image: glitchtip/glitchtip:6 # 메이저 핀 — 패치 자동, 메이저는 사람(§2.2)
+    depends_on: *default-depends_on
+    ports:
+      - "127.0.0.1:8090:8000"  # 콘솔(호스트)·cloudflared(호스트 프로세스)용
+      - "172.18.0.1:8090:8000" # Prometheus(컨테이너)용 — vLLM·gpu-model과 동형[실측]
+    environment:
+      <<: *default-environment
+      SERVER_ROLE: all_in_one # web+worker 통합 — 서비스 수 최소(§2.2)
+    restart: unless-stopped
+    mem_limit: 1g
+    volumes:
+      - uploads:/code/uploads
+
+volumes:
+  pg-data:
+  uploads:

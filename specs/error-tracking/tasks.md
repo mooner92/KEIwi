@@ -16,10 +16,17 @@
 
 > 이 단계는 **아무것도 만들지 않는다.** spec §0의 게이트를 실측으로 채우는 것이 전부다. 결과는 ADR-0022의 "결과" 절에 기록한다.
 
-- [ ] **E0-1** `[server]` (S) **GV-6·GV-7 포트·런타임 실사** — `ss -ltnp | grep -E ':(8090|8091|5432)\b'` · `docker ps | grep -i cloudflare`. 산출물: ADR-0022에 3줄(8090 가용 여부 / cloudflared = 호스트|컨테이너 / 호스트 PG 점유 확인). **선행: 없음**
-- [ ] **E0-2** (S) **GV-2 env 키 사전 확인** — `glitchtip/settings.py`의 `env(...)` 호출부에서 우리가 쓸 키를 **전부** 대조. 특히 **`GLITCHTIP_ALLOW_PRIVATE_IPS` vs `GLITCHTIP_UPTIME_ALLOW_PRIVATE_IPS`**(조사에서 이름이 두 가지로 나타났다) · 보존 키 6종 · `GLITCHTIP_PII_SCRUB_DEFAULT` · `ALLOWED_HOSTS` · `/_health/` 경로. 산출물: **키 이름 확정 표**(존재/부재/정확한 스펠링). **선행: 없음.** 막고 있는 것: E1-1
-- [ ] **E0-3** (S) **정본 compose 샘플 고정** — `https://glitchtip.com/assets/compose.sample.yml`를 받아 `infra/error-tracking/upstream/compose.sample.yml`로 **원문 그대로 커밋**(diff 기준선). **선행: 없음**
-- [ ] **E0-4** (S) **`@sentry/nextjs` peerDeps 확인** — `npm view @sentry/nextjs peerDependencies` → `next: ^16.0.0-0` 포함 확인 + 설치는 하지 않는다. 산출물: 버전 1줄. **선행: 없음**
+- [x] **E0-1** `[server]` (S) **GV-6·GV-7 포트·런타임 실사** — `ss -ltnp | grep -E ':(8090|8091|5432)\b'` · `docker ps | grep -i cloudflare`. 산출물: ADR-0022에 3줄(8090 가용 여부 / cloudflared = 호스트|컨테이너 / 호스트 PG 점유 확인). **선행: 없음**
+- [x] **E0-2** (S) **GV-2 env 키 사전 확인** — `glitchtip/settings.py`의 `env(...)` 호출부에서 우리가 쓸 키를 **전부** 대조. 특히 **`GLITCHTIP_ALLOW_PRIVATE_IPS` vs `GLITCHTIP_UPTIME_ALLOW_PRIVATE_IPS`**(조사에서 이름이 두 가지로 나타났다) · 보존 키 6종 · `GLITCHTIP_PII_SCRUB_DEFAULT` · `ALLOWED_HOSTS` · `/_health/` 경로. 산출물: **키 이름 확정 표**(존재/부재/정확한 스펠링). **선행: 없음.** 막고 있는 것: E1-1
+- [x] **E0-3** (S) **정본 compose 샘플 고정** — `https://glitchtip.com/assets/compose.sample.yml`를 받아 `infra/error-tracking/upstream/compose.sample.yml`로 **원문 그대로 커밋**(diff 기준선). **선행: 없음**
+- [x] **E0-4** (S) **`@sentry/nextjs` peerDeps 확인** — `npm view @sentry/nextjs peerDependencies` → `next: ^16.0.0-0` 포함 확인 + 설치는 하지 않는다. 산출물: 버전 1줄. **선행: 없음**
+
+**E0 실측 결과 (2026-07-30):**
+- **E0-1**: 호스트 PG는 `127.0.0.1:5432` 전용(브리지 무충돌·컨테이너 포트 미노출로 해소) · 8090/8091 미점유 · **cloudflared = 호스트 프로세스**(3개) → 터널 대상은 `127.0.0.1:8090`
+- **E0-2**: "모순"이던 두 키는 **둘 다 실존** — `GLITCHTIP_ALLOW_PRIVATE_IPS`(일반)·`GLITCHTIP_UPTIME_ALLOW_PRIVATE_IPS`(uptime 전용, 우리가 쓸 것). `GLITCHTIP_PII_SCRUB_DEFAULT` 실존(값은 JSON, settings.py L249) · 보존 키 6종 실존 · 캐시는 `VALKEY_URL`이 정본 · `ENABLE_USER_REGISTRATION`+`ENABLE_OPEN_USER_REGISTRATION` 실존
+- **E0-3**: 정본 고정 완료(`upstream/compose.sample.yml`) — postgres:18·valkey:9·glitchtip:6, anchor+merge key 구조
+- **E0-4**: `@sentry/nextjs` **10.69.0**, peerDeps `next: ^13.2.0 || ^14.0 || ^15.0.0-rc.0 || ^16.0.0-0` → Next 16 공식 지원
+- **GV-1 통과**: compose 1.29.2가 anchor·merge key·mem_limit·env 치환 전부 파싱(『config』 실측, 핵심 항목 7개 보존)
 
 > [!NOTE]
 > E0이 끝나면 "무엇을 쓸 수 있는지"가 확정된다. **E0 없이 E1을 시작하면 게이트②(존재하지 않는 키)를 재현한다.**
@@ -28,14 +35,14 @@
 
 ## E1 — GlitchTip 기동 (컨테이너 3개, 라이브 관제 스택 무접촉)
 
-- [ ] **E1-1** (S) `infra/error-tracking/docker-compose.yml` 생성 — spec §2.2의 변경 3건만 적용(PG 비밀번호 / 포트 2줄 바인드 / 호스트 포트 미노출), **E0-2에서 확인된 키만** 사용. `mem_limit` 3건. **선행: E0-1, E0-2, E0-3**
-- [ ] **E1-2** (S) `infra/error-tracking/.env.example` + `scripts/check-env.sh` 생성 — 키 목록만(값 0). 검사: 키 존재 · `SECRET_KEY` ≥ 64자 · 개행/따옴표 없음 · `GLITCHTIP_DOMAIN`이 `https://`. 검증: **AC-E-2**. **선행: E1-1**
+- [x] **E1-1** (S) `infra/error-tracking/docker-compose.yml` 생성 — spec §2.2의 변경 3건만 적용(PG 비밀번호 / 포트 2줄 바인드 / 호스트 포트 미노출), **E0-2에서 확인된 키만** 사용. `mem_limit` 3건. **선행: E0-1, E0-2, E0-3**
+- [x] **E1-2** (S) `infra/error-tracking/.env.example` + `scripts/check-env.sh` 생성 — 키 목록만(값 0). 검사: 키 존재 · `SECRET_KEY` ≥ 64자 · 개행/따옴표 없음 · `GLITCHTIP_DOMAIN`이 `https://`. 검증: **AC-E-2**. **선행: E1-1**
 - [ ] **E1-3** `[server]` (S) **GV-1 파싱 게이트** — `/data/glitchtip/`에 복사 후 `docker-compose config`. 검증: **AC-E-1**. anchor 파싱 실패 시 전개 변형으로 교체하고 **이유를 파일 주석에 남긴다**. **선행: E1-2**
 - [ ] **E1-4** `[server]` (S) **GV-5 빈 시크릿 거동 측정** — 격리 프로젝트에서 `SECRET_KEY=`로 `up -d` → `docker logs`. **기동 실패인지 경고만인지 기록.** 이 결과가 `check-env.sh`의 강도를 정한다. **선행: E1-3**
 - [ ] **E1-5** `[server]` (S) **정상 기동** — `check-env.sh` 통과 후 `postgres` → 헬스 확인 → `web`·`valkey` 순서로. compose 1.29 recreate 시 `docker rm -f` 후 `up -d`. 검증: `curl -o /dev/null -w '%{http_code}' 127.0.0.1:8090` → 200 · **AC-E-16**(mem_limit 실효). **선행: E1-4**
 - [ ] **E1-6** `[server]` (S) **첫 사용자 생성 → 즉시 `ENABLE_USER_REGISTRATION=False` → 재기동.** 검증: **AC-E-9**. **선행: E1-5.** ⚠️ 이 항목을 미루면 가입이 열린 상태로 남는다(기본값이 안전하지 않다)
 - [ ] **E1-7** `[server]` (S) Cloudflare 터널 라우트 `glitchtip.excusa.uk` + Access 정책 — E0-1의 cloudflared 런타임 판정에 따라 대상 주소 결정. `grafana.excusa.uk`와 동일 패턴(§14). **선행: E1-5**
-- [ ] **E1-8** (S) `infra/monitoring/prometheus.yml`에 `glitchtip` job 1개 추가(`172.18.0.1:8090`). **레포만.** 검증: **AC-E-19**. **선행: E1-5**
+- [x] **E1-8** (S) `infra/monitoring/prometheus.yml`에 `glitchtip` job 1개 추가(`172.18.0.1:8090`). **레포만.** 검증: **AC-E-19**. **선행: E1-5**
 - [ ] **E1-9** `[server]` (S) E1-8 라이브 반영 — 레포본을 `/data/monitoring/prometheus.yml`에 정렬 후 `docker compose restart prometheus`. **라이브 파일 직접 편집 금지(§12).** **선행: E1-8**
 
 ---
