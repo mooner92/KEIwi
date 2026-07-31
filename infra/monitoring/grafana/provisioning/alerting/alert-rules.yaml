@@ -1,0 +1,381 @@
+# Grafana 알림 규칙 — 9건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30)
+#
+# 적용: /data/monitoring/grafana/provisioning/alerting/ 로 복사(사람, §11).
+# 임계 결정 프레임워크·근거는 specs/alerting/spec.md — 이 파일이 정본이고 스펙이 따라온다.
+#
+# ── 왜 적게 유지하나 ─────────────────────────────────────────────────────
+# 알림은 많을수록 좋은 게 아니다. 시끄러우면 무시하게 되고, 무시하는 알림은 없는 것보다
+# 나쁘다(거짓 안심). "이게 울리면 반드시 사람이 조치한다"만 켠다. 2주마다 발화/조치율 리뷰.
+#
+# ── 지표 3분류 (임계 정하는 방법이 다르다) ────────────────────────────────
+#   ① 결정적 실패  : 임계 없음, 발생=문제  — NodeDown·LogIngestStalled·XID신규·OOM·SMART
+#   ② 소진 예측    : predict_linear "언제 차나" — DiskFillPredicted (서버 크기 무관)
+#   ③ 행동 이탈    : 자기 30일 p99 + 지속   — DiskUsageHigh·GpuTempHigh·MemoryLow
+#
+# ── 전 임계는 30일 실측 분포로 정했다 (첫날 오발화 0건 검증 완료) ─────────
+#   디스크 30일 최대   86.6% (data04 /)     → 90% 15m
+#   GPU 온도 30일 p99  87°C (data04 GPU1)   → 92°C 10m  (85는 상시발화 결함이라 상향)
+#   메모리 30일 최저   9.9% (data01)        → 5% 15m
+#   XID latched 잔존값 43 (data05 2장)      → changes() 방식 (>0 비교는 상시발화)
+#   로그 인입 30분     실측 27,585건        → <100건
+# 유휴 현재값이 아니라 "부하 시 분포(p99·최대)"로 정하는 것이 핵심 — 85°C 결함의 교훈.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: keiwi-infra-core
+    folder: KEIwi
+    interval: 1m
+    rules:
+      # ═══════════════════════════════════════════════════════════════════
+      # 1. 노드 다운 — 가장 기본. 이게 울리면 다른 알림은 억제된다(정책 참조).
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-node-down
+        title: NodeDown
+        condition: C
+        for: 5m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              expr: 'up{job="node-exporter"}'
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        # 스크랩이 아예 안 오면(타깃 소멸) NoData → 이것도 장애다. Alerting으로 승격.
+        noDataState: Alerting
+        execErrState: Alerting
+        labels:
+          severity: critical
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '{{ $labels.instance }} node-exporter 응답 없음 (5분 이상)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 2. 로그 인입 중단 — 이 세트에서 가장 중요한 규칙.
+      #
+      # 2026-07-24~07-30 로그가 5.7일간 멈췄는데 아무도 몰랐다. 대시보드는 "에러 0건"을
+      # 초록으로 보여줬고 사람은 "플릿이 건강하다"로 읽었다. 조용한 실패는 "문제 신호의
+      # 부재"로만 드러나므로, **부재를 검증**하는 알림이 없으면 영원히 안 잡힌다.
+      #
+      # ⚠️ 적용 후 반드시 검증할 것: OpenSearch 데이터소스 알림 쿼리는 Prometheus와
+      #    모델 구조가 다르다. Grafana UI에서 이 규칙을 열어 "Preview"가 숫자를 반환하는지
+      #    확인하라. 반환이 비면 metrics/bucketAggs 형식을 UI에서 잡고 이 파일에 역반영한다.
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-log-ingest-stalled
+        title: LogIngestStalled
+        condition: C
+        for: 10m
+        data:
+          # A: OpenSearch 문서 수 — 최근 30분
+          #
+          # ⚠️ bucketAggs를 비우면 안 된다. 비우면 이 오류가 난다:
+          #     "invalid query, missing metrics and aggregations"
+          # grafana-opensearch-datasource는 빈 bucketAggs를 거부하고 반드시 버킷을 요구한다.
+          # 이건 이미 우리 문서에 적혀 있던 실패 모드다 — infra/logging/README.md §7 트러블슈팅
+          # (logs 대시보드 패널에서 같은 오류를 겪고 date_histogram + reduce로 해결했다).
+          # 그걸 확인하지 않고 bucketAggs: []로 썼다가 규칙이 health=error로 떴다.
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: keiwi-logs-es
+            model:
+              refId: A
+              query: '*'
+              queryType: lucene
+              timeField: '@timestamp'
+              metrics:
+                - id: '1'
+                  type: count
+              bucketAggs:
+                - id: '2'
+                  type: date_histogram
+                  field: '@timestamp'
+                  settings:
+                    interval: '5m'
+                    min_doc_count: '0'   # 유입이 0인 구간도 0으로 채워 반환(안 채우면 빈 시리즈)
+          # B: date_histogram은 시계열을 주므로 스칼라로 축약한다(버킷 합 = 30분 총 유입).
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: sum
+              expression: A
+          # C: 임계 판정. 정상은 30분에 ≈17,600건(9.8 EPS). 100건 미만이면 사실상 정지다.
+          #    0이 아니라 100으로 둔 이유: 재시작 직후 소량만 흐르는 상태도 잡기 위해.
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [100] }
+        noDataState: Alerting     # 쿼리 자체가 안 되면 그것도 장애다
+        execErrState: Alerting
+        labels:
+          severity: critical
+          domain: infra
+        annotations:
+          summary: '통합 로그 인입 중단 — 최근 30분 유입 100건 미만 (정상 ≈17,600건)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/log-ingestion-stopped.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 3. 디스크 임계 — 로그·메트릭 저장이 멈추기 전에 알아야 한다.
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-disk-high
+        title: DiskUsageHigh
+        condition: C
+        for: 15m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: |
+                100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"}
+                / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [90] }
+        noDataState: NoData       # 디스크는 노드 다운 시 NoData가 정상 — 중복 알림 방지
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '{{ $labels.instance }} {{ $labels.mountpoint }} 사용률 90% 초과'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/logging/README.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 4. GPU 과열 — 하드웨어 보호 마지노선.
+      #
+      # 85°C였다가 92°C로 상향(2026-07-30). 30일 실측: data04 GPU1의 p99가 87°C,
+      # 최대 88°C — 85 임계는 정상 연구 부하에서 상시 발화하는 결함이었다
+      # (설정 당시 유휴값 50°C만 보고 분포를 안 본 실수). 92 = 관측 최대 88 + 여유 4.
+      # 근본적으로 "뜨겁다"보다 "성능이 깎인다"(스로틀링)가 맞는 신호이나
+      # DCGM 기본 csv에 CLOCK_THROTTLE_REASONS가 없다 — 백로그 #1(csv 확장)에서 교체 예정.
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-gpu-temp-high
+        title: GpuTempHigh
+        condition: C
+        for: 10m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: 'DCGM_FI_DEV_GPU_TEMP'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [92] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: 'GPU 과열 {{ $labels.instance }} GPU{{ $labels.gpu }} — 85°C 초과 10분'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/specs/hardware-ops/README.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 5. 메모리 고갈 — OOM Killer가 프로세스를 죽이기 전에.
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-mem-low
+        title: MemoryLow
+        condition: C
+        for: 15m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: '100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [5] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '{{ $labels.instance }} 가용 메모리 5% 미만 (15분 지속)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 6~9. 결정적 실패(deterministic failure) 4건 — 2026-07-30 추가 (A단계).
+      #
+      # 임계 논쟁이 필요 없는 지표들: 발생 자체가 문제다(happened = broken).
+      # 전부 투입 전 라이브 실측으로 "현재 발화 0건"을 확인했다.
+      # ═══════════════════════════════════════════════════════════════════
+
+      # 6. GPU XID 에러 — 새 발생만.
+      # ⚠️ `> 0` 비교를 쓰면 안 된다: XID는 latched 게이지라 과거 값이 유지된다.
+      #    실측: data05 GPU 2장이 이미 43(드라이버 mismatch 사태의 흔적, 재부팅 전까지 잔존)
+      #    — `>0`이면 첫날부터 상시 발화였다. changes()는 이 latched 값을 무시하고
+      #    새 변화만 잡는다(검증: changes[24h]도 0건).
+      - uid: keiwi-gpu-xid-new
+        title: GpuXidErrorNew
+        condition: C
+        for: 0s          # 결정적 실패 — 지속 조건 불필요, 즉시
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: 'changes(DCGM_FI_DEV_XID_ERRORS[30m])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: critical
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: 'GPU 하드웨어 에러(XID) 신규 발생 — {{ $labels.instance }} GPU{{ $labels.gpu }}'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/specs/hardware-ops/README.md
+
+      # 7. OOM kill — 커널이 프로세스를 죽였다 = 이미 피해 발생.
+      #    "메모리 여유 %" 임계보다 정확한 신호(연구 노드는 상시 타이트해 %가 무의미).
+      - uid: keiwi-oom-kill
+        title: OomKillOccurred
+        condition: C
+        for: 0s
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: 'increase(node_vmstat_oom_kill[1h])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: 'OOM kill 발생 — {{ $labels.instance }} (최근 1시간). 어떤 프로세스가 죽었는지 journald 확인'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+
+      # 8. SMART 실패 — 디스크가 스스로 "곧 죽는다"고 말하는 것. 연구 데이터는 재현
+      #    불가라 데이터 손실 위험이 최우선 신호다.
+      #    noDataState=NoData 이유: data05 smartctl 스크랩이 ufw 규칙 적용 전까지
+      #    down이라(T0-7), Alerting으로 두면 그 자체가 오발화가 된다.
+      - uid: keiwi-smart-fail
+        title: SmartHealthFailed
+        condition: C
+        for: 0s
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: 'smartctl_device_smart_status'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: critical
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: 'SMART 헬스 실패 — {{ $labels.instance }} {{ $labels.device }}. 디스크 교체 준비'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/monitoring/smartctl-exporter/README.md
+
+      # 9. 디스크 소진 예측 — % 임계의 결함을 보완한다.
+      #    "90%"는 3.5TB에선 350GB 여유인데 울리고, 서버마다 의미가 다르다.
+      #    "4시간 뒤 찬다"는 크기 무관 동일 의미 — 서버별 임계가 필요 없어진다.
+      #    6h 관찰창: 짧으면 순간 쓰기에 과민, 길면 급증을 놓침.
+      #    기존 DiskUsageHigh(90%)와 공존: 그쪽은 "이미 높다", 이쪽은 "곧 찬다".
+      - uid: keiwi-disk-fill-predict
+        title: DiskFillPredicted
+        condition: C
+        for: 30m         # 일시적 대량 쓰기(모델 다운로드 등)로 인한 오발화 방지
+        data:
+          - refId: A
+            relativeTimeRange: { from: 21600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              expr: 'predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"}[6h], 4*3600)'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [0] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: critical
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '{{ $labels.instance }} {{ $labels.mountpoint }} — 현재 추세로 4시간 내 가득 참'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/logging/README.md

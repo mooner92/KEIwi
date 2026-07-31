@@ -14,9 +14,16 @@ filebeat.inputs:
     # 최초 실행(커서 없음)엔 head(처음)로 가 3.8G 과거를 재적재 → OpenSearch 폭주.
     # tail(끝)로 시작해 신규만 수집. 이후엔 커서로 이어감.
     cursor_seek_fallback: tail
-    # filebeat 자기 로그 재수집 방지(파일로깅이라 보통 불필요하나 방어적으로 유닛 제외)
-    include_matches:
-      - not _SYSTEMD_UNIT=keiwi-filebeat.service
+    # ⚠️ include_matches를 쓰지 마라 — 2026-07-30 장애의 원인.
+    #
+    # 자기수집 루프를 막겠다고 `- not _SYSTEMD_UNIT=keiwi-filebeat.service`를 넣었더니
+    # 입력이 이벤트를 하나도 내보내지 않았다(output.events active=0, 커서 6일간 정지).
+    # filebeat 7.17의 journald 입력은 `not` 접두 문법을 지원하지 않는다(8.x에서 추가).
+    # 지원 안 되는 표현이 조용히 "전부 불일치"로 동작했고, **ERROR 한 줄도 안 남아**
+    # systemctl은 active·5044도 열려 있어 겉보기엔 완전히 정상이었다.
+    #
+    # 게다가 이 필터는 처음부터 불필요했다 — 아래 logging.to_files 로 자기 로그가
+    # journald에 들어가지 않으므로 루프가 생기지 않는다. 중복 방어가 입력을 죽인 사례.
 processors:
   - add_fields:
       target: ""

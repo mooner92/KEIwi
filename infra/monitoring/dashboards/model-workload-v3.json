@@ -1,0 +1,730 @@
+{
+  "uid": "keiwi-model-workload-v3",
+  "title": "KEIwi Model Workload (v3)",
+  "description": "GPU에 올라간 모델별 추론 워크로드(요청/토큰/지연/KV캐시) + GPU 사용량. vLLM /metrics + DCGM + gpu-model-exporter 결합. 디자인 v3(Quiet Console) — 상태색(주황·빨강)은 문제에만, 시리즈색은 정체성(모델·노드)에만.",
+  "tags": ["keiwi", "gpu", "vllm", "v3"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "graphTooltip": 1,
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "label": "Prometheus",
+        "hide": 0,
+        "current": {},
+        "refresh": 1
+      },
+      {
+        "name": "node",
+        "label": "노드",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "definition": "label_values(gpu_model_info, node)",
+        "query": { "qryType": 1, "query": "label_values(gpu_model_info, node)", "refId": "PrometheusVariableQueryEditor-VariableQuery" },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "처리 중 요청",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6E7583", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "text": { "titleSize": 12, "valueSize": 30 }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(vllm:num_requests_running)" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "대기 요청",
+      "description": "0이 정상. 쌓이기 시작하면 주의(1+), 적체면 위험(20+).",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6E7583", "value": null },
+              { "color": "#F79009", "value": 1 },
+              { "color": "#D92D20", "value": 20 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "text": { "titleSize": 12, "valueSize": 30 }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(vllm:num_requests_waiting)" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "출력 토큰/s",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": { "mode": "fixed", "fixedColor": "#38B38D" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#38B38D", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "text": { "titleSize": 12, "valueSize": 30 }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(vllm:generation_tokens_total[1m]))" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "GPU 평균 사용률",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6E7583", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "text": { "titleSize": 12, "valueSize": 30 }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "avg(DCGM_FI_DEV_GPU_UTIL)" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "모델 ↔ GPU 매핑",
+      "description": "지금 GPU에 올라가 있는 프로세스와 점유 VRAM.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": { "type": "auto" },
+            "inspect": false,
+            "filterable": false,
+            "minWidth": 60
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [
+              { "id": "unit", "value": "bytes" },
+              { "id": "displayName", "value": "VRAM" },
+              { "id": "decimals", "value": 1 },
+              { "id": "custom.align", "value": "right" },
+              { "id": "custom.width", "value": 110 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "노드" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "소유자" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "GPU" },
+            "properties": [{ "id": "custom.width", "value": 70 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "프레임워크" },
+            "properties": [{ "id": "custom.width", "value": 110 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "PID" },
+            "properties": [{ "id": "custom.width", "value": 90 }, { "id": "custom.align", "value": "right" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "포트" },
+            "properties": [{ "id": "custom.width", "value": 90 }, { "id": "custom.align", "value": "right" }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false, "reducer": ["sum"], "countRows": false, "fields": "" },
+        "sortBy": [{ "displayName": "VRAM", "desc": true }]
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_model_vram_bytes{node=~\"$node\"}", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true }, "indexByName": { "node": 0, "user": 1, "gpu": 2, "framework": 3, "model": 4, "pid": 5, "port": 6, "Value": 7 }, "renameByName": { "node": "노드", "user": "소유자", "gpu": "GPU", "model": "모델", "framework": "프레임워크", "port": "포트", "pid": "PID" } } }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "모델별 요청",
+      "description": "색 = 모델, 실선 = 처리중 · 파선 = 대기. 대기 선이 바닥에서 떠오르면 큐 적체다.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }] },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "off" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen3-Coder.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen2\\.5-VL.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*처리중.*" },
+            "properties": [{ "id": "custom.fillOpacity", "value": 10 }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*대기.*" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } },
+              { "id": "custom.fillOpacity", "value": 18 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "vllm:num_requests_running", "legendFormat": "{{model_name}} 처리중" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "vllm:num_requests_waiting", "legendFormat": "{{model_name}} 대기" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "토큰 처리율",
+      "description": "모델별 출력/입력 tok/s (1분 rate). 색 = 모델, 실선 = 출력 · 파선 = 입력.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }] },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 6,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "off" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen3-Coder.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen2\\.5-VL.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*출력.*" },
+            "properties": [{ "id": "custom.fillOpacity", "value": 8 }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*입력.*" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (model_name) (rate(vllm:generation_tokens_total[1m]))", "legendFormat": "{{model_name}} 출력" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (model_name) (rate(vllm:prompt_tokens_total[1m]))", "legendFormat": "{{model_name}} 입력" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "지연 p95",
+      "description": "TTFT = 첫 토큰까지, ITL = 토큰 간 간격. 둘 다 p95. 색 = 모델, 실선 = TTFT · 파선 = ITL.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }] },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "off" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen3-Coder.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen2\\.5-VL.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*ITL.*" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:time_to_first_token_seconds_bucket[5m])))", "legendFormat": "{{model_name}} TTFT p95" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:inter_token_latency_seconds_bucket[5m])))", "legendFormat": "{{model_name}} ITL p95" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "KV 캐시",
+      "description": "색 = 모델. 90% 기준선을 넘으면 프리엠션·대기 증가 신호.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 19 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "#F79009", "value": 90 }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 6,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen3-Coder.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*Qwen2\\.5-VL.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "vllm:kv_cache_usage_perc * 100", "legendFormat": "{{model_name}}" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "GPU 사용률",
+      "description": "색 = 노드, 실선 = GPU 0 · 파선 = GPU 1.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 19 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }] },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 6,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "off" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data01.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data03.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data04.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data05.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 1" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace(label_replace(DCGM_FI_DEV_GPU_UTIL, \"node\", \"data04\", \"instance\", \"192\\\\.168\\\\.1\\\\.104:.*\"), \"node\", \"data05\", \"instance\", \"192\\\\.168\\\\.1\\\\.105:.*\")", "legendFormat": "{{node}} · GPU {{gpu}}" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "GPU VRAM",
+      "description": "색 = 노드, 실선 = GPU 0 사용 · 파선 = GPU 1 사용 · 점선 = 총량(용량).",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 19 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }] },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "off" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data01.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data03.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data04.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data05.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 1 사용" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*총량" },
+            "properties": [
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.lineWidth", "value": 1 },
+              { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [0, 10] } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_vram_used_bytes{node=~\"$node\"}", "legendFormat": "{{node}} GPU {{gpu}} 사용" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "gpu_vram_total_bytes{node=~\"$node\"}", "legendFormat": "{{node}} GPU {{gpu}} 총량" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "GPU 온도 · 전력",
+      "description": "색 = 노드. 온도(왼쪽 축) 실선 = GPU 0 · 파선 = GPU 1, 전력(오른쪽 축) 점선 = GPU 0 · 잔파선 = GPU 1.",
+      "transparent": true,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 26 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#6E7583" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }] },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "insertNulls": false,
+            "barAlignment": 0,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "mode": "none", "group": "A" },
+            "hideFrom": { "tooltip": false, "viz": false, "legend": false },
+            "thresholdsStyle": { "mode": "off" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data01.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#6E8BB8" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data03.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#38B38D" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data04.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#C08A5E" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*data05.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#9B7BAF" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*°C" },
+            "properties": [{ "id": "unit", "value": "celsius" }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*W" },
+            "properties": [
+              { "id": "unit", "value": "watt" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.lineStyle", "value": { "fill": "dot", "dash": [0, 10] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 1 °C" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [8, 6] } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": ".*GPU 1 W" },
+            "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [3, 4] } }]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace(label_replace(DCGM_FI_DEV_GPU_TEMP, \"node\", \"data04\", \"instance\", \"192\\\\.168\\\\.1\\\\.104:.*\"), \"node\", \"data05\", \"instance\", \"192\\\\.168\\\\.1\\\\.105:.*\")", "legendFormat": "{{node}} · GPU {{gpu}} °C" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "label_replace(label_replace(DCGM_FI_DEV_POWER_USAGE, \"node\", \"data04\", \"instance\", \"192\\\\.168\\\\.1\\\\.104:.*\"), \"node\", \"data05\", \"instance\", \"192\\\\.168\\\\.1\\\\.105:.*\")", "legendFormat": "{{node}} · GPU {{gpu}} W" }
+      ]
+    }
+  ]
+}

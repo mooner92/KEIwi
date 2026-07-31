@@ -1,234 +1,226 @@
 @import "tailwindcss";
 
-/* ============================================================
-   KEIwi 디자인 토큰 — KRDS primitive 참조 (Phase 2)
-   · L0 primitive = krds_tokens.css(layout.tsx에서 import, --krds-*) — KRDS 소유, 참조만
-   · L2 @theme = 시맨틱(라이트). 다크는 아래 :root[data-theme="dark"]에서 오버라이드
-   · 브랜드(green/blue)는 확장형 정체성(ADR-0007) — 상태색과 분리(§17)
-   · 매핑 근거: design-system/spec/tokens.spec.md §4·§5, tokens.json
-   ============================================================ */
+/* ══════════════════════════════════════════════════════════════════════
+   KEIwi 디자인 시스템 v3 — 정적(靜的) Quiet Console
+   ══════════════════════════════════════════════════════════════════════
+   원칙: 콘솔은 침묵하고 Grafana만 말한다.
+     · 색과 그림자를 걷어내고 계조(階調)와 굵기로만 위계를 만든다.
+     · 유채색은 "문제"에만 쓴다 — 정상은 무채색이다.
+     · 브랜드 초록은 "지금 조작 중인 것"에만 (초록 예산제: 화면당 초록 픽셀 ≤ 1%).
+     · 그림자는 "떠 있어야만 하는 것"(팝오버·드로어·모달)에만. 카드 그림자 = 0.
+
+   KRDS 폐기(v3): 정부 규격 회색·17px 본문·요소별 제각각 반경(4/6/10/12)을 버렸다.
+   서체(Pretendard GOV)만 유지 — 국문 대체재 부재 + tabular 숫자 품질.
+
+   ▸ 뉴트럴이 쿨(hue≈220, S 4~8%)인 이유: 화면 67%를 차지하는 Grafana가 쿨 계열이다.
+     크롬만 웜그레이면 액자 경계에서 색온도가 어긋나 "덧댄 UI"로 보인다.
+   ▸ 라이트 canvas(#F7F8FA)는 Grafana 캔버스(#F4F5F5)보다 밝고, 우리 카드와 Grafana
+     패널은 둘 다 #FFFFFF — 두 세계가 한 장의 종이 위에 놓인다. 다크는 부호가 뒤집힌다.
+   ▸ 대비는 토큰 정의 시점에 계산해 못 박았다(괄호 안 수치, WCAG 2.1 기준).
+   ══════════════════════════════════════════════════════════════════════ */
+
 @theme {
-  /* 서체 — Pretendard GOV 단일(typography.spec) */
+  /* ── 서체 ─────────────────────────────────────────────────────────
+     Pretendard GOV 단일. 400/500/600/700 실파일 4종(fonts.ts).
+     display/mono 별칭은 삭제 — 값이 같은 간접층은 혼란만 준다. */
   --font-sans: var(--font-pretendard-gov);
-  --font-display: var(--font-pretendard-gov);
-  --font-mono: var(--font-pretendard-gov);
 
-  /* radius — KRDS 5단계 px (shape.spec §1) */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-
-  /* elevation — 부드러운 입체감(평면적 보더-온리 보완, 디자인 고도화).
-     라이트: 은은한 다중 그림자. 다크는 아래에서 약화(근흑 면 위 그림자는 면 대비로 대체). */
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
-  --shadow-2: 0 2px 4px rgb(0 0 0 / 0.06), 0 4px 10px rgb(0 0 0 / 0.05);
-  --shadow-3: 0 4px 10px rgb(0 0 0 / 0.08), 0 10px 28px rgb(0 0 0 / 0.08);
-
-  /* 타입 스케일 — KRDS PC(typography.spec). 본문 17px, 줄간격 ≥1.5.
-     ※ 16px 루트에서 KRDS px 의도를 rem으로 재선언(루트 62.5%는 Tailwind rem 유틸 붕괴). */
-  --text-xs: 0.8125rem;   /* 13 body-xsmall */
+  /* ── 타입 스케일 ──────────────────────────────────────────────────
+     본문 17px → 14px (-18%). 위계는 크기가 아니라 굵기·계조로 만든다.
+     단일행 UI 크롬(nav·배지·표 행·탭)은 줄간격을 조여 밀도를 확보. */
+  --text-2xs: 0.6875rem;    /* 11 — 섹션 캡션·유닛·범례. 한글 하한(10px은 자소 뭉갬) */
+  --text-2xs--line-height: 1.45;
+  --text-2xs--font-weight: 500;
+  --text-xs: 0.75rem;       /* 12 — 배지·메타·툴팁 */
   --text-xs--line-height: 1.5;
-  --text-sm: 0.9375rem;   /* 15 body-small */
-  --text-sm--line-height: 1.55;
-  --text-base: 1.0625rem; /* 17 body-medium (기본) */
-  --text-base--line-height: 1.6;
-  --text-lg: 1.1875rem;   /* 19 body-large / heading-small */
-  --text-lg--line-height: 1.55;
-  --text-xl: 1.5rem;      /* 24 heading-medium */
+  --text-sm: 0.8125rem;     /* 13 — 사이드바·표 셀·칩·탭 */
+  --text-sm--line-height: 1.5;
+  --text-base: 0.875rem;    /* 14 — ★ 본문 기본 */
+  --text-base--line-height: 1.5;
+  --text-md: 0.9375rem;     /* 15 — 카드 제목·강조 본문 */
+  --text-md--line-height: 1.47;
+  --text-lg: 1.0625rem;     /* 17 — 패널/섹션 타이틀(구 본문 크기가 여기로 승격) */
+  --text-lg--line-height: 1.41;
+  --text-xl: 1.25rem;       /* 20 — 페이지 타이틀 */
   --text-xl--line-height: 1.4;
-  --text-2xl: 2rem;       /* 32 heading-large */
-  --text-2xl--line-height: 1.3;
-  --text-3xl: 2.5rem;     /* 40 heading-xlarge */
-  --text-3xl--line-height: 1.3;
+  --text-2xl: 1.5rem;       /* 24 — 최대. 32/40px 헤딩 폐기 */
+  --text-2xl--line-height: 1.33;
 
-  /* 브랜드 green (primary 정체성) — base 500 = #38B38D (ADR-0007 확장형) */
-  --color-green-50: #ecf8f3;
-  --color-green-100: #d2efe4;
-  --color-green-200: #a6dfca;
-  --color-green-300: #72ccac;
-  --color-green-400: #4cbd97;
+  /* ── 반경 ─────────────────────────────────────────────────────────
+     4 / 6 / 8 / full 네 개뿐. "8보다 큰 반경은 존재하지 않는다."
+     큰 요소일수록 반경을 키우는 관습을 버려 화면 전체가 같은 재질로 보이게.
+     xl 이상을 8px로 고정 = 실수로 rounded-xl을 써도 시스템이 무너지지 않는다. */
+  --radius-sm: 4px;         /* 배지·dot 사각·중첩 내부요소 */
+  --radius-md: 6px;         /* 버튼·칩·입력·nav 항목 */
+  --radius-lg: 8px;         /* ★ 카드·패널·팝오버·드로어·Grafana 액자 */
+  --radius-xl: 8px;         /* = lg (상한 고정) */
+  --radius-2xl: 8px;
+  --radius-3xl: 8px;
+
+  /* ── 깊이 ─────────────────────────────────────────────────────────
+     카드·패널·액자·탭바·사이드바는 그림자 0. 분리는 1px 보더 + 면 명도차로.
+     그림자는 "떠 있어야만 하는 것"에만 (--shadow-pop). */
+  --shadow-pop:
+    0 4px 12px -2px rgb(16 18 22 / 0.1),
+    0 2px 4px -2px rgb(16 18 22 / 0.06);
+  --shadow-1: none;         /* 구 크롬 그림자 → 보더로 대체 */
+  --shadow-2: var(--shadow-pop);
+  --shadow-3: var(--shadow-pop);
+
+  /* ── 면(surface) — 라이트 ─────────────────────────────────────── */
+  --color-canvas: #f7f8fa;      /* 페이지 바닥 */
+  --color-surface: #ffffff;     /* 카드·패널·임베드 액자 */
+  --color-surface-2: #f1f3f6;   /* hover·inset·탭바 트랙·표 헤더 */
+  --color-surface-3: #e7eaef;   /* pressed·선택 행 */
+
+  /* ── 선(border) — 라이트 ──────────────────────────────────────── */
+  --color-border-subtle: #edeff3;  /* 카드 내부 구분선 */
+  --color-border: #e1e4e9;         /* 기본 1px 보더 */
+  --color-border-strong: #c9cdd5;  /* hover 보더 */
+  --color-border-control: #8a909e; /* 입력·체크박스 경계 (흰 배경 3.19:1 — WCAG 1.4.11) */
+
+  /* ── 글(ink) — 라이트 ─────────────────────────────────────────── */
+  --color-ink: #16181d;         /* 본문·제목            (흰 배경 17.6:1) */
+  --color-ink-muted: #5a6170;   /* 보조 본문            (6.21:1) */
+  --color-ink-subtle: #6e7583;  /* 메타·캡션            (4.69:1 — AA 하한 사수) */
+  --color-ink-faint: #9aa0ac;   /* 비텍스트 전용(정상 dot·구분자·disabled). 2.7:1 → 텍스트 금지 */
+
+  /* ── 상태 — 라이트 (유채색은 "문제"에만) ──────────────────────── */
+  --color-danger: #d92d20;      /* dot·아이콘  (4.83:1) */
+  --color-danger-ink: #b42318;  /* 텍스트      (6.2:1) */
+  --color-danger-bg: #fef3f2;
+  --color-danger-border: #fecdca;
+  --color-warn: #f79009;        /* dot — 2.2:1이므로 반드시 텍스트 동반 */
+  --color-warn-ink: #b54708;    /* 텍스트      (5.0:1) */
+  --color-warn-bg: #fffaeb;
+  --color-warn-border: #fedf89;
+  /* 성공/여유는 유채색을 쓰지 않는다 — ink-muted + 텍스트로 표현(§정상은 무채색). */
+
+  /* ── 브랜드 초록 — 대비 때문에 3단으로 갈라진다 ────────────────
+     #38B38D 원색은 흰 배경 2.62:1이라 라이트에서 텍스트/포커스링으로 쓸 수 없다.
+     (v2의 포커스 링이 WCAG 1.4.11 미달이던 실제 버그 — v3에서 교정) */
+  --color-accent: #38b38d;       /* 원색. 다크에서 직접 사용 가능 (다크 surface 6.78:1) */
+  --color-accent-line: #2e9b7b;  /* 라이트 1~2px 마크·포커스링 (흰 배경 3.45:1 ≥ 3:1) */
+  --color-accent-ink: #1f7a61;   /* 라이트 초록 "글자" (5.23:1 ≥ 4.5:1) */
+  --color-accent-bg: #eaf6f1;    /* 선택 행 배경. 화면당 1개소 이하 */
+  --color-accent-contrast: #ffffff; /* accent-ink 버튼 위 글자 (5.23:1) */
+
+  /* 하위호환 별칭 — 기존 컴포넌트의 text-brand/bg-brand가 깨지지 않게.
+     신규 코드는 accent-* 를 쓴다. */
+  --color-brand: var(--color-accent-ink);
+  --color-brand-strong: var(--color-accent-ink);
+
+  /* ── 시리즈 팔레트 (정체성 전용) ──────────────────────────────────
+     색에는 두 가지 역할이 있고, 규칙이 서로 다르다.
+       ① 상태(status)  — 정상은 무채색, 문제만 유채색(위 danger/warn). 알림 피로 방지.
+       ② 정체성(identity) — "어느 노드/모델인가"는 심각도가 아니라 범주다.
+          여기서 색을 빼면 다중 시리즈 차트를 읽을 수 없다(실측: 회색 4선 구분 불가).
+     그래서 정체성에는 색을 주되 **저채도**로 눌러 상태색보다 약하게 둔다.
+
+     ★ 불변식: 이 팔레트에 빨강·주황 계열을 넣지 마라.
+       빨강/주황은 상태 전용 예약어다 — 빨간 선이 "이 노드가 고장"으로 오독되면 안 된다. */
+  --color-series-1: #6e8bb8;  /* 차분한 파랑  — data01 */
+  --color-series-2: #38b38d;  /* 브랜드 초록  — data03 */
+  --color-series-3: #c08a5e;  /* 비씩 황토    — data04 (주황 아님: 채도를 낮춰 상태색과 분리) */
+  --color-series-4: #9b7baf;  /* 차분한 보라  — data05 */
+  --color-series-5: #7f9aa6;  /* 청회색       — 예비 */
+  --color-series-6: #a08a7a;  /* 웜그레이     — 예비 */
+
+  /* ── 로고 전용 원색 (brand-mark.tsx) ──────────────────────────────
+     로고는 변경 금지 대상이라 UI 시맨틱과 분리해 원색을 보존한다.
+     이 두 토큰은 로고 SVG 외에는 쓰지 않는다(대비 규칙의 예외 — 장식). */
   --color-green-500: #38b38d;
-  --color-green-600: #2c9374;
-  --color-green-700: #25765f;
-  --color-green-800: #205e4c;
-  --color-green-900: #1b4d3f;
-
-  /* 브랜드 blue (secondary 정체성) — base 500 = #3CA2DF */
-  --color-blue-50: #ecf6fc;
-  --color-blue-100: #cee8f8;
-  --color-blue-200: #a3d6f1;
-  --color-blue-300: #6dbfe9;
-  --color-blue-400: #4cafe3;
   --color-blue-500: #3ca2df;
-  --color-blue-600: #2f84bb;
-  --color-blue-700: #296b98;
-  --color-blue-800: #265a7d;
-  --color-blue-900: #234b67;
 
-  /* gray (크롬 뉴트럴) → KRDS light gray */
-  --color-gray-50: var(--krds-color-light-gray-5);
-  --color-gray-100: var(--krds-color-light-gray-10);
-  --color-gray-200: var(--krds-color-light-gray-20);
-  --color-gray-300: var(--krds-color-light-gray-30);
-  --color-gray-400: var(--krds-color-light-gray-40);
-  --color-gray-500: var(--krds-color-light-gray-50);
-  --color-gray-600: var(--krds-color-light-gray-60);
-  --color-gray-700: var(--krds-color-light-gray-70);
-  --color-gray-800: var(--krds-color-light-gray-80);
-  --color-gray-900: var(--krds-color-light-gray-90);
-
-  /* 시맨틱 상태 — KRDS System (라이트). 스텝 매핑 50→5/100→10/400→40/500→50/600→60/700→70 */
-  --color-success-50: var(--krds-color-light-success-5);
-  --color-success-100: var(--krds-color-light-success-10);
-  --color-success-400: var(--krds-color-light-success-40);
-  --color-success-500: var(--krds-color-light-success-50);
-  --color-success-600: var(--krds-color-light-success-60);
-  --color-success-700: var(--krds-color-light-success-70);
-
-  --color-info-50: var(--krds-color-light-information-5);
-  --color-info-100: var(--krds-color-light-information-10);
-  --color-info-500: var(--krds-color-light-information-50);
-  --color-info-600: var(--krds-color-light-information-60);
-  --color-info-700: var(--krds-color-light-information-70);
-
-  /* warning: base는 vivid -40(매직넘버 — color.spec §2/warning 특례) */
-  --color-warning-50: var(--krds-color-light-warning-5);
-  --color-warning-100: var(--krds-color-light-warning-10);
-  --color-warning-500: var(--krds-color-light-warning-40);
-  --color-warning-600: var(--krds-color-light-warning-60);
-  --color-warning-700: var(--krds-color-light-warning-70);
-
-  --color-danger-50: var(--krds-color-light-danger-5);
-  --color-danger-100: var(--krds-color-light-danger-10);
-  --color-danger-400: var(--krds-color-light-danger-40);
-  --color-danger-500: var(--krds-color-light-danger-50);
-  --color-danger-600: var(--krds-color-light-danger-60);
-  --color-danger-700: var(--krds-color-light-danger-70);
-
-  --color-neutral-50: var(--krds-color-light-gray-5);
-  --color-neutral-100: var(--krds-color-light-gray-10);
-  --color-neutral-300: var(--krds-color-light-gray-30);
-  --color-neutral-400: var(--krds-color-light-gray-40);
-  --color-neutral-500: var(--krds-color-light-gray-50);
-  --color-neutral-700: var(--krds-color-light-gray-70);
-
-  /* UI 크롬 → KRDS gray 역할 (라이트) */
-  --color-canvas: var(--krds-color-light-gray-5);
-  --color-surface: var(--krds-color-light-gray-0);
-  --color-surface-2: var(--krds-color-light-gray-10);
-  --color-border: var(--krds-color-light-gray-20);
-  --color-border-strong: var(--krds-color-light-gray-30);
-  --color-ink: var(--krds-color-light-gray-90);
-  --color-ink-muted: var(--krds-color-light-gray-70);
-  --color-ink-subtle: var(--krds-color-light-gray-50);
-  --color-chrome: var(--krds-color-light-gray-90);
-  --color-chrome-ink: var(--krds-color-light-gray-5);
-  --color-chrome-muted: var(--krds-color-light-gray-40);
-  --color-brand: var(--color-green-500); /* 우리 초록 #38B38D — ADR-0007 정체성 원복(2026-07-01). KRDS 정부블루 미채택 */
-  --color-brand-strong: var(--color-green-600);
+  /* ── 크롬(사이드바·상단바) ───────────────────────────────────── */
+  --color-chrome: #ffffff;
+  --color-chrome-ink: #16181d;
+  --color-chrome-muted: #6e7583;
 }
 
-/* ---- 다크(선명한 화면 = KRDS high-contrast) — 시맨틱/크롬/뉴트럴만 오버라이드 ----
-   전경(텍스트/아이콘)은 -20/-30으로 반전, 면(배경/보더)은 -90/-95 (tokens.spec §4·§5). */
+/* ══════════════════════════════════════════════════════════════════
+   다크 — "어두운 회색"이 아니라 "빛이 꺼진 종이".
+   순흑(#000) 금지: 대비 스매싱·보더 소실.
+   다크에서 #38B38D가 가장 순수하게 살아난다(대비 6.78:1).
+   ══════════════════════════════════════════════════════════════════ */
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Primary(브랜드) — 다크에선 밝은 정부 블루(전경 대비) */
-  --color-brand: var(--color-green-300); /* 다크: 밝은 초록(근흑 면 대비) */
-  --color-brand-strong: var(--color-green-200);
+  --color-canvas: #0c0d10;      /* Grafana 캔버스(#111217)보다 한 단 어둡게 — 임베드가 뜬 면이 됨 */
+  --color-surface: #16181b;     /* Grafana 패널(#181B1F)과 사실상 동일 레벨 */
+  --color-surface-2: #1b1e22;
+  --color-surface-3: #22262b;
 
-  /* gray 램프(직접 사용분) */
-  --color-gray-50: var(--krds-color-high-contrast-gray-95);
-  --color-gray-100: var(--krds-color-high-contrast-gray-90);
-  --color-gray-200: var(--krds-color-high-contrast-gray-80);
-  --color-gray-300: var(--krds-color-high-contrast-gray-70);
-  --color-gray-400: var(--krds-color-high-contrast-gray-60);
-  --color-gray-500: var(--krds-color-high-contrast-gray-50);
-  --color-gray-600: var(--krds-color-high-contrast-gray-40);
-  --color-gray-700: var(--krds-color-high-contrast-gray-30);
-  --color-gray-800: var(--krds-color-high-contrast-gray-20);
-  --color-gray-900: var(--krds-color-high-contrast-gray-10);
+  --color-border-subtle: #1e2126;
+  --color-border: #262a30;
+  --color-border-strong: #333841;
+  --color-border-control: #5f6673;  /* surface 대비 3.08:1 */
 
-  /* 상태 — KRDS high-contrast */
-  --color-success-50: var(--krds-color-high-contrast-success-95);
-  --color-success-100: var(--krds-color-high-contrast-success-90);
-  --color-success-400: var(--krds-color-high-contrast-success-40);
-  --color-success-500: var(--krds-color-high-contrast-success-50);
-  --color-success-600: var(--krds-color-high-contrast-success-30);
-  --color-success-700: var(--krds-color-high-contrast-success-20);
+  --color-ink: #edeef1;         /* 순백 금지(할레이션)  (surface 대비 15.9:1) */
+  --color-ink-muted: #a2a9b5;   /* (7.9:1) */
+  --color-ink-subtle: #7b8492;  /* (4.69:1) */
+  --color-ink-faint: #565d69;   /* 비텍스트 전용 */
 
-  --color-info-50: var(--krds-color-high-contrast-information-95);
-  --color-info-100: var(--krds-color-high-contrast-information-90);
-  --color-info-500: var(--krds-color-high-contrast-information-50);
-  --color-info-600: var(--krds-color-high-contrast-information-30);
-  --color-info-700: var(--krds-color-high-contrast-information-20);
+  --color-danger: #f97066;
+  --color-danger-ink: #fda29b;
+  --color-danger-bg: #2a1614;
+  --color-danger-border: #46201c;
+  --color-warn: #f79009;
+  --color-warn-ink: #fec84b;
+  --color-warn-bg: #2a1e0b;
+  --color-warn-border: #4a3510;
 
-  --color-warning-50: var(--krds-color-high-contrast-warning-95);
-  --color-warning-100: var(--krds-color-high-contrast-warning-90);
-  --color-warning-500: var(--krds-color-high-contrast-warning-30);
-  --color-warning-600: var(--krds-color-high-contrast-warning-30);
-  --color-warning-700: var(--krds-color-high-contrast-warning-20);
+  /* 다크에선 원색을 그대로 — 라인·글자·포커스 모두 #38B38D로 통일 */
+  --color-accent-line: #38b38d;
+  --color-accent-ink: #38b38d;
+  --color-accent-bg: #14251f;
+  --color-accent-contrast: #0c0d10;  /* 초록 버튼 위 글자는 잉크색 (7.5:1).
+                                        흰 글자 on #38B38D = 2.62:1이므로 절대 금지 */
 
-  --color-danger-50: var(--krds-color-high-contrast-danger-95);
-  --color-danger-100: var(--krds-color-high-contrast-danger-90);
-  --color-danger-400: var(--krds-color-high-contrast-danger-40);
-  --color-danger-500: var(--krds-color-high-contrast-danger-50);
-  --color-danger-600: var(--krds-color-high-contrast-danger-30);
-  --color-danger-700: var(--krds-color-high-contrast-danger-20);
+  --color-chrome: #16181b;
+  --color-chrome-ink: #edeef1;
+  --color-chrome-muted: #7b8492;
 
-  --color-neutral-50: var(--krds-color-high-contrast-gray-90);
-  --color-neutral-100: var(--krds-color-high-contrast-gray-80);
-  --color-neutral-300: var(--krds-color-high-contrast-gray-60);
-  --color-neutral-400: var(--krds-color-high-contrast-gray-50);
-  --color-neutral-500: var(--krds-color-high-contrast-gray-40);
-  --color-neutral-700: var(--krds-color-high-contrast-gray-20);
-
-  /* 크롬 */
-  --color-canvas: var(--krds-color-high-contrast-gray-95);
-  --color-surface: var(--krds-color-high-contrast-gray-90);
-  --color-surface-2: var(--krds-color-high-contrast-gray-80);
-  --color-border: var(--krds-color-high-contrast-gray-80);
-  --color-border-strong: var(--krds-color-high-contrast-gray-70);
-  --color-ink: var(--krds-color-high-contrast-gray-5);
-  --color-ink-muted: var(--krds-color-high-contrast-gray-20);
-  --color-ink-subtle: var(--krds-color-high-contrast-gray-30);
-  --color-chrome: var(--krds-color-high-contrast-gray-100);
-  --color-chrome-ink: var(--krds-color-high-contrast-gray-5);
-  --color-chrome-muted: var(--krds-color-high-contrast-gray-40);
-
-  /* 다크 elevation — 면(surface>canvas) 대비가 주 입체감. 그림자는 분리 보조용으로 약하게. */
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-2: 0 2px 6px rgb(0 0 0 / 0.4);
-  --shadow-3: 0 8px 24px rgb(0 0 0 / 0.5);
+  /* 다크 그림자 — 링(1px)이 그림자를 대신한다 */
+  --shadow-pop:
+    0 8px 24px -4px rgb(0 0 0 / 0.6),
+    0 0 0 1px #262a30;
 }
 
-/* ---- 베이스 ---- */
+/* ── 베이스 ──────────────────────────────────────────────────────── */
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 1.0625rem; /* KRDS 본문 17px */
-  line-height: 1.6;
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.5;
+  letter-spacing: -0.006em; /* 한글 자소가 무너지지 않는 하한 */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* 숫자·IP·메트릭 — Pretendard GOV tabular (typography.spec §3) */
+/* 숫자·IP·메트릭 — 자리수가 흔들리지 않게 */
 .tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+  letter-spacing: 0;
 }
 
-/* 키보드 포커스 — KRDS 더블링(2px 면 분리 + 4px 브랜드). outline은 forced-colors 폴백. */
+/* ── 포커스 ──────────────────────────────────────────────────────
+   상시 가시. 2px 면 분리 + 2px 브랜드 라인의 더블 링.
+   accent-line을 쓰는 이유: 원색 #38B38D는 흰 배경 2.62:1로 1.4.11 미달(v2 버그). */
 :focus-visible {
-  outline: 2px solid transparent;
+  outline: 2px solid transparent; /* forced-colors 폴백 */
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-brand);
-  border-radius: 4px;
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 4px var(--color-accent-line);
+  border-radius: var(--radius-sm);
 }
 
-/* 모션 최소 — reduced-motion 존중 */
+/* ── 인터랙션: 움직이지 않는다 ───────────────────────────────────
+   관제 화면에서 카드가 마우스를 따라 들썩이는 것은 소음이다.
+   색만 바뀐다 — transform·box-shadow는 트랜지션에서 제외. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

@@ -116,3 +116,16 @@ export function getGrafana(): { url: string; dashboards: GrafanaDashboard[] } {
 export function getGrafanaLogs(): { url: string; dashboards: GrafanaDashboard[] } {
   return grafanaFrom("GRAFANA_LOGS_DASHBOARD_UID", process.env.GRAFANA_LOGS_DASHBOARD_UID);
 }
+
+/**
+ * GLITCHTIP_DSN — 에러 트래킹(specs/error-tracking, ADR-0022). 서버·클라이언트 init에서 사용.
+ *
+ * ⚠️ 다른 게터와 달리 **절대 throw하지 않는다**(undefined 반환). 에러 트래킹은 관측
+ * 부가 기능이라, DSN 미설정/오타가 콘솔 부팅을 막으면 주객전도다 — 빈 시크릿 하나가
+ * 서비스 전체를 내리는 실패는 이미 측정됐다(Grafana, 2026-07-30). 미설정이면 SDK가
+ * 조용히 비활성화될 뿐 콘솔은 정상 동작해야 한다(AC-E-3).
+ */
+export function getGlitchTipDsn(): string | undefined {
+  const r = urlString.safeParse(process.env.GLITCHTIP_DSN);
+  return r.success ? r.data : undefined;
+}
