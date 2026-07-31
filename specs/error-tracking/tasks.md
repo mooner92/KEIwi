@@ -65,9 +65,9 @@
   - 실패 시: `@sentry/nextjs@10.8.0` 핀 → 재검증 → **ADR-0022에 결과 기록.** 최신 추격 금지
 - [x] **E3-3** (M) `sentry.server.config.ts` — `beforeSend` **화이트리스트 재구성**(spec §5.4) + `serverName: "keiwi-console"` + IP 마스킹 정규식 + `enableLogs:false`·`enableMetrics:false`·`sendClientReports:false`·`tracesSampleRate:0`·`maxValueLength:500`·`ignoreErrors`. **선행: E3-2**
 - [x] **E3-4** (S) **AC-E-6 페이로드 실측 — 이 단계의 관문.** tunnel/DSN 대상을 로컬 echo 서버로 향한 채 의도적 500 유발 → 원시 envelope 덤프 → grep. **선행: E3-3.** ⚠️ **여기를 통과하기 전에 실제 DSN을 넣지 않는다.** §3.2 표가 "가설"이라는 사실을 바이트로 판정하는 유일한 지점
-- [ ] **E3-5** (S) `instrumentation.ts`(`register()` + `export const onRequestError = Sentry.captureRequestError`) + `sentry.edge.config.ts`. **`sentry.client.config.ts`를 만들지 않는다**(Next 16 + Turbopack은 auto-import 하지 않는다). **선행: E3-4**
-- [ ] **E3-6** `[server]` (S) **AC-E-5 ingest 도달** — `curl -X POST "$GT/api/$PID/envelope/?sentry_key=$KEY"` → 200 + 잘못된 key → 4xx. **둘 다** 확인. **선행: E2-2, E3-5**
-- [ ] **E3-7** `[server]` (S) **서버 왕복** — 동일 init 모듈을 import하는 **일회성 스크립트**에서 `captureException` → 60초 내 GlitchTip 이슈 1건 + **`#keiwi-web` 알림 1건**(= US-1 달성). **프로덕션에 셀프테스트 라우트를 남기지 않는다.** **선행: E3-6**
+- [x] **E3-5** (S) `instrumentation.ts`(`register()` + `export const onRequestError = Sentry.captureRequestError`) + `sentry.edge.config.ts`. **`sentry.client.config.ts`를 만들지 않는다**(Next 16 + Turbopack은 auto-import 하지 않는다). **선행: E3-4**
+- [x] **E3-6** `[server]` (S) **AC-E-5 ingest 도달** — `curl -X POST "$GT/api/$PID/envelope/?sentry_key=$KEY"` → 200 + 잘못된 key → 4xx. **둘 다** 확인. **선행: E2-2, E3-5**
+- [x] **E3-7** `[server]` (S) **서버 왕복** — 동일 init 모듈을 import하는 **일회성 스크립트**에서 `captureException` → 60초 내 GlitchTip 이슈 1건 + **`#keiwi-web` 알림 1건**(= US-1 달성). **프로덕션에 셀프테스트 라우트를 남기지 않는다.** **선행: E3-6**
 - [ ] **E3-8** (M) `instrumentation-client.ts` + `src/app/global-error.tsx`(신규) + `/monitoring` tunnel route handler(서버측 2차 화이트리스트·body 상한·자기 계측 제외·middleware negative matcher). `denyUrls`는 **브라우저 확장 패턴만**(Grafana 금지). 검증: **AC-E-7**(POST 대상 = 우리 오리진). **선행: E3-7**
 - [ ] **E3-9** (S) `apps/console/scripts/check-error-tracking.sh` + `package.json`의 `verify`에 편입. 검증: **AC-E-12** · **AC-E-13** · **AC-E-20**. **선행: E3-8**
 - [ ] **E3-10** `[server]` (S) **AC-E-4 격리 검증** — `docker stop glitchtip-web` 상태에서 콘솔 `/overview` 200 + p95 +100 ms 이내. **선행: E3-8**

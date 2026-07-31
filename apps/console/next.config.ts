@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // OpenTelemetry는 Sentry SDK가 서버 계측에 쓴다. 번들링하면 런타임에 깨진다.
+  serverExternalPackages: ["@opentelemetry/api"],
+
   turbopack: {
     // 워크스페이스 루트를 이 앱 디렉터리로 못 박는다.
     //
@@ -27,4 +31,22 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost", "192.168.1.105", "*.excusa.uk"],
 };
 
-export default nextConfig;
+// Sentry 빌드 플러그인 래핑 (specs/error-tracking §5).
+//
+// 우리가 끄는 것과 이유 — 전부 "외부로 나가거나, 우리에게 값이 없는" 것들이다:
+//   sourcemaps.disable  : 소스맵 업로드는 소스 본문을 서버로 보낸다. 우리는 스택
+//                         프레임에서 이미 context_line을 지우고 있어(§5.4) 일관성이 맞다.
+//                         디버깅은 filename+lineno로 레포에서 직접 찾는다.
+//   telemetry           : Sentry Inc.로 빌드 통계가 나간다. 자체호스팅의 취지에 반한다.
+//   release create/finalize : sentry.io API를 호출한다. GlitchTip 대상이라 무의미하고,
+//                         네트워크 실패로 빌드가 흔들릴 이유가 없다.
+//   widenClientFileUpload=false : 업로드 자체를 안 하므로 불필요.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  telemetry: false,
+  sourcemaps: { disable: true },
+  release: { create: false, finalize: false },
+  // 브라우저 이벤트를 콘솔 자기 오리진으로 우회시킨다(광고차단기 회피 + 8090 비노출).
+  // 실제 route handler는 E3-8에서 만든다.
+  tunnelRoute: "/monitoring",
+});

@@ -25,6 +25,9 @@ x-environment: &default-environment
   ALLOWED_HOSTS: glitchtip.excusa.uk,localhost,127.0.0.1,172.18.0.1
   # CSRF는 스킴을 포함해야 한다(Django 4+). settings.py L749 env.list[정본 확인].
   CSRF_TRUSTED_ORIGINS: https://glitchtip.excusa.uk,http://localhost:8090,http://127.0.0.1:8090
+  # /metrics 엔드포인트 활성화. 기본 False라 켜지 않으면 404다[정본 urls.py L80·settings.py L44].
+  # 조사 보고의 "6.0에서 /metrics 경로가 고정됐다"는 틀렸다 — 실측 404로 확인.
+  ENABLE_OBSERVABILITY_API: "True"
   ENABLE_ADMIN: "False"
   ENABLE_OPENAPI: "False"
   GLITCHTIP_ENABLE_MCP: "False"
