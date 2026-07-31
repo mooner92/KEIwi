@@ -21,8 +21,17 @@ x-environment: &default-environment
   ENABLE_OPENAPI: "False"
   GLITCHTIP_ENABLE_MCP: "False"
   GLITCHTIP_ENABLE_DUCKDB: "False"
-  # 가입 차단 — 첫 사용자(관리자) 생성 후에도 등록 폐쇄(내부 전용)
+  # 가입 폐쇄 — 내부 전용이라 누구도 스스로 가입할 수 없다.
+  #
+  # ⚠️ 이 값이 False면 **첫 계정도 UI로 만들 수 없다**(설치 문서의 "첫 사용자 이후
+  # 차단"이라는 서술은 틀렸다 — settings.py L1228은 단순 on/off다).
+  # 그래서 첫 관리자는 반드시 CLI로 만든다:
+  #   sudo docker exec -it glitchtip_web_1 ./manage.py createsuperuser
+  # 이 방식이 "잠깐 True로 열었다 닫기"보다 낫다 — 열려 있는 창이 아예 없다.
   ENABLE_USER_REGISTRATION: "False"
+  # ⚠️ 이름과 달리 가입 플래그가 아니다 — settings.py L1232에서
+  # ENABLE_ORGANIZATION_CREATION으로 매핑된다(사용자가 조직을 새로 만들 수 있는가).
+  # 기본값도 False라 사실 생략 가능하지만, 이름에 속지 않도록 명시해 둔다.
   ENABLE_OPEN_USER_REGISTRATION: "False"
   # 보존 — spec §2.5. 이벤트 90일(콘솔 에러는 90일이면 패턴 파악에 충분, 디스크 보호)
   GLITCHTIP_EVENT_RETENTION_DAYS: "90"
