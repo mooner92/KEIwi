@@ -6,6 +6,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // 프로브 스크립트(node --experimental-strip-types)가 src의 .ts를 직접 import한다.
+    // node ESM은 확장자를 요구하고 tsc는 이 플래그가 있어야 허용한다. noEmit이라 안전.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

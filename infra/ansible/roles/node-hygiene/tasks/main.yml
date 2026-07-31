@@ -91,3 +91,41 @@
     daemon_reload: true
   # --check에선 유닛 파일이 실제로 안 써져 systemctl이 못 찾음 → 드라이런 스킵(실적용에서만 기동).
   when: _nodeexp_default.stat.exists and not ansible_check_mode
+
+# ── systemd-networkd-wait-online 타임아웃 교정 (T0-7, 2026-07-30) ──────────────
+#
+# 3노드(data03·04·05) 공통으로 이 유닛이 failed다. 원인 실측(data03):
+#   bond0은 routable인데 eno2가 "no-carrier + configured" — 케이블이 안 꽂힌 포트가
+#   관리 대상으로 설정돼 있어 wait-online이 전 인터페이스를 기다리다 타임아웃(exit 1).
+# 부팅 지연 + failed 유닛 노이즈만 만들 뿐 런타임 무해. 교정은 --any:
+# "관리 인터페이스 중 하나라도 온라인이면 통과" — bond0 하나면 충분하다.
+# (이 role의 다른 태스크와 달리 apt node-exporter 유무와 무관 — 가드 없음)
+
+- name: networkd-wait-online drop-in 디렉터리
+  ansible.builtin.file:
+    path: /etc/systemd/system/systemd-networkd-wait-online.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: node_hygiene_fix_wait_online | bool
+
+- name: networkd-wait-online --any drop-in 배포(멱등)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/systemd-networkd-wait-online.service.d/keiwi-any.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # KEIwi node-hygiene: no-carrier 포트(eno2 등) 대기로 인한 부팅 타임아웃 교정.
+      # --any = 관리 인터페이스 중 하나(bond0)라도 온라인이면 통과.
+      [Service]
+      ExecStart=
+      ExecStart=/lib/systemd/systemd-networkd-wait-online --any
+  register: _waitonline_dropin
+  when: node_hygiene_fix_wait_online | bool
+
+- name: networkd-wait-online daemon-reload + failed 상태 리셋
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: node_hygiene_fix_wait_online | bool and _waitonline_dropin is changed

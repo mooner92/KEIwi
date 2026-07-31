@@ -38,9 +38,13 @@ export function FleetStrip({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
         <span className="font-medium text-ink">플릿</span>
         <span>
-          <span className="tnum text-success-700">{up}</span> 정상
+          {/* 0은 문제가 아니다 — 건수가 0이면 유채색을 쓰지 않는다(유채색은 실재하는 문제에만). */}
+          <span className="tnum text-ink-muted">{up}</span> 정상
           <span className="px-1 text-ink-subtle">·</span>
-          <span className="tnum text-danger-700">{down}</span> 다운
+          <span className={`tnum ${down > 0 ? "font-medium text-danger-ink" : "text-ink-muted"}`}>
+            {down}
+          </span>{" "}
+          다운
           <span className="px-1 text-ink-subtle">·</span>
           <span className="tnum">{noData}</span> 없음
         </span>
@@ -52,7 +56,7 @@ export function FleetStrip({
               노드 메트릭 ·{" "}
               <Link
                 href="/overview"
-                className="text-info-700 underline underline-offset-2"
+                className="text-ink-muted underline underline-offset-2"
               >
                 전체 보기
               </Link>
@@ -61,7 +65,7 @@ export function FleetStrip({
         </span>
       </div>
       {nodes.length === 0 ? (
-        <p className="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted shadow-1">
+        <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-sm text-ink-subtle">
           inventory에 노드가 없습니다. <span className="tnum">docs/inventory.yaml</span>을 확인하세요.
         </p>
       ) : (

@@ -13,6 +13,7 @@
 | [AGENTS.md](../AGENTS.md) | 에이전트 목차·디렉터리 지도 |
 | [README.md](../README.md) | 프로젝트 개요·아키텍처·상태 |
 | [inventory.yaml](./inventory.yaml) | 플릿 단일 기준(노드·exporters) |
+| [LICENSE](../LICENSE) | Proprietary · All rights reserved (KEI 내부 전용) |
 
 ## 📋 스펙 (SDD — `../specs/`)
 
@@ -26,6 +27,11 @@
 | [assistant](../specs/assistant/spec.md) | 로그 어시스턴트(로컬 vLLM RAG) | ✅ 라이브 |
 | [logs-assistant](../specs/logs-assistant/spec.md) | 로그 워크벤치(/logs 임베드+어시스턴트 드로어) | ✅ 라이브 |
 | [service-map](../specs/service-map/spec.md) | 노드별 서비스/모델/포트 맵 | 🔄 구현 |
+| [ownership-attribution](../specs/ownership-attribution/spec.md) | 소유 계정 귀속(사용자/프로세스별 GPU) | ✅ v1 |
+| [alerting](../specs/alerting/spec.md) | 알림 정책(임계 3분류·라이브 9건→Slack) | ✅ 9건 라이브 |
+| [error-tracking](../specs/error-tracking/README.md) | 앱 런타임 에러 트래킹(GlitchTip) | ✅ 라이브 |
+| [hardware-ops](../specs/hardware-ops/README.md) | 하드웨어 운영 확장(BMC·SEL·섀시 전력) | 🔄 착수 전(게이트) |
+| [observability-alerting](../specs/observability-alerting/sentry.md) | 앱 에러·하트비트 조사 정본(3안 비교) | 📎 조사 |
 | [krds-redesign](../specs/krds-redesign/spec.md) | KRDS 리스킨·디자인 시스템 | 🔄 |
 | [sre-addons](../specs/sre-addons/backlog.md) | SRE 추가 기능 백로그(리서치 — 착수는 선택 후) | 후보 |
 
@@ -41,7 +47,7 @@
 | [0006](./decisions/0006-krds-adoption.md) | KRDS 채택 | [0015](./decisions/0015-assistant-exploratory-query.md) | 어시스턴트 탐색형 질의 |
 | [0007](./decisions/0007-brand-color-strategy.md) | 브랜드 컬러 | [0016](./decisions/0016-gpu-drilldown-dcgm.md) | GPU 드릴다운 DCGM |
 | [0008](./decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./decisions/0017-node-onboarding-standard.md) | 노드 온보딩 표준 |
-| [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | | |
+| [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip) |
 
 ## 🛠️ 런북 (`./runbooks/`)
 
@@ -49,6 +55,7 @@
 | --- | --- |
 | [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) |
 | [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 |
+| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — LogIngestStalled/하트비트 |
 
 ## 🏗️ 인프라 (`../infra/`)
 
@@ -65,6 +72,8 @@
 | [design-system/spec/](../design-system/spec/principles.md) | KRDS 토큰·색·shape·타이포 규약(ADR 0006/0007) |
 | [specs/design/](../specs/design/README.md) | KRDS 기반 **이식형 디자인 스펙**(디자인 SoT — 타 프로젝트 복사용) |
 | [testing.md](./testing.md) | 단위·시각 QA·기능 테스트(`logs-workbench-test.mjs`·`embed-host-test.mjs`)·격리 빌드 절차 |
+| [branching.md](./branching.md) | 브랜치 전략·기여 흐름(main/dev + dev 파생 작업 브랜치, 2026-07-24 도입) |
+| [graphify.md](./graphify.md) | 코드·문서 지식 그래프(graphify) 도입 기록 |
 | [prompts/M1-console.md](./prompts/M1-console.md) | 마일스톤 빌드 프롬프트 |
 
 ---

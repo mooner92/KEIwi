@@ -143,16 +143,19 @@ export function GrafanaTabs({
                     aria-selected={selected}
                     onClick={() => setActive(i)}
                     className={[
-                      // KRDS .line 탭 — 하단 3px 브랜드 언더라인이 활성 신호(track = 컨테이너 border-b)
-                      "relative -mb-px px-3.5 py-2 text-sm font-semibold transition-colors",
-                      selected ? "text-brand" : "text-ink-muted hover:text-ink",
+                      // 활성 신호는 1.5px 초록 언더라인 하나 — 글자까지 초록으로 칠하지 않는다
+                      // (초록 예산제). 위계는 잉크 계조 + 굵기로만 만든다.
+                      "relative -mb-px px-3 py-1.5 text-sm transition-colors",
+                      selected
+                        ? "font-semibold text-ink"
+                        : "font-medium text-ink-muted hover:text-ink",
                     ].join(" ")}
                   >
                     {t.label}
                     {selected && (
                       <span
                         aria-hidden
-                        className="absolute inset-x-1 -bottom-px h-[3px] rounded-full bg-brand"
+                        className="absolute inset-x-0 -bottom-px h-[1.5px] bg-accent-line"
                       />
                     )}
                   </button>
@@ -167,7 +170,7 @@ export function GrafanaTabs({
               target="_blank"
               rel="noopener noreferrer"
               title="대시보드가 비어 보이면 새 탭에서 여세요 — 인증이 필요할 수 있습니다"
-              className="ml-auto pb-1 text-xs text-info-700 underline underline-offset-2"
+              className="ml-auto pb-1.5 pl-3 text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
             >
               새 탭에서 열기 ↗
             </a>
@@ -175,7 +178,7 @@ export function GrafanaTabs({
         </div>
       )}
       {onModel ? (
-        <p className="shrink-0 rounded-md border border-border bg-surface-2 px-3 py-1 text-xs text-ink-muted">
+        <p className="shrink-0 rounded-md border border-border bg-surface-2 px-3 py-1 text-xs text-ink-subtle">
           이 뷰는 <span className="font-medium text-ink">플릿 전체</span>입니다 — 노드 선택과
           무관하게, 현재 모델이 구동 중인 노드만 표시됩니다.
         </p>
@@ -183,13 +186,23 @@ export function GrafanaTabs({
       {onService ? (
         servicePanel
       ) : (
-        <iframe
-          key={src}
-          src={src}
-          title={`Grafana — ${cur?.label ?? ""}`}
-          loading="lazy"
-          className="min-h-[240px] w-full flex-1 rounded-lg border border-border bg-surface"
-        />
+        // 액자(frame): 1px 보더 + 8px 반경 + 그림자 0. iframe을 감싸 모서리를 확실히 깎는다
+        // — 임베드 내부는 Grafana 소유라 콘솔이 할 수 있는 건 액자를 조용히 두르는 것뿐이다.
+        <div className="min-h-[240px] flex-1 overflow-hidden rounded-lg border border-border bg-surface">
+          <iframe
+            key={src}
+            src={src}
+            title={`Grafana — ${cur?.label ?? ""}`}
+            loading="lazy"
+            className="h-full w-full"
+            // 브라우저 확장이 iframe에 속성을 주입해 생기는 하이드레이션 경고를 막는다.
+            // (실측: Ruffle 확장이 data-ruffle-polyfilled를 붙여 서버 HTML과 어긋남 —
+            //  확장 없는 브라우저에서는 재현되지 않는다.) iframe은 광고차단·플래시
+            //  에뮬레이터 등이 흔히 건드리는 대상이고, 여기 속성은 전부 위 props에서
+            //  파생돼 클라이언트 전용 상태가 없으므로 억제해도 잃는 정보가 없다.
+            suppressHydrationWarning
+          />
+        </div>
       )}
     </div>
   );

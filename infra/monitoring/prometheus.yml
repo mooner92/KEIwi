@@ -126,6 +126,18 @@ scrape_configs:
       #     instance: "192.168.1.104:9633"
       #     node: "data04"
 
+  # GlitchTip(에러 트래킹, specs/error-tracking ADR-0022) — 자기 자신도 관측한다.
+  # ⚠️ /metrics는 기본 비활성이다 — compose에 ENABLE_OBSERVABILITY_API=True가 있어야
+  #    등록된다(정본 urls.py L80 조건부 라우트). 없으면 404이고 이 job은 영원히 down이다.
+  #    (조사 보고의 "6.0에서 경로 고정"은 틀렸고, 실측 404로 잡았다.)
+  # ⚠️ E1-5(라이브 기동) 전까지는 down이 정상 — 그 전에 라이브에 적용하지 말 것
+  #    (down 타깃 상주는 알림 무시 습관의 시작 — T0-7 교훈).
+  - job_name: "glitchtip"
+    static_configs:
+      - targets: ["172.18.0.1:8090"]
+        labels:
+          node: "data05"
+
   # vLLM 추론 서버 메트릭 — 모델 워크로드(요청/토큰/지연/KV캐시).
   # data05 호스트의 vLLM 포트(0.0.0.0 바인딩)를 도커 브리지 게이트웨이로 스크랩.
   # 모델/포트가 늘면 targets에 항목만 추가.
@@ -133,8 +145,12 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
-          - "172.18.0.1:8003" # Qwen3-Coder-30B (GPU0)
-          - "172.18.0.1:8010" # Qwen2.5-VL-7B (GPU1)
+          - "172.18.0.1:8003" # Qwen3-Coder-30B (GPU0) — 어시스턴트, 가동 중
+          # ⚠️ 8010(Qwen2.5-VL-7B)은 T0-4 드라이버 mismatch로 기동 불가라
+          #    2026-07-31에 유닛을 stop·disable했다(17,031회 재시작 = 약 61시간 CPU 소모).
+          #    스크랩을 남겨두면 영구 down 타깃이 상주하고, 그건 알림 무시 습관의 시작이다(T0-7 교훈).
+          #    **data05 재부팅(T0-4)으로 드라이버가 수복되고 유닛을 다시 켠 뒤 이 줄을 되살린다.**
+          # - "172.18.0.1:8010"
         labels:
           node: "data05"
     metric_relabel_configs:

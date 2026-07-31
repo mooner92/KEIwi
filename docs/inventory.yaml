@@ -54,3 +54,5 @@ nodes:
     exporters:
       node: "192.168.1.105:9100"
       dcgm: "192.168.1.105:9400"
+      # smartctl(:9633) 복구·수집 재개(2026-07-31, ufw 해소 후) — SmartHealthFailed 알림 대상. 근거: specs/alerting/spec.md §2
+      # 어시스턴트 vLLM 엔진(:8010)은 현재 정지 — 스크랩·알림 대상 제외(specs/alerting §2 "의도적 미포함")

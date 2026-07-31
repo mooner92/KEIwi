@@ -13,10 +13,17 @@ type GrafanaConf = { baseUrl: string; dashboards: { uid: string; label: string }
 const STORE_KEY = "keiwi-logs-assist"; // 드로어 열림 상태 지속(AC4)
 const FOCUS_WINDOW_MS = 5 * 60 * 1000; // 근거 딥링크 ±5분(AC3)
 
-const LEVEL: Record<string, { badge: string; label: string }> = {
-  error: { badge: "bg-danger-50 text-danger-700", label: "ERROR" },
-  warn: { badge: "bg-warning-50 text-warning-700", label: "WARN" },
+// 레벨 = 색 + 형태(dot) + 단어. 색만으로 뜻을 전하지 않는다(v3 §5).
+// 배지 면(bg pill)을 걷어내고 dot+단어로 — 60행짜리 목록에서 알약이 늘어서면 그 자체가 소음이다.
+const LEVEL: Record<string, { dot: string; ink: string; label: string }> = {
+  error: { dot: "bg-danger", ink: "text-danger-ink", label: "ERROR" },
+  warn: { dot: "bg-warn", ink: "text-warn-ink", label: "WARN" },
 };
+
+// 유채색이 허용되는 레벨(문제 신호)만 톤을 반환 — 그 외 레벨은 무채색이다.
+function toneOf(level: string): "error" | "warn" | undefined {
+  return level === "error" || level === "warn" ? level : undefined;
+}
 
 // @timestamp(UTC ISO) → KST "MM-DD HH:MM:SS". 고정 오프셋(+9h)·UTC 파트로 산출해
 // 서버/클라 로컬 tz에 무관(하이드레이션 안전). 파싱 실패 시 "".
@@ -33,34 +40,54 @@ function toggleIn(arr: string[], v: string): string[] {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
 
-// KRDS 인터랙티브 칩(pill·03-components) — 선택 = ✓+브랜드 보더(색 단독 금지), 카운트 병기.
+/**
+ * 필터 칩 — 선택은 "색"이 아니라 면(surface-3)+보더(border-strong)+굵기로 말한다(v3 §1·§5).
+ * ✓ 글리프를 뺀 이유: 토글할 때마다 칩 폭이 흔들려 칩 바 전체가 재배치되는 소음이 있었다.
+ * tone은 ERROR/WARN에만 — 문제 신호라 유채색을 허용하되 글자에만 얹고 면은 은은한 danger/warn-bg까지.
+ */
 function FilterChip({
   label,
   count,
   selected,
+  tone,
   onClick,
 }: {
   label: string;
   count: number;
   selected: boolean;
+  tone?: "error" | "warn";
   onClick: () => void;
 }) {
+  const face = selected
+    ? tone === "error"
+      ? "border-danger-border bg-danger-bg"
+      : tone === "warn"
+        ? "border-warn-border bg-warn-bg"
+        : "border-border-strong bg-surface-3"
+    : "border-border bg-surface hover:border-border-strong hover:bg-surface-2";
+  const ink =
+    tone === "error"
+      ? "text-danger-ink"
+      : tone === "warn"
+        ? "text-warn-ink"
+        : selected
+          ? "text-ink"
+          : "text-ink-muted hover:text-ink";
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
       className={[
-        "inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors",
-        selected
-          ? "border-brand bg-surface-2 text-brand"
-          : "border-border text-ink-muted hover:text-ink",
+        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-sm transition-colors",
+        face,
+        ink,
+        selected ? "font-medium" : "font-normal",
       ].join(" ")}
     >
-      {selected ? <span aria-hidden>✓</span> : null}
       {/* data-chip-label: 기능 테스트가 카운트와 분리해 라벨만 읽는 훅 */}
       <span data-chip-label>{label}</span>
-      <span className="tnum text-ink-subtle">{count}</span>
+      <span className="tnum text-2xs text-ink-subtle">{count}</span>
     </button>
   );
 }
@@ -172,6 +199,8 @@ export function LogsWorkbench({
         <PageHeader
           title="통합 로그"
           description="플릿 로그 — OpenSearch + Grafana · 우측 어시스턴트로 에러 즉시 진단"
+          // 초록 예산: 이 토글은 "조작 중인 대상"이 아니라 상태 스위치라 무채색으로 둔다.
+          // 눌림은 면(surface-3)+보더로만 — 초록은 어시스턴트의 primary 버튼 1개에 남겨둔다.
           actions={
             <button
               type="button"
@@ -179,14 +208,14 @@ export function LogsWorkbench({
               aria-pressed={open}
               title="어시스턴트 열기/닫기 (Ctrl+I)"
               className={[
-                "inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors",
+                "inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors",
                 open
-                  ? "border-brand bg-surface-2 text-brand"
-                  : "border-border text-ink-muted hover:bg-surface-2 hover:text-ink",
+                  ? "border-border-strong bg-surface-3 text-ink"
+                  : "border-border bg-surface text-ink-muted hover:border-border-strong hover:bg-surface-2 hover:text-ink",
               ].join(" ")}
             >
               어시스턴트
-              <kbd className="rounded-sm border border-border px-1 text-[10px] text-ink-subtle">
+              <kbd className="tnum rounded-sm border border-border px-1 text-2xs text-ink-subtle">
                 Ctrl+I
               </kbd>
             </button>
@@ -204,12 +233,13 @@ export function LogsWorkbench({
         {/* 좌 — Grafana 로그 임베드 (§I-2 재구현 금지) */}
         <section aria-label="로그 대시보드" className="flex min-h-0 flex-col gap-2">
           {focus ? (
-            <p className="flex shrink-0 items-center justify-between gap-2 rounded-md border border-info-100 bg-info-50 px-3 py-1.5 text-xs text-info-700">
+            <p className="flex shrink-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm text-ink-muted">
               <span>근거 로그 시점 ±5분 범위를 보는 중입니다.</span>
+              {/* 링크형 버튼 — 링크 어휘 통일(무채색 밑줄, hover에서만 잉크가 진해진다) */}
               <button
                 type="button"
                 onClick={() => setFocus(null)}
-                className="font-medium underline underline-offset-2"
+                className="text-ink-muted underline underline-offset-2 hover:text-ink"
               >
                 원래 범위로
               </button>
@@ -224,9 +254,10 @@ export function LogsWorkbench({
               />
             </div>
           ) : (
-            <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface-2 p-8 text-center">
-              <p className="text-sm font-medium text-ink">로그 대시보드 미설정</p>
-              <p className="mt-1.5 max-w-sm text-sm leading-6 text-ink-muted">
+            // 점선 테두리 = "판정 불가/미설정"의 형태 신호(v3 §5) — 색으로 경고하지 않는다.
+            <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface p-8 text-center">
+              <p className="text-md font-semibold text-ink">로그 대시보드 미설정</p>
+              <p className="mt-1.5 max-w-sm text-base text-ink-muted">
                 <span className="tnum">apps/console/.env.local</span>의{" "}
                 <span className="tnum">GRAFANA_LOGS_DASHBOARD_UID</span>를 설정하면 통합 로그가
                 표시됩니다.
@@ -238,18 +269,15 @@ export function LogsWorkbench({
         {/* 우 — 어시스턴트 드로어: 현재 신호(진입점) + 인플레이스 분석 */}
         {open ? (
           <aside aria-label="로그 어시스턴트" className="flex min-h-0 flex-col gap-3">
-            <section className="flex max-h-[45%] min-h-0 shrink-0 flex-col rounded-lg border border-border bg-surface shadow-1">
+            {/* 드로어는 "떠 있는" 것이 아니라 임베드 옆에 나란히 놓인 패널 — 그림자 없이 보더로만 분리(v3 §3) */}
+            <section className="flex max-h-[45%] min-h-0 shrink-0 flex-col rounded-lg border border-border bg-surface">
               <header className="flex items-baseline justify-between gap-2 border-b border-border px-3 py-2">
-                <h2 className="font-display text-sm font-semibold tracking-tight text-ink">
-                  {/* KRDS 패널 헤더 좌측 브랜드 틱(04-patterns) — 섹션 식별 강화 */}
-                  <span
-                    aria-hidden
-                    className="mr-2 inline-block h-3.5 w-[3px] rounded-full bg-brand align-[-2px]"
-                  />
+                {/* 브랜드 틱 제거 — 초록 예산은 "지금 조작 중인 것"에만. 패널 식별은 굵기·계조로 충분. */}
+                <h2 className="text-sm font-semibold text-ink">
                   현재 신호{" "}
                   <span className="font-normal text-ink-muted">· 24h error·warn</span>
                 </h2>
-                <span className="tnum text-xs text-ink-subtle">
+                <span className="tnum text-2xs text-ink-subtle">
                   {hasFilter ? `표시 ${filtered.length} / 전체 ${signals.length}` : `${signals.length}건`}
                 </span>
               </header>
@@ -263,6 +291,7 @@ export function LogsWorkbench({
                         label={LEVEL[lv]?.label ?? lv.toUpperCase()}
                         count={n}
                         selected={levels.includes(lv)}
+                        tone={toneOf(lv)}
                         onClick={() => setLevels((prev) => toggleIn(prev, lv))}
                       />
                     ))}
@@ -288,7 +317,7 @@ export function LogsWorkbench({
                         setLevels([]);
                         setNodesSel([]);
                       }}
-                      className="ml-auto inline-flex h-7 items-center rounded-full border border-border px-2.5 text-xs font-medium text-info-700 hover:bg-surface-2"
+                      className="ml-auto inline-flex h-7 items-center rounded-md border border-border bg-surface px-2 text-sm text-ink-muted transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink"
                     >
                       전체
                     </button>
@@ -296,17 +325,21 @@ export function LogsWorkbench({
                 </div>
               )}
               {signals.length === 0 ? (
-                <p className="px-3 py-6 text-center text-sm text-ink-muted">
+                <p className="px-3 py-6 text-center text-base text-ink-muted">
                   지금 신호 없음(정상) 또는 데이터 없음
                 </p>
               ) : filtered.length === 0 ? (
-                <p className="px-3 py-6 text-center text-sm text-ink-muted">
+                <p className="px-3 py-6 text-center text-base text-ink-muted">
                   필터 조건에 맞는 신호 없음 — 칩을 해제해 보세요
                 </p>
               ) : (
-                <ul className="min-h-0 divide-y divide-border overflow-y-auto">
+                <ul className="min-h-0 divide-y divide-border-subtle overflow-y-auto">
                   {filtered.map((s) => {
-                    const lv = LEVEL[s.level] ?? { badge: "bg-neutral-100 text-ink-muted", label: s.level };
+                    const lv = LEVEL[s.level] ?? {
+                      dot: "bg-ink-faint",
+                      ink: "text-ink-muted",
+                      label: s.level.toUpperCase(),
+                    };
                     const active = selected?.id === s.id;
                     return (
                       <li key={s.id} className="relative">
@@ -315,21 +348,22 @@ export function LogsWorkbench({
                           onClick={() => setSelected(s)}
                           aria-pressed={active}
                           className={[
-                            "block w-full px-3 py-2 text-left transition-colors",
+                            // 관제 밀도: py-1.5. hover는 면만 바뀐다(움직임 금지 — v3 §4).
+                            "block w-full px-3 py-1.5 text-left transition-colors",
                             active ? "bg-surface-2" : "hover:bg-surface-2",
                           ].join(" ")}
                         >
-                          {/* KRDS 활성 행 좌측 액센트 바 — 분석 중인 신호를 시각적으로 고정 */}
+                          {/* 활성 행 좌측 룰 — 초록 예산 허용분("지금 조작 중인 것"). 라이트에선 accent-line */}
                           {active && (
                             <span
                               aria-hidden
-                              className="absolute inset-y-0 left-0 w-[3px] bg-brand"
+                              className="absolute inset-y-0 left-0 w-[2px] bg-accent-line"
                             />
                           )}
-                          <span className="flex items-center gap-2 text-[11px]">
-                            <span
-                              className={`rounded-sm px-1 font-semibold ${lv.badge}`}
-                            >
+                          <span className="flex items-center gap-2 text-2xs">
+                            {/* 레벨 = dot(형태) + 단어. 색만으로 뜻을 전하지 않는다. */}
+                            <span className={`flex shrink-0 items-center gap-1 font-semibold ${lv.ink}`}>
+                              <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${lv.dot}`} />
                               {lv.label}
                             </span>
                             <span className="tnum shrink-0 text-ink-subtle" title={s.timestamp}>
@@ -339,12 +373,12 @@ export function LogsWorkbench({
                               {s.fleetNode} · {s.service}
                             </span>
                             <span
-                              className={`ml-auto shrink-0 text-xs font-medium ${active ? "text-brand" : "text-info-700"}`}
+                              className={`ml-auto shrink-0 ${active ? "font-medium text-ink" : "text-ink-subtle"}`}
                             >
-                              {active ? "분석 중 ✓" : "분석 →"}
+                              {active ? "분석 중" : "분석 →"}
                             </span>
                           </span>
-                          <span className="mt-0.5 line-clamp-2 block text-xs text-ink-muted">
+                          <span className="mt-0.5 line-clamp-2 block text-sm text-ink">
                             {s.message.slice(0, 160)}
                           </span>
                         </button>
@@ -372,11 +406,11 @@ export function LogsWorkbench({
               />
             </div>
 
-            <p className="shrink-0 text-right text-xs text-ink-muted">
+            <p className="shrink-0 text-right text-xs text-ink-subtle">
               외부 전송 없음 · 읽기 전용 ·{" "}
               <Link
                 href={deepDiveHref}
-                className="font-medium text-info-700 underline underline-offset-2"
+                className="text-ink-muted underline underline-offset-2 hover:text-ink"
               >
                 전체 화면에서 계속 →
               </Link>

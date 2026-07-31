@@ -1,0 +1,19 @@
+# KEIwi CODEOWNERS — KEI 내부 전용.
+#
+# 1인 운영이지만 PR 리뷰 요청을 자동으로 붙이기 위한 형식 정의.
+# 마지막에 매칭되는 규칙이 우선한다(GitHub 규칙). 전역 오너를 먼저, 세부 경로를 아래에 둔다.
+
+# 전역 오너 — 모든 파일
+*                       @mooner92
+
+# 헌장·거버넌스·워크플로 (변경 시 특히 신중)
+/Constitution.md        @mooner92
+/AGENTS.md              @mooner92
+/docs/branching.md      @mooner92
+
+# 도메인별 (형식 예시 — 현재 전부 동일 오너)
+/apps/console/          @mooner92
+/infra/                 @mooner92
+/specs/                 @mooner92
+/docs/decisions/        @mooner92
+/.github/               @mooner92

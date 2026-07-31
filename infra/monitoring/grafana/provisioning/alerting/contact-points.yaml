@@ -1,0 +1,71 @@
+# Grafana 알림 수신처 — Slack 2채널 (인프라 / 앱)
+#
+# 적용: 이 파일을 /data/monitoring/grafana/provisioning/alerting/ 에 복사(사람, §11).
+#       compose에 volume + SLACK_BOT_TOKEN 환경변수 배선이 선행돼야 한다(README 참조).
+#
+# ── 토큰을 파일에 쓰지 않는다(§13) ────────────────────────────────────────
+# $__env{SLACK_BOT_TOKEN} 은 Grafana가 기동 시 컨테이너 환경변수에서 읽는 구문이다.
+# 실제 값은 /data/monitoring/.env (root:root 0600)에 있고 compose가 컨테이너로 전달한다.
+# 따라서 이 파일은 레포에 커밋해도 시크릿이 새지 않는다.
+#
+# ── webhook이 아니라 bot token을 쓰는 이유 ────────────────────────────────
+# webhook URL 방식은 URL 하나가 채널 하나에 고정돼 채널 수만큼 시크릿이 늘어난다.
+# bot token은 토큰 1개로 recipient만 바꿔 여러 채널에 보낼 수 있고 멘션도 된다.
+#
+# ── 스레딩은 지원되지 않는다 (실측) ───────────────────────────────────────
+# Grafana 13의 slack 알림기 옵션에 thread_ts가 없다(`/api/alert-notifiers`로 확인).
+# 그래서 "발생→해결을 한 스레드로 묶기"는 불가능하다. 노이즈 제어는 스레딩이 아니라
+# notification-policies.yaml 의 그룹핑(group_by/group_interval/repeat_interval)으로 한다.
+# 정말 스레딩이 필요해지면 webhook 수신처 + fingerprint→thread_ts 중계 서비스가 필요한데,
+# 5노드 규모에 그 인프라를 더할 만한 값어치는 아직 없다.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: slack-infra
+    receivers:
+      - uid: keiwi-slack-infra
+        type: slack
+        settings:
+          recipient: "#keiwi-infra"
+          token: $__env{SLACK_BOT_TOKEN}
+          # ⚠️ endpointUrl이 필수다 — 이 망에서 slack.com이 SNI 필터로 차단돼 있다(2026-07-30 실측).
+          #   slack.com/api/api.test      → TLS 리셋(Cipher is NONE, 3/3 재현). TCP는 열리는데 핸드셰이크가 죽는다.
+          #   api.slack.com/api/api.test  → {"ok":true} 정상
+          # Grafana 기본값은 https://slack.com/api/chat.postMessage 이므로 그대로 두면 전송이 실패한다.
+          # (TCP 도달성만 보고 "Slack 안 막혔다"고 판단했다가 틀렸다 — TLS 레벨까지 확인해야 한다.)
+          endpointUrl: https://api.slack.com/api/chat.postMessage
+          username: KEIwi Alerts
+          # 제목은 한 줄로 스캔되게 — 심각도·요약·노드만.
+          title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}{{ if .CommonLabels.node }} · {{ .CommonLabels.node }}{{ end }}'
+          # 본문에 원문 로그·계정명·전체 메트릭 덤프를 넣지 않는다.
+          # 상세는 Grafana 링크로 넘긴다 — 링크는 Zero Trust 뒤라 외부인에겐 무용지물이고,
+          # 알림 자체의 반출량이 줄어든다(개인 워크스페이스 사용 중, README 보안 절 참조).
+          text: |
+            {{ range .Alerts }}*{{ .Labels.alertname }}* — {{ .Annotations.summary }}
+            {{ if .Annotations.runbook_url }}런북: {{ .Annotations.runbook_url }}{{ end }}
+            {{ if .DashboardURL }}대시보드: {{ .DashboardURL }}{{ end }}
+            {{ end }}
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: slack-web
+    receivers:
+      - uid: keiwi-slack-web
+        type: slack
+        settings:
+          recipient: "#keiwi-web"
+          token: $__env{SLACK_BOT_TOKEN}
+          # ⚠️ endpointUrl이 필수다 — 이 망에서 slack.com이 SNI 필터로 차단돼 있다(2026-07-30 실측).
+          #   slack.com/api/api.test      → TLS 리셋(Cipher is NONE, 3/3 재현). TCP는 열리는데 핸드셰이크가 죽는다.
+          #   api.slack.com/api/api.test  → {"ok":true} 정상
+          # Grafana 기본값은 https://slack.com/api/chat.postMessage 이므로 그대로 두면 전송이 실패한다.
+          # (TCP 도달성만 보고 "Slack 안 막혔다"고 판단했다가 틀렸다 — TLS 레벨까지 확인해야 한다.)
+          endpointUrl: https://api.slack.com/api/chat.postMessage
+          username: KEIwi Alerts
+          title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}*{{ .Labels.alertname }}* — {{ .Annotations.summary }}
+            {{ if .Annotations.runbook_url }}런북: {{ .Annotations.runbook_url }}{{ end }}
+            {{ end }}
+        disableResolveMessage: false
