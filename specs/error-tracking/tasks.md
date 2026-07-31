@@ -37,9 +37,9 @@
 
 - [x] **E1-1** (S) `infra/error-tracking/docker-compose.yml` 생성 — spec §2.2의 변경 3건만 적용(PG 비밀번호 / 포트 2줄 바인드 / 호스트 포트 미노출), **E0-2에서 확인된 키만** 사용. `mem_limit` 3건. **선행: E0-1, E0-2, E0-3**
 - [x] **E1-2** (S) `infra/error-tracking/.env.example` + `scripts/check-env.sh` 생성 — 키 목록만(값 0). 검사: 키 존재 · `SECRET_KEY` ≥ 64자 · 개행/따옴표 없음 · `GLITCHTIP_DOMAIN`이 `https://`. 검증: **AC-E-2**. **선행: E1-1**
-- [ ] **E1-3** `[server]` (S) **GV-1 파싱 게이트** — `/data/glitchtip/`에 복사 후 `docker-compose config`. 검증: **AC-E-1**. anchor 파싱 실패 시 전개 변형으로 교체하고 **이유를 파일 주석에 남긴다**. **선행: E1-2**
-- [ ] **E1-4** `[server]` (S) **GV-5 빈 시크릿 거동 측정** — 격리 프로젝트에서 `SECRET_KEY=`로 `up -d` → `docker logs`. **기동 실패인지 경고만인지 기록.** 이 결과가 `check-env.sh`의 강도를 정한다. **선행: E1-3**
-- [ ] **E1-5** `[server]` (S) **정상 기동** — `check-env.sh` 통과 후 `postgres` → 헬스 확인 → `web`·`valkey` 순서로. compose 1.29 recreate 시 `docker rm -f` 후 `up -d`. 검증: `curl -o /dev/null -w '%{http_code}' 127.0.0.1:8090` → 200 · **AC-E-16**(mem_limit 실효). **선행: E1-4**
+- [x] **E1-3** `[server]` (S) **GV-1 파싱 게이트** — `/data/glitchtip/`에 복사 후 `docker-compose config`. 검증: **AC-E-1**. anchor 파싱 실패 시 전개 변형으로 교체하고 **이유를 파일 주석에 남긴다**. **선행: E1-2**
+- [x] **E1-4** `[server]` (S) **GV-5 빈 시크릿 거동 측정** — 격리 프로젝트에서 `SECRET_KEY=`로 `up -d` → `docker logs`. **기동 실패인지 경고만인지 기록.** 이 결과가 `check-env.sh`의 강도를 정한다. **선행: E1-3**
+- [x] **E1-5** `[server]` (S) **정상 기동** — `check-env.sh` 통과 후 `postgres` → 헬스 확인 → `web`·`valkey` 순서로. compose 1.29 recreate 시 `docker rm -f` 후 `up -d`. 검증: `curl -o /dev/null -w '%{http_code}' 127.0.0.1:8090` → 200 · **AC-E-16**(mem_limit 실효). **선행: E1-4**
 - [ ] **E1-6** `[server]` (S) **첫 사용자 생성 → 즉시 `ENABLE_USER_REGISTRATION=False` → 재기동.** 검증: **AC-E-9**. **선행: E1-5.** ⚠️ 이 항목을 미루면 가입이 열린 상태로 남는다(기본값이 안전하지 않다)
 - [ ] **E1-7** `[server]` (S) Cloudflare 터널 라우트 `glitchtip.excusa.uk` + Access 정책 — E0-1의 cloudflared 런타임 판정에 따라 대상 주소 결정. `grafana.excusa.uk`와 동일 패턴(§14). **선행: E1-5**
 - [x] **E1-8** (S) `infra/monitoring/prometheus.yml`에 `glitchtip` job 1개 추가(`172.18.0.1:8090`). **레포만.** 검증: **AC-E-19**. **선행: E1-5**
@@ -51,7 +51,7 @@
 
 > **왜 SDK보다 먼저인가**: 알림이 안 가는 것을 나중에 발견하면 "SDK가 문제인지 Slack이 문제인지" 두 변수가 섞인다. Slack 경로를 **먼저 1건으로 확정**해 두면, 이후 실패의 원인이 하나로 줄어든다.
 
-- [ ] **E2-1** `[server]` (S) Slack **incoming webhook** 발급(`#keiwi-web`) — Grafana의 bot token과 **다른 시크릿**이다(spec §3 NOTE). URL은 GlitchTip UI에만 입력, 레포·메모에 남기지 않는다. **선행: E1-6**
+- [x] **E2-1** `[server]` (S) Slack **incoming webhook** 발급(`#keiwi-web`) — Grafana의 bot token과 **다른 시크릿**이다(spec §3 NOTE). URL은 GlitchTip UI에만 입력, 레포·메모에 남기지 않는다. **선행: E1-6**
 - [ ] **E2-2** `[server]` (S) **GV-4 실물 도달 게이트** — 프로젝트 1개(`keiwi-console`) 생성 → recipient `webhook` 저장 → `send_test_notification`. 검증: **AC-E-8**(`#keiwi-web` 도착 + `data05lx`·내부 IP 부재). **선행: E2-1.** ⚠️ **눈으로 확인하지 않고 다음으로 가지 않는다** — 실패 패턴③(TCP만 보고 판정) 재발 지점
 - [ ] **E2-3** `[server]` (S) `ProjectAlert` 설정 — `timespan_minutes: 5`, `quantity: 1`, `uptime: True`. **선행: E2-2**
 - [ ] **E2-4** `[server]` (S) **`GLITCHTIP_PII_SCRUB_DEFAULT` 활성**(E0-2에서 확인된 키 이름으로) — `sensitive_keys`에 `user`·`cmdline`·`pid`·`query`·`message`. 서버측 2차 방어(spec §5.5). **선행: E2-3**

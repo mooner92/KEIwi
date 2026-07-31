@@ -17,6 +17,14 @@ x-environment: &default-environment
   EMAIL_URL: consolemail:// # SMTP 없음 — 알림은 Slack webhook이 담당(spec §4)
   GLITCHTIP_DOMAIN: https://glitchtip.excusa.uk # Slack 메시지의 이슈 링크를 만든다(§2.3)
   DEFAULT_FROM_EMAIL: keiwi@excusa.uk
+  # ALLOWED_HOSTS — 기본이 와일드카드 `["*"]`라 기동 시 경고가 뜬다(실측: createsuperuser
+  # 실행 중 RuntimeWarning). Django의 Host 헤더 검증이므로 실제 접근 경로를 전부 넣는다:
+  #   glitchtip.excusa.uk = Cloudflare 터널(E1-7) · localhost/127.0.0.1 = SSH 포트포워딩
+  #   172.18.0.1 = Prometheus 컨테이너의 /metrics 스크랩
+  # settings.py L26·L71에서 env.list(콤마 구분)로 읽는다[정본 확인].
+  ALLOWED_HOSTS: glitchtip.excusa.uk,localhost,127.0.0.1,172.18.0.1
+  # CSRF는 스킴을 포함해야 한다(Django 4+). settings.py L749 env.list[정본 확인].
+  CSRF_TRUSTED_ORIGINS: https://glitchtip.excusa.uk,http://localhost:8090,http://127.0.0.1:8090
   ENABLE_ADMIN: "False"
   ENABLE_OPENAPI: "False"
   GLITCHTIP_ENABLE_MCP: "False"
