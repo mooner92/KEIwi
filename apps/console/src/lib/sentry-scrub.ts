@@ -1,4 +1,4 @@
-import type { ErrorEvent, EventHint } from "@sentry/nextjs";
+import type { ErrorEvent } from "@sentry/nextjs";
 
 /**
  * 에러 이벤트 반출 최소화 — 화이트리스트 재구성 (specs/error-tracking spec §5.4).
@@ -22,8 +22,32 @@ const ALLOWED_BREADCRUMB_CATEGORIES = new Set(["http", "fetch"]);
 /** 사설 IP·호스트명을 마스킹한다. 플릿 토폴로지는 에러 원인과 무관하다. */
 const PRIVATE_IP = /\b(?:10|127|192\.168|172\.(?:1[6-9]|2\d|3[01]))(?:\.\d{1,3}){1,3}\b/g;
 
+/**
+ * 시크릿으로 보이는 문자열을 마스킹한다.
+ *
+ * 왜 필요한가: 에러 메시지에 토큰이 섞이는 일이 실제로 있다 —
+ * `fetch failed (token=xoxb-…)` 같은 형태. 원시 페이로드 실측(E3-4)에서
+ * IP는 걸러졌는데 토큰이 그대로 나가는 것을 확인하고 추가했다.
+ * 근본 해법은 "에러 메시지에 시크릿을 넣지 않기"지만, 방어선을 하나 더 둔다.
+ */
+const SECRET_PATTERNS: RegExp[] = [
+  /\bxox[baprs]-[A-Za-z0-9-]{6,}/g,          // Slack
+  /\bgh[pousr]_[A-Za-z0-9]{16,}/g,           // GitHub
+  /\bsk-[A-Za-z0-9-]{16,}/g,                 // OpenAI 계열
+  /\bBearer\s+[A-Za-z0-9._-]{12,}/gi,        // Authorization 헤더가 메시지에 실린 경우
+  /\b(token|password|passwd|secret|api[_-]?key)=[^\s&"']{4,}/gi, // key=value 형태
+];
+
 export function maskHostInfo(text: string): string {
-  return text.replace(PRIVATE_IP, "[ip]");
+  let out = text.replace(PRIVATE_IP, "[ip]");
+  for (const re of SECRET_PATTERNS) {
+    out = out.replace(re, (m) => {
+      const eq = m.indexOf("=");
+      // key=value는 key를 남겨야 무엇이 샜는지 파악된다. 그 외는 통째로.
+      return eq > 0 ? `${m.slice(0, eq)}=[secret]` : "[secret]";
+    });
+  }
+  return out;
 }
 
 /** 스택 프레임에서 소스 본문·변수·절대경로를 제거하고 파일명만 상대화한다. */
@@ -45,7 +69,7 @@ function scrubFrame(frame: Record<string, unknown>): Record<string, unknown> {
  * 이벤트를 화이트리스트로 재조립한다. `null`을 반환하면 전송하지 않는다.
  * (Sentry SDK의 beforeSend 계약)
  */
-export function scrubEvent(event: ErrorEvent, _hint?: EventHint): ErrorEvent | null {
+export function scrubEvent(event: ErrorEvent): ErrorEvent | null {
   const e = event as unknown as Record<string, unknown>;
 
   // ── request: URL의 쿼리스트링·헤더·쿠키·body를 통째로 버리고 최소만 재조립 ──
