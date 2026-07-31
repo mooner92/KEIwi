@@ -1,0 +1,21 @@
+[Unit]
+Description=KEIwi 로그 인입 하트비트 (GlitchTip dead man's switch)
+Documentation=https://github.com/mooner92/KEIwi/blob/main/specs/error-tracking/spec.md
+# 네트워크가 없으면 OpenSearch 조회가 실패하고 ping이 보류된다 — 안전한 방향이지만
+# 부팅 직후 불필요한 Down 판정을 줄이기 위해 네트워크를 기다린다.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/keiwi/heartbeat/keiwi-log-heartbeat.sh
+# 시크릿(하트비트 URL)은 레포 밖 파일에서만 온다(§13). 스크립트가 직접 읽는다.
+# 여기서 EnvironmentFile을 쓰지 않는 이유: 파일이 없을 때 systemd가 유닛을 실패시키는데,
+# 그러면 "설정 누락"이 "타이머 실패"로 바뀌어 원인이 흐려진다. 스크립트가 FATAL 로그를 남기게 둔다.
+User=root
+# 로그는 journald로 — 이 스크립트의 판단 근거(건수)가 사후 조사에 필요하다.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

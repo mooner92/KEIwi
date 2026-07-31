@@ -1,0 +1,19 @@
+[Unit]
+Description=KEIwi 로그 인입 하트비트 주기 실행 (5분)
+Documentation=https://github.com/mooner92/KEIwi/blob/main/specs/error-tracking/spec.md
+
+[Timer]
+# ── 왜 5분인가 (모니터 interval은 600초) ────────────────────────────────
+# ping 주기를 모니터 interval과 같게 두면 지터 한 번에 오탐 Down이 난다.
+# 절반(300초)으로 두면 **한 번 걸러도 다음 실행이 600초 안에 들어온다** — 여유 1회.
+# 반대로 너무 자주 보내면 인입 정지를 늦게 알아채는 게 아니라(판정은 GlitchTip이 한다)
+# 무의미한 부하만 는다. 300초가 균형점이다.
+OnBootSec=2min
+OnUnitActiveSec=5min
+# 여러 타이머가 정각에 몰리지 않게 분산
+RandomizedDelaySec=20s
+AccuracySec=10s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

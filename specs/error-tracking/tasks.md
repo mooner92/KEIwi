@@ -52,8 +52,8 @@
 > **왜 SDK보다 먼저인가**: 알림이 안 가는 것을 나중에 발견하면 "SDK가 문제인지 Slack이 문제인지" 두 변수가 섞인다. Slack 경로를 **먼저 1건으로 확정**해 두면, 이후 실패의 원인이 하나로 줄어든다.
 
 - [x] **E2-1** `[server]` (S) Slack **incoming webhook** 발급(`#keiwi-web`) — Grafana의 bot token과 **다른 시크릿**이다(spec §3 NOTE). URL은 GlitchTip UI에만 입력, 레포·메모에 남기지 않는다. **선행: E1-6**
-- [ ] **E2-2** `[server]` (S) **GV-4 실물 도달 게이트** — 프로젝트 1개(`keiwi-console`) 생성 → recipient `webhook` 저장 → `send_test_notification`. 검증: **AC-E-8**(`#keiwi-web` 도착 + `data05lx`·내부 IP 부재). **선행: E2-1.** ⚠️ **눈으로 확인하지 않고 다음으로 가지 않는다** — 실패 패턴③(TCP만 보고 판정) 재발 지점
-- [ ] **E2-3** `[server]` (S) `ProjectAlert` 설정 — `timespan_minutes: 5`, `quantity: 1`, `uptime: True`. **선행: E2-2**
+- [x] **E2-2** `[server]` (S) **GV-4 실물 도달 게이트** — 프로젝트 1개(`keiwi-console`) 생성 → recipient `webhook` 저장 → `send_test_notification`. 검증: **AC-E-8**(`#keiwi-web` 도착 + `data05lx`·내부 IP 부재). **선행: E2-1.** ⚠️ **눈으로 확인하지 않고 다음으로 가지 않는다** — 실패 패턴③(TCP만 보고 판정) 재발 지점
+- [x] **E2-3** `[server]` (S) `ProjectAlert` 설정 — `timespan_minutes: 5`, `quantity: 1`, `uptime: True`. **선행: E2-2**
 - [ ] **E2-4** `[server]` (S) **`GLITCHTIP_PII_SCRUB_DEFAULT` 활성**(E0-2에서 확인된 키 이름으로) — `sensitive_keys`에 `user`·`cmdline`·`pid`·`query`·`message`. 서버측 2차 방어(spec §5.5). **선행: E2-3**
 
 ---
@@ -77,9 +77,9 @@
 
 ## E4 — Dead man's switch (5.7일 사고의 해법 — 여기가 목적지다)
 
-- [ ] **E4-1** `[server]` (S) **GV-3 heartbeat URL 대조** — monitor `keiwi-log-ingest` 생성(`interval 600`, `confirmation_threshold 2`) → UI 표시 URL과 코드 도출 URL **문자 단위 diff** → `curl -X POST` **200 + `MonitorCheck` JSON**. **GET으로 시험하지 않는다.** **선행: E2-3**
-- [ ] **E4-2** (S) `infra/ansible/roles/watchdog/templates/keiwi-heartbeat-log-ingest.sh.j2` + timer(120s) — OpenSearch 최신 `@timestamp` 판정을 **로컬에서** 하고 **정상일 때만 POST**. 사유·수치·호스트명 전송 금지. UUID는 `/etc/keiwi/heartbeat.env`(0600). **`roles/watchdog`은 hardware-ops T4-12의 role이다 — 새로 만들지 않는다.** **선행: E4-1**
-- [ ] **E4-3** `[server]` (S) E4-2 배포 → 10분 관찰 → monitor **up**. 검증: **AC-E-13**(journald에 UUID 0건). **선행: E4-2**
+- [x] **E4-1** `[server]` (S) **GV-3 heartbeat URL 대조** — monitor `keiwi-log-ingest` 생성(`interval 600`, `confirmation_threshold 2`) → UI 표시 URL과 코드 도출 URL **문자 단위 diff** → `curl -X POST` **200 + `MonitorCheck` JSON**. **GET으로 시험하지 않는다.** **선행: E2-3**
+- [x] **E4-2** (S) `infra/ansible/roles/watchdog/templates/keiwi-heartbeat-log-ingest.sh.j2` + timer(120s) — OpenSearch 최신 `@timestamp` 판정을 **로컬에서** 하고 **정상일 때만 POST**. 사유·수치·호스트명 전송 금지. UUID는 `/etc/keiwi/heartbeat.env`(0600). **`roles/watchdog`은 hardware-ops T4-12의 role이다 — 새로 만들지 않는다.** **선행: E4-1**
+- [x] **E4-3** `[server]` (S) E4-2 배포 → 10분 관찰 → monitor **up**. 검증: **AC-E-13**(journald에 UUID 0건). **선행: E4-2**
 - [ ] **E4-4** `[server]` (S) **AC-E-10 부재 탐지 실증 — 이 스펙 전체의 통과 조건.** `systemctl stop …timer` → **40분 대기** → monitor **down** + `#keiwi-web` 알림 → 재시작 → **복구 알림**. 그리고 **AC-E-11**(워커 정지 시 알림이 오지 **않는다**는 사실 기록). **선행: E4-3**
 - [ ] **E4-5** (S) monitor 2·3 추가(`keiwi-stack-alive`·`keiwi-fleet-scrape`) — E4-2 스크립트 패턴 복제. **E4-4가 통과한 뒤에만.** **선행: E4-4**
 - [ ] **E4-6** (M) **콘솔 생존 GET monitor** — ⚠️ `…ALLOW_PRIVATE_IPS`를 **`True`로** (E0-2에서 확정한 키 이름). 켜지 않으면 SSRF 가드가 **조용히 `NETWORK` 실패**시킨다. `confirmation_threshold 2`. **선행: E4-4**
