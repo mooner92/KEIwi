@@ -14,12 +14,15 @@
 | ⚖️ `Constitution.md` | 헌장 (최우선 권위) |
 | 🗺️ `AGENTS.md` | 이 목차 |
 | 📖 `README.md` | 레포 개요·아키텍처·상태 |
+| 📄 `LICENSE` | Proprietary · All rights reserved (KEI 내부 전용 §I-1) |
 | 📍 `docs/inventory.yaml` | 플릿 단일 기준(SoT) — 노드·exporters |
 | 📑 `docs/decisions/` | ADR `NNNN-*.md` — 모든 의존성·기술 선택 근거(§8) |
-| 🛠️ `docs/runbooks/` | 운영 런북 — `node-onboarding` · `rsyslog-omfile-flood` |
+| 🛠️ `docs/runbooks/` | 운영 런북 — `node-onboarding` · `rsyslog-omfile-flood` · `log-ingestion-stopped` |
 | ✍️ `docs/prompts/` | 마일스톤별 빌드 프롬프트 |
 | ✅ `docs/testing.md` | 시각 QA(Playwright) 절차 |
-| 📋 `specs/<name>/` | SDD 삼분(`spec`·`plan`·`tasks`[·`research`]) — M1-console·M2-logs·M3-resources·assistant·logs-assistant(로그 워크벤치)·service-map·krds-redesign·sre-addons(백로그) |
+| 🌿 `docs/branching.md` | 브랜치 전략·기여 흐름(main/dev + dev 파생 작업 브랜치) |
+| 🕸️ `docs/graphify.md` | 코드·문서 지식 그래프 도입 기록(graphify) |
+| 📋 `specs/<name>/` | SDD 삼분(`spec`·`plan`·`tasks`[·`research`]) — M1-console·M2-logs·M3-resources·assistant·logs-assistant(로그 워크벤치)·service-map·ownership-attribution·alerting(라이브 9건)·error-tracking(GlitchTip)·hardware-ops·observability-alerting(조사)·krds-redesign·sre-addons(백로그) |
 | 🎨 `specs/design/` | **이식형 디자인 시스템 스펙**(KRDS 기반, 디자인 SoT — 다른 프로젝트 복사 가능) |
 | 🎨 `design-system/spec/` | KRDS 토큰·색·shape·타이포 규약(ADR 0006/0007) |
 | 🤖 `infra/` | 관제 스택 — 레포는 **권장본 생성만**, 라이브 적용은 사람(§11·§12). `monitoring/`(prometheus·grafana 프로비저닝=바인드 마운트·`docker-compose.yml` 권장본·gpu-model/port-exporter·터널)·`logging/`·`ansible/` |
@@ -64,9 +67,11 @@ BASE=http://127.0.0.1:3199 node scripts/embed-host-test.mjs       # 임베드 ho
 
 - **M1** 통합 메트릭 콘솔 — ✅ 라이브
 - **M2** 통합 로그(OpenSearch·신호우선) — ✅ 라이브
-- **M3** 여유 리소스 → Overview 흡수 · **M4** 장애추적 보류 · **M5** 에러 알림 후순위
-- 고도화 완료: 로그 워크벤치(`/logs` 어시스턴트 통합, [specs/logs-assistant](./specs/logs-assistant/spec.md)) · 노드 온보딩 표준(data03 실증, 2026-07-03) · 서비스 맵 v2.1 · 디자인 v2([specs/design](./specs/design/README.md))
-- 다음: SRE 추가 기능 백로그([specs/sre-addons](./specs/sre-addons/backlog.md)) · M5
+- **M3** 여유 리소스 → Overview 흡수 · **M4** 장애추적 보류
+- **M5** 크리티컬 에러 알림 — ✅ 1차 라이브(2026-07-31): Grafana 규칙 9건→Slack `#keiwi-infra` · 하트비트 dead man's switch([specs/alerting](./specs/alerting/spec.md) v2)
+- **M6** 에러 트래킹(앱 런타임) — ✅ 라이브: GlitchTip 자체호스팅([ADR-0022](./docs/decisions/0022-error-tracking-glitchtip.md), [specs/error-tracking](./specs/error-tracking/README.md))→`#keiwi-web`
+- 고도화 완료: 로그 워크벤치(`/logs` 어시스턴트 통합, [specs/logs-assistant](./specs/logs-assistant/spec.md)) · 노드 온보딩 표준(data03 실증, 2026-07-03) · 서비스 맵 v2.1 · 소유 계정 귀속 v1([specs/ownership-attribution](./specs/ownership-attribution/spec.md)) · 디자인 v2([specs/design](./specs/design/README.md))
+- 다음: 하드웨어 운영 확장 게이트([specs/hardware-ops](./specs/hardware-ops/README.md)) · 디자인 v3([specs/krds-redesign](./specs/krds-redesign/spec.md)) · SRE 추가 기능 백로그([specs/sre-addons](./specs/sre-addons/backlog.md))
 
 ## 📑 ADR 색인 ([`docs/decisions/`](./docs/decisions))
 
@@ -80,7 +85,7 @@ BASE=http://127.0.0.1:3199 node scripts/embed-host-test.mjs       # 임베드 ho
 | [0006](./docs/decisions/0006-krds-adoption.md) | KRDS 채택(tokens-only) | [0015](./docs/decisions/0015-assistant-exploratory-query.md) | 어시스턴트 탐색형 질의 |
 | [0007](./docs/decisions/0007-brand-color-strategy.md) | 브랜드↔KRDS 색 전략 | [0016](./docs/decisions/0016-gpu-drilldown-dcgm.md) | GPU 드릴다운 DCGM 분리 |
 | [0008](./docs/decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./docs/decisions/0017-node-onboarding-standard.md) | **노드 온보딩 표준** |
-| [0009](./docs/decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | | |
+| [0009](./docs/decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./docs/decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip 자체호스팅) |
 
 ## ⛔ 안전 규칙 (요약 — 상세는 헌장)
 

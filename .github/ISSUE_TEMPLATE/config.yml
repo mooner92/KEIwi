@@ -1,0 +1,9 @@
+# KEIwi 이슈 템플릿 설정 — KEI 내부 전용.
+#
+# blank(빈) 이슈 허용: 1인 운영이라 빠른 메모·아이디어를 즉시 기록할 수 있게 열어 둔다.
+# 단, 실제 작업은 아래 템플릿(버그 리포트 / 작업 티켓)으로 승격해 SDD 흐름(헌장 §VI)에 태운다.
+blank_issues_enabled: true
+
+# 외부 기여/문의 채널은 두지 않는다(KEI 내부 전용 · 외부 공개 금지).
+# 안내가 필요하면 레포 내 문서를 참조: Constitution.md · docs/branching.md · docs/testing.md
+contact_links: []
