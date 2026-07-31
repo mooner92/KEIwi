@@ -145,8 +145,12 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
-          - "172.18.0.1:8003" # Qwen3-Coder-30B (GPU0)
-          - "172.18.0.1:8010" # Qwen2.5-VL-7B (GPU1)
+          - "172.18.0.1:8003" # Qwen3-Coder-30B (GPU0) — 어시스턴트, 가동 중
+          # ⚠️ 8010(Qwen2.5-VL-7B)은 T0-4 드라이버 mismatch로 기동 불가라
+          #    2026-07-31에 유닛을 stop·disable했다(17,031회 재시작 = 약 61시간 CPU 소모).
+          #    스크랩을 남겨두면 영구 down 타깃이 상주하고, 그건 알림 무시 습관의 시작이다(T0-7 교훈).
+          #    **data05 재부팅(T0-4)으로 드라이버가 수복되고 유닛을 다시 켠 뒤 이 줄을 되살린다.**
+          # - "172.18.0.1:8010"
         labels:
           node: "data05"
     metric_relabel_configs:

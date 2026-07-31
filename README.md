@@ -11,26 +11,39 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 
 ## 지금 상태
 
-**모두 `data05`(관제 스택 호스트)에서 2026-07-30 실측.** 값이 아니라 확인 명령이 계약이다 — 의심되면 직접 돌린다.
+**모두 `data05`(관제 스택 호스트)에서 2026-07-31 실측.** 값이 아니라 확인 명령이 계약이다 — 의심되면 직접 돌린다.
 
 | 항목 | 값 | 확인 |
 | --- | --- | --- |
-| Prometheus 스크랩 타깃 | 20개 중 **18 up** (down: data05 `smartctl:9633` · vLLM `:8010`) | `curl -s 'localhost:9090/api/v1/query?query=sum(up)'` |
-| 활성 시계열 | **15,620** | `count({__name__!=""})` |
+| Prometheus 스크랩 타깃 | 21개 중 **20 up** (down 1 = vLLM `:8010`, T0-4 대기 중 의도적 정지) | `curl -s 'localhost:9090/api/v1/query?query=sum(up)'` · 분모는 `count(up)` |
+| 활성 시계열 | **16,633** | `count({__name__!=""})` |
 | recording rules | **24개 / 7그룹** ([`infra/monitoring/rules/`](./infra/monitoring/rules)) | `curl -s localhost:9090/api/v1/rules` |
-| **alert 규칙** | **0개** — Prometheus 0 · Grafana 프로비저닝 0 | 위 + `localhost:3000/api/v1/provisioning/alert-rules` |
+| **alert 규칙** | **9개 — 전부 `inactive`+`ok`(발화 0)** | `localhost:3000/api/prometheus/grafana/api/v1/rules` |
+| 알림 채널 | Slack `#keiwi-infra`(인프라) · `#keiwi-web`(앱 에러) | Grafana contact points 2개 · GlitchTip webhook 1개 |
 | DCGM GPU | **6장** — data03·04 Quadro RTX 6000 ×2, data05 A40 ×2 | `count by(instance)(DCGM_FI_DEV_GPU_UTIL)` |
-| 로그 인덱스 | **149개**(2026-03-04~) · **30.0M 문서** · **21.2 GB** | `curl -s 'localhost:9200/_cat/indices/keiwi-logs-*'` |
-| 최근 24h 인입 | **849k 이벤트 ≈ 9.8 EPS** (data05 800k · data01 27.0k · data04 14.2k · data03 7.6k) | `keiwi-logs-*/_search` `fleet_node` terms agg |
-| 일 증가량 | 최근 7일 평균 **557 MB/일** → 365d 보존 시 **~200 GB** 예상 | `_cat/indices?bytes=b` |
-| 디스크 | `/data` 3.5 TB 중 **345 GB 사용(11%)** | `df -h /data` |
+| 로그 인덱스 | **150개**(2026-03-04~) · **32.0M 문서** | `curl -s 'localhost:9200/_cat/indices/keiwi-logs-*'` |
+| 로그 인입 | **4노드 실시간**(data01·03·04·05) ≈ **17/초** | `_count` 두 번 찍어 증가 확인 |
+| 에러 트래킹 | **GlitchTip 6.2.2** 자체호스팅 · 이벤트 90일 보존 | `curl -s -o /dev/null -w '%{http_code}' 127.0.0.1:8090/_health/` |
+| 하트비트 | **5분 주기** dead man's switch 가동 | `systemctl is-active keiwi-log-heartbeat.timer` |
 | Grafana | **13.0.1** · 대시보드 **9개**(원본 4 + v3 4 + syshealth) | `localhost:3000/api/search?type=dash-db` |
-| 콘솔 단위 테스트 | **78 passed / 6 files** | `cd apps/console && npm run test` |
+| 콘솔 단위 테스트 | **88 passed / 7 files** | `cd apps/console && npm run test` |
 
-> [!CAUTION] 이 시스템의 최대 약점 — 알림 계층이 없다
-> **alert 규칙이 0건**이라 어떤 장애도 사람을 깨우지 않는다. 실제 비용이 측정된 적 있다: **2026-07-24~07-30, 로그 인입이 5.7일간 조용히 멈췄고 아무도 몰랐다**(발견 경로는 알림이 아니라 우연한 조회). 원인은 독립 결함 2개 — ① filebeat 7.17이 지원하지 않는 `include_matches: not …`가 이벤트를 조용히 전멸시킴 ② `/KEIwi`에서의 `git checkout`이 라이브 Logstash 리로드를 유발.
-> 그래서 **지금은 사람이 주기적으로 봐야 한다** — 위 표의 "최근 24h 인입"과 "타깃 up" 두 줄이 그 대체물이다.
-> 상세·복구 절차 → [`docs/runbooks/log-ingestion-stopped.md`](./docs/runbooks/log-ingestion-stopped.md) · 정책 → [`specs/alerting/spec.md`](./specs/alerting/spec.md) · 설계 → [`specs/hardware-ops/`](./specs/hardware-ops/README.md) 축2.
+> [!IMPORTANT] 알림 계층 — 2026-07-31 가동 시작
+> 이 시스템에는 오랫동안 **alert 규칙이 0건**이었고, 그 비용이 실제로 측정됐다:
+> **2026-07-24~30, 로그 인입이 5.7일간 조용히 멈췄고 아무도 몰랐다**(발견 경로는 알림이 아니라 우연한 조회).
+> 원인은 독립 결함 2개 — ① filebeat 7.17이 지원하지 않는 `include_matches: not …`가 이벤트를 조용히
+> 전멸시킴 ② `/KEIwi`에서의 `git checkout`이 라이브 Logstash 리로드를 유발.
+>
+> 지금은 **3중으로 덮는다**:
+> | 감시 대상 | 감시 주체 | 채널 |
+> | --- | --- | --- |
+> | 인프라 지표(노드·디스크·GPU·로그 인입) | Grafana 규칙 9건 | `#keiwi-infra` |
+> | 콘솔 앱 예외·성능 | GlitchTip | `#keiwi-web` |
+> | **관측 스택 자체의 침묵** | GlitchTip uptime + 하트비트 | `#keiwi-web` |
+>
+> 하트비트가 핵심이다 — **Grafana가 죽어도 동작**한다. 탐지 시간이 **5.7일 → 약 40분(205배)**로 줄었다.
+> 남은 한계: GlitchTip도 data05에 있어 **호스트 전체 장애는 못 잡는다**(크로스노드 watchdog = hardware-ops T4-12).
+> 런북 → [`log-ingestion-stopped`](./docs/runbooks/log-ingestion-stopped.md) · 임계 근거 → [`specs/alerting`](./specs/alerting/spec.md) · 에러 트래킹 → [`specs/error-tracking`](./specs/error-tracking/README.md)
 
 ---
 
@@ -43,6 +56,8 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 | **노드가 no-data** | `sum(up)` 감소 · `localhost:9090/api/v1/targets` 에서 해당 job 확인 | `instance` 라벨이 [`inventory.yaml`](./docs/inventory.yaml)과 정확히 같아야 매칭된다 → [node-onboarding](./docs/runbooks/node-onboarding.md) |
 | **GPU 여유가 "판정불가"** | `count by(instance)(gpu_vram_total_bytes)` 에 그 노드가 없음 | gpu-model-exporter 결손. 현재 **data05가 이 상태**(드라이버 mismatch) → [hardware-ops tasks T0-4](./specs/hardware-ops/tasks.md) · 판정 규칙 [ADR-0013](./docs/decisions/0013-capacity-judgment-policy.md) |
 | **디스크가 급증** | `df -h /data` · `_cat/indices` 로 특정 일자 인덱스 급증 확인 | rsyslog 폭주면 [rsyslog-omfile-flood](./docs/runbooks/rsyslog-omfile-flood.md). 보존은 ISM 365d |
+| **Slack 알림이 안 온다** | `journalctl -u keiwi-log-heartbeat -n 5` · Grafana 규칙 health 확인 | ⚠️ 이 망은 **`slack.com`을 SNI 차단**한다(TCP는 열리는데 TLS 리셋). Grafana는 `endpointUrl`로 `api.slack.com` 우회, GlitchTip은 `hooks.slack.com`(원래 열림) 사용 — [specs/alerting](./specs/alerting/spec.md) |
+| **알림이 너무 많다** | 2주 발화 집계 → 조치율 낮은 규칙 식별 | 임계는 **자체 30일 분포 p99** 기준으로 정한다. 업계 기본값은 우리 baseline에서 상시 발화한다(실증: 디스크 80%·메모리 10%·GPU 85°C 셋 다) → [specs/alerting §1](./specs/alerting/spec.md) |
 
 ---
 
@@ -54,9 +69,9 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 | **data02** `.102` | ❌ | ❌ | Windows. `windows_exporter`·winlogbeat role 부재 — 백로그 |
 | **data03** `.103` | node · DCGM · gpu-model · port · smartctl (**직접**) | ✅ | Quadro RTX 6000 ×2 (2026-07-03 온보딩) |
 | **data04** `.104` | node · DCGM · gpu-model · port (**SSH 터널** `:764`) | ✅ | Quadro RTX 6000 ×2. smartctl은 터널 미배선(포트 충돌 — `prometheus.yml`에 주석으로 대기) |
-| **data05** `.105` | node · DCGM · port · smartctl(현재 down) | ✅ | A40 ×2 · 관제 스택 호스트 + 개발. `gpu_vram_total_bytes` 시리즈 결손 |
+| **data05** `.105` | node · DCGM · port · smartctl · **glitchtip** | ✅ | A40 ×2 · 관제 스택 호스트 + 개발. smartctl은 ufw 브리지 규칙 추가로 복구(2026-07-31). `gpu_vram_total_bytes` 결손은 드라이버 mismatch(T0-4) |
 
-**아직 한 건도 수집되지 않는 것:** BMC/iLO(팬·PSU·인렛 온도)·하드웨어 이벤트 로그(SEL)·Windows(data02)·**알림**. 플릿은 HPE ProLiant DL380 4대이고 BMC가 4노드 전부에 있다 — 실측 근거와 도입 설계는 [`specs/hardware-ops/`](./specs/hardware-ops/README.md)(게이트 통과 후 착수).
+**아직 한 건도 수집되지 않는 것:** BMC/iLO(팬·PSU·인렛 온도)·하드웨어 이벤트 로그(SEL)·Windows(data02). 플릿은 HPE ProLiant DL380 4대이고 BMC가 4노드 전부에 있다 — 실측 근거와 도입 설계는 [`specs/hardware-ops/`](./specs/hardware-ops/README.md)(게이트 통과 후 착수).
 
 **수집 중인 것:** node-exporter `:9100` · DCGM `:9400` · gpu-model-exporter `:9836`(모델↔GPU↔소유자) · port-exporter `:9986`(포트↔프로세스) · smartctl-exporter `:9633`(디스크 SMART) · recording rules + z-score 이상 밴드([`rules/`](./infra/monitoring/rules)) · OpenSearch RCF 로그 이상탐지(관찰 모드, [`anomaly-detection/`](./infra/logging/anomaly-detection/README.md)).
 
@@ -67,7 +82,7 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 ```mermaid
 flowchart LR
   N["data01·03·04·05<br/>node · DCGM · gpu-model · port · smartctl"]
-  N -->|"직접 스크랩 data01·03·05<br/>SSH 터널 :764 data04"| P[("Prometheus<br/>15.6k 시리즈")]
+  N -->|"직접 스크랩 data01·03·05<br/>SSH 터널 :764 data04"| P[("Prometheus<br/>16.6k 시리즈")]
   N -->|"Filebeat journald :5044"| L["Logstash<br/>정규화 + service→category"]
   L --> OS[("OpenSearch<br/>keiwi-logs-* · ISM 365d")]
   P --> G["Grafana 13 — 단일 운영 콘솔"]
@@ -76,6 +91,10 @@ flowchart LR
   P --> C
   OS --> C
   V["로컬 vLLM<br/>Qwen3-Coder-30B"] -->|"RAG 진단"| C
+  C -->|"예외 · 스크러빙 후"| GT[("GlitchTip<br/>에러 트래킹")]
+  GT -->|"webhook"| SL["Slack #keiwi-web"]
+  G -->|"alert 9건"| SI["Slack #keiwi-infra"]
+  HB["하트비트 5분<br/>인입 정상일 때만 ping"] --> GT
   C --> Z["Cloudflare Access · 사내 전용"]
   G --> Z
 ```
@@ -99,7 +118,7 @@ vLLM      근거 로그에 [1][2] 번호를 붙여 진단 생성 — 사내 GPU,
 
 1. **Grafana 표준 대시보드를 콘솔에 재구현하지 않는다**(§I-2). 임베드하는 대시보드는 UI 수제가 아니라 **레포 프로비저닝**이어야 한다([ADR-0002](./docs/decisions/0002-grafana-embed.md)·[0016](./docs/decisions/0016-gpu-drilldown-dcgm.md) 교훈 — `docker cp`는 컨테이너 재생성 시 소실).
 2. **어시스턴트는 조치를 자동 적용하지 않는다.** 읽기 전용이고, 답은 항상 서버가 검증한 근거 번호와 함께 나오는 **출발점**이다.
-3. **알림을 콘솔에 만들지 않는다.** 알림은 Prometheus/Alertmanager·Grafana 계층에 산다(현재 0건 — 위 CAUTION).
+3. **알림을 콘솔에 만들지 않는다.** 알림은 Grafana Alerting 계층에 산다(규칙 9건, 파일 프로비저닝 — [`provisioning/alerting/`](./infra/monitoring/grafana/provisioning/alerting)). 앱 예외는 GlitchTip이 별도로 맡는다.
 4. **자체 인증을 만들지 않는다**(§14). 콘솔·Grafana 모두 Cloudflare Access 뒤.
 5. **에이전트가 프로덕션에 적용하지 않는다**(§11). 에이전트는 레포에 산출물을 만들고, 배포·SSH 설치·재시작은 사람이 한다.
 
@@ -199,7 +218,8 @@ node scripts/assistant-func-test.mjs                              # 신호별로
 | **M2** | 통합 로그(OpenSearch · 분류 · 신호 우선 · 365d) | ✅ 라이브 |
 | **M3** | 여유 리소스 판정 | Overview 흡수([ADR-0012](./docs/decisions/0012-roadmap-m3-m4-pivot.md)) · `/resources` 정리 미처리 |
 | **M4** | 장애 추적·시각화 | 보류(M2 신호뷰로 충족) |
-| **M5** | 크리티컬 에러 알림 | **미착수 — alert 규칙 0건.** 정책 [specs/alerting](./specs/alerting/spec.md)(§9 미해결질문 답변 후 확정) |
+| **M5** | 크리티컬 에러 알림 | ✅ **1차 라이브(2026-07-31)** — Grafana 규칙 9건 → `#keiwi-infra` · GlitchTip → `#keiwi-web` · 하트비트 dead man's switch. 임계 근거·3분류 프레임워크 [specs/alerting](./specs/alerting/spec.md) v2 |
+| **M6** | 에러 트래킹(앱 런타임) | ✅ **1차 라이브** — GlitchTip 자체호스팅([ADR-0022](./docs/decisions/0022-error-tracking-glitchtip.md)) · 반출 최소화 스크러버 · [specs/error-tracking](./specs/error-tracking/README.md) |
 | 완료 | 로그 워크벤치([logs-assistant](./specs/logs-assistant/spec.md)) · 노드 온보딩 표준([ADR-0017](./docs/decisions/0017-node-onboarding-standard.md), data03 2026-07-03 / data01 2026-07-24) · 서비스 맵 v2.1 · 소유 계정 귀속 v1([ownership-attribution](./specs/ownership-attribution/spec.md)) | ✅ |
 | **진행 중** | 디자인 v3 Quiet Console(`feat/design-v3`, 2026-07-27~) · 하드웨어 운영 확장 P0 게이트([hardware-ops tasks](./specs/hardware-ops/tasks.md)) · SRE 백로그([sre-addons](./specs/sre-addons/backlog.md)) | 🔄 |
 
