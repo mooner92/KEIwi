@@ -1,0 +1,120 @@
+   1 |  Pre-Init  |0000000117| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   2 |  Pre-Init  |0000000146| System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   3 |  Pre-Init  |0000000150| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   4 |  Pre-Init  |0000000186| System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   5 |  Pre-Init  |0000000187| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   6 |  Pre-Init  |0000000240| System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   7 |  Pre-Init  |0000000244| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   8 | 01/01/2001 | 12:02:33 AM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   9 | 01/01/2001 | 12:02:37 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+   a | 01/01/2001 | 12:04:18 AM UTC | OS Boot | C: boot completed | Asserted
+   b | 01/01/2001 | 12:04:18 AM UTC | OEM record dc | 000137 | 003ff79b5c00
+   c | 01/01/2001 | 12:26:39 AM UTC | OS Critical Stop | OS graceful shutdown | Asserted
+   d | 01/01/2001 | 12:26:39 AM UTC | OEM record dd | 000137 | 00ff00050000
+   e |  Pre-Init  |0000000082| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   f | 04/15/2019 | 06:29:02 PM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  10 | 04/15/2019 | 06:29:14 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  11 | 04/15/2019 | 06:29:17 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  12 | 04/15/2019 | 06:29:39 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  13 | 04/15/2019 | 06:29:39 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  14 | 04/15/2019 | 06:31:22 PM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  15 | 04/15/2019 | 06:31:35 PM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  16 | 04/15/2019 | 06:31:36 PM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  17 | 04/15/2019 | 06:31:40 PM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  18 |  Pre-Init  |0000000095| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  19 | 04/15/2019 | 07:29:26 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1a | 04/15/2019 | 07:30:47 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  1b | 04/15/2019 | 07:30:51 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1c | 04/15/2019 | 08:11:12 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1d | 04/15/2019 | 12:15:43 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  1e | 04/15/2019 | 12:15:48 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1f | 04/15/2019 | 12:23:31 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  20 | 04/15/2019 | 12:23:35 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  21 |  Pre-Init  |0000000115| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  22 | 04/15/2019 | 12:46:42 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  23 | 04/15/2019 | 12:59:45 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  24 | 04/15/2019 | 01:01:46 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  25 | 04/15/2019 | 01:01:50 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  26 | 04/15/2019 | 01:16:45 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  27 |  Pre-Init  |0000000113| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  28 | 04/15/2019 | 01:36:04 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  29 | 04/15/2019 | 01:38:06 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  2a | 04/15/2019 | 01:38:10 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2b | 04/15/2019 | 01:39:03 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  2c | 04/15/2019 | 01:39:04 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2d | 04/15/2019 | 05:53:04 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2e | 04/15/2019 | 02:11:44 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2f | 04/15/2019 | 03:06:14 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  30 | 04/15/2019 | 03:06:17 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  31 | 04/15/2019 | 03:10:40 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  32 | 04/15/2019 | 03:10:45 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  33 |  Pre-Init  |0000000115| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  34 | 04/15/2019 | 03:37:09 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  35 | 04/15/2019 | 05:25:05 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  36 | 04/15/2019 | 05:58:35 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  37 | 04/15/2019 | 06:01:42 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  38 | 04/15/2019 | 06:01:45 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  39 | 04/15/2019 | 06:47:31 PM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  3a |  Pre-Init  |0000003583| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3b | 04/24/2019 | 06:03:36 AM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  3c | 04/24/2019 | 06:03:41 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3d | 04/24/2019 | 06:05:11 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3e | 04/24/2019 | 06:14:24 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3f | 10/04/2019 | 06:01:39 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  40 | 10/04/2019 | 06:18:58 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  41 | 10/04/2019 | 07:23:08 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  42 | 09/24/2020 | 01:53:50 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  43 | 09/24/2020 | 01:53:51 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  44 | 09/24/2020 | 01:53:51 AM UTC | Power Supply #0x42 | Redundancy Lost | Asserted
+  45 | 09/24/2020 | 01:53:52 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  46 | 09/24/2020 | 02:15:02 AM UTC | Power Supply #0x42 | Redundancy Lost | Deasserted
+  47 | 12/07/2020 | 08:53:00 AM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  48 |  Pre-Init  |0000000107| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  49 | 12/07/2020 | 09:56:55 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  4a | 11/03/2022 | 01:21:47 PM UTC | Drive Slot / Bay #0x04 | Predictive Failure | Asserted
+  4b | 11/03/2022 | 01:21:49 PM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  4c | 11/03/2022 | 01:35:17 PM UTC | Drive Slot / Bay #0x04 | Drive Fault | Asserted
+  4d | 03/31/2023 | 04:07:34 AM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  4e |  Pre-Init  |0000000095| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  4f |  Pre-Init  |0000000095| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  50 | 03/31/2023 | 05:44:03 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  51 | 03/31/2023 | 05:44:03 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  52 | 03/31/2023 | 05:44:03 AM UTC | Power Supply #0x42 | Redundancy Lost | Asserted
+  53 | 03/31/2023 | 05:44:07 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  54 | 03/31/2023 | 05:44:07 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  55 | 03/31/2023 | 05:44:08 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  56 | 03/31/2023 | 05:44:08 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  57 | 03/31/2023 | 05:44:08 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  58 | 03/31/2023 | 05:44:16 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  59 | 03/31/2023 | 05:44:16 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  5a | 03/31/2023 | 05:44:16 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  5b | 03/31/2023 | 05:44:17 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  5c | 03/31/2023 | 05:44:17 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  5d | 03/31/2023 | 05:44:17 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  5e | 03/31/2023 | 05:44:30 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  5f | 03/31/2023 | 05:44:30 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  60 | 03/31/2023 | 05:44:30 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  61 | 03/31/2023 | 05:44:32 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  62 | 03/31/2023 | 05:44:32 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  63 | 03/31/2023 | 05:44:32 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  64 | 03/31/2023 | 05:44:46 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  65 | 03/31/2023 | 05:44:46 AM UTC | Power Supply #0x32 | Failure detected | Asserted
+  66 | 03/31/2023 | 05:44:46 AM UTC | Power Supply #0x32 | Power Supply AC lost | Asserted
+  67 | 03/31/2023 | 05:46:51 AM UTC | Power Supply #0x42 | Redundancy Lost | Deasserted
+  68 | 12/18/2024 | 07:10:04 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  69 | 05/08/2025 | 06:01:40 AM UTC | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  6a |  Pre-Init  |0000000162| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  6b | 05/10/2025 | 12:32:09 AM UTC | Power Supply #0x33 | Failure detected | Asserted
+  6c | 05/10/2025 | 12:32:11 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  6d | 05/10/2025 | 12:32:11 AM UTC | Power Supply #0x33 | Power Supply AC lost | Asserted
+  6e | 05/10/2025 | 12:32:11 AM UTC | Power Supply #0x42 | Redundancy Lost | Asserted
+  6f | 05/10/2025 | 12:54:29 AM UTC | Power Supply #0x42 | Redundancy Lost | Deasserted
+  70 | 06/21/2025 | 12:04:57 AM UTC | Power Supply #0x33 | Failure detected | Asserted
+  71 | 06/21/2025 | 12:04:58 AM UTC | Power Supply #0x33 | Power Supply AC lost | Asserted
+  72 | 06/21/2025 | 12:04:58 AM UTC | Power Supply #0x42 | Redundancy Lost | Asserted
+  73 | 06/21/2025 | 12:05:02 AM UTC | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  74 | 06/21/2025 | 01:02:45 AM UTC | Power Supply #0x42 | Redundancy Lost | Deasserted
+  75 | 07/02/2026 | 07:54:55 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  76 | 07/02/2026 | 08:59:13 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  77 | 07/03/2026 | 08:10:11 AM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  78 | 07/04/2026 | 12:29:47 PM UTC | System ACPI Power State #0xaa | S0/G0: working | Asserted
