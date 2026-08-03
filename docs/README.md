@@ -51,11 +51,24 @@
 
 ## 🛠️ 런북 (`./runbooks/`)
 
-| 런북 | 언제 |
-| --- | --- |
-| [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) |
-| [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 |
-| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — LogIngestStalled/하트비트 |
+> 형식 계약: 모든 런북은 frontmatter(`id`=파일 stem · `kind` · `category`, `kind: alert`는 `alerts`·`severity` 추가)를 갖고
+> **이 표에 한 줄로 링크된다.** 둘 다 `scripts/gates/check-runbooks.sh`가 기계 검증한다(R6·R9).
+> 골격은 [`runbook-template.md`](./runbook-template.md).
+
+| 런북 | 언제 | 담당 알림 |
+| --- | --- | --- |
+| [gpu-xid](./runbooks/gpu-xid.md) | GPU XID 에러 — latched 게이지 판별·코드 분기(앱 vs HW) | `GpuXidErrorNew` · `GpuXidCritical`(미배포) |
+| [gpu-thermal](./runbooks/gpu-thermal.md) | GPU 과열(92°C) — 스로틀 대체 판별, 현재 여유 2°C | `GpuTempHigh` |
+| [node-down](./runbooks/node-down.md) | 노드 무응답 — exporter down vs 노드 down 분기(data04 터널 오판) | `NodeDown` |
+| [disk-pressure](./runbooks/disk-pressure.md) | 디스크 사용률·소진 예측 | `DiskUsageHigh` · `DiskFillPredicted` |
+| [memory-pressure](./runbooks/memory-pressure.md) | 메모리 고갈·OOM kill (⚠️ data01은 `oom_kill` 미수집) | `MemoryLow` · `OomKillOccurred` |
+| [smart-health-failed](./runbooks/smart-health-failed.md) | SMART 헬스 실패 — RAID 뒤 물리 디스크 미노출 한계 | `SmartHealthFailed` |
+| [node-hygiene-coverage-gap](./runbooks/node-hygiene-coverage-gap.md) | 위생 수집기가 없는 노드 존재 = 탐지 사각지대 | `NodeHygieneCoverageGap` |
+| [node-hygiene-stale](./runbooks/node-hygiene-stale.md) | 위생 수집기가 낡은 `.prom`을 계속 서빙 | `NodeHygieneStale` |
+| [reboot-required-stale](./runbooks/reboot-required-stale.md) | 재부팅 부채 청산 절차(알림은 T1-14에서 승격 — 현재 미배포) | `RebootRequiredStale`(미배포) |
+| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — 하트비트 | `LogIngestStalled` |
+| [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) | — (절차서) |
+| [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 | — (종결 인시던트) |
 
 ## 🏗️ 인프라 (`../infra/`)
 

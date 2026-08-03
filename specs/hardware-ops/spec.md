@@ -424,7 +424,28 @@ POST /api/convert/prometheus/config/v1/rules
 ### 2.6 alert 규칙 v1 카탈로그 — 전부 라이브에서 실행해 시리즈 유무·현재값을 확인한 것만 싣는다
 
 공통 규약: `labels.severity ∈ {sev1,sev2,sev3}` · `annotations.summary`(1줄 증상) · `annotations.runbook_url` · `annotations.dashboard_url`.
-**런북 파일명 규약**: alertname을 kebab-case로 변환 → `docs/runbooks/<kebab>.md`(예 `NodeDown` → `node-down.md`). CI가 존재를 검증한다(AC-2-6).
+**런북 담당 규약** (2026-08-03 갱신 — *파일명 kebab 강제* → *frontmatter 선언*): 런북이 담당 alertname을 **선언**하는 것이 정본이고, 파일명 규칙은 폴백이다.
+
+```yaml
+---
+id: gpu-xid                  # = 파일 stem (콘솔 runbooks.ts:38이 요구)
+kind: alert                  # alert | procedure | incident (부재 시 alert로 간주)
+alerts: [GpuXidErrorNew]     # ← 이 런북이 담당하는 alertname. 여기가 정본
+category: gpu
+severity: critical
+---
+```
+
+- **공통 계약**(모든 `docs/runbooks/*.md`): `id`(=파일 stem) · `kind` · `category`
+- **알림 런북 추가 계약**(`kind: alert`만): `alerts`(배열) · `severity`
+- kebab 파일명(`NodeDown` → `node-down.md`)은 **`alerts:`가 없을 때만** 폴백으로 쓴다.
+  강제하지 않는 이유: `LogIngestStalled`의 kebab은 `log-ingest-stalled.md`인데 실제 런북은
+  `log-ingestion-stopped.md`다 — **kebab 강제는 유일하게 올바른 알림 런북을 FAIL시킨다.**
+- `kind`로 나눈 이유: 절차서(`node-onboarding.md`)·종결 인시던트(`rsyslog-omfile-flood.md`)는
+  담당 알림이 없다. 전 문서에 `alerts`를 강요하면 `alerts: []`·`severity: none` 같은 **거짓 필드**가 생긴다.
+- 알림이 아직 없는 런북(`alerts: []`)은 게이트가 **WARN**으로 통과시킨다(런북 먼저·알림 나중을 허용 — T0-3이 막히지 않게).
+
+CI가 이 왕복(알림 → 런북 → `alerts:` 선언)을 검증한다 — 게이트는 fleet-hardening T3-5로 **이관**(`scripts/gates/check-runbooks.sh`, AC-2-6).
 
 #### 2.6.1 가용성
 
@@ -642,7 +663,7 @@ Slack egress를 1건 승인하면 **관찰자를 알림 스택 밖에 둘 수 �
 | **AC-2-3** | 라벨 정규화(B2) | `q 'count(up) - count(up{node=~"data0[1-5]"})'` → `0` |
 | **AC-2-4** | 규칙 import 완료 | `curl -s -H "Authorization: Bearer $T" $G/api/v1/provisioning/alert-rules \| jq length` → `≥ 20` |
 | **AC-2-5** | 섀도 모드 | 동 응답 `jq '[.[]\|select(.isPaused==true)]\|length'` == 전체 length |
-| **AC-2-6** | **런북 존재 CI 게이트** | `scripts/check-runbooks.sh` → 모든 alertname의 kebab 파일이 `docs/runbooks/`에 존재, 없으면 exit 1 |
+| **AC-2-6** | **런북 왕복 CI 게이트** (fleet-hardening T3-5로 **이관** — 경로 정정 `scripts/check-runbooks.sh` → `scripts/gates/check-runbooks.sh`) | `bash scripts/gates/check-runbooks.sh` → 모든 alertname이 `docs/runbooks/*.md` 전용 런북을 가리키고 그 런북이 frontmatter `alerts:`로 담당을 선언(§2.6 규약, kebab은 폴백), 위반 시 exit 1 |
 | **AC-2-7** | 딥링크 정본 | 전 규칙 `dashboard_url`이 `-v3`가 아닌(또는 정본으로 확정된) uid만 참조: `! grep -q 'keiwi-.*-v3' infra/monitoring/alerts/*.yml` |
 | **AC-2-8** | XID 규칙이 latched 게이지를 쓰지 않음 | `! grep -qE 'increase\(DCGM_FI_DEV_XID_ERRORS' infra/monitoring/alerts/*.yml` |
 | **AC-2-9** | Slack 라벨 화이트리스트 | 템플릿 파일에 `user`·`pid`·`cmdline`·`instance`·`modelName` 문자열 부재: `! grep -qE '\.user\|\.pid\|\.cmdline\|\.instance\|modelName' infra/monitoring/grafana/provisioning/alerting/templates/*.yaml` |
@@ -687,10 +708,23 @@ groups:
 ```sh
 # roles/node-hygiene/templates/keiwi-node-hygiene.sh.j2 에 블록 추가 (신규 role 불필요)
 node_nvidia_kernel_module_version{version="595.71.05"} 1   # awk from /proc/driver/nvidia/version
-node_nvidia_userspace_version{version="595.84"} 1          # readlink libnvidia-ml.so.1
+node_nvidia_userspace_version{version="595.84"} 1          # ldconfig -p → readlink -f (※ 각주)
 node_nvidia_smi_ok 0                                       # `nvidia-smi -L`; echo $?  → 0=정상
 node_nvidia_version_mismatch 1                             # 두 값 비교
 ```
+
+> [!NOTE]
+> **※ NVML 경로를 하드코딩하지 마라 — data01에서 깨진다** [실측 2026-08-03, 4노드 전수].
+> `readlink libnvidia-ml.so.1`을 고정 경로(`/usr/lib/x86_64-linux-gnu/`)로 쓰면 data01은
+> NVML이 **`/usr/lib/nvidia-418/libnvidia-ml.so.1`**이라 빈 문자열이 나오고, 그것을 mismatch로
+> 해석하면 legacy 노드가 영구 오탐한다. `ldconfig -p`로 링커가 실제로 고르는 경로를 얻은 뒤
+> `readlink -f`로 실파일까지 따라간다 — 4노드(418.39 / 595.71.05 / 535.309.01 / 595.84) 전부 정확했다.
+>
+> **구현은 fleet-hardening T1-3**이고, 거기서 메트릭 2개가 더 붙는다:
+> `node_nvidia_probe_ok`(두 버전을 모두 파싱했는가 — 판정불능과 정상의 구분)와
+> `node_nvidia_smi_exit_code`(런북이 exit 18로 분기). 파싱 실패 시 mismatch를 1로 두면 data01이
+> 영구 오탐하고, 0으로 두면 "측정하지 않은 것이 정상으로 보이는" 이 사고의 실패모드를
+> 메트릭 레벨에서 재생산한다 — 그래서 **세 번째 상태**가 필요하다.
 
 > [!IMPORTANT]
 > **`node_nvidia_smi_ok` 단 하나가 6일 방치를 1분 탐지로 바꾼다.** 이 문장이 P1의 정당화 전부다. 배선처는 이미 존재한다 — node-exporter `--collector.textfile.directory`가 data01/03/04에 적용돼 있고 data04에 `keiwi_node_hygiene.prom`이 실존한다. data05는 compose에 `/var/lib/node_exporter/textfile:/host/textfile:ro` 마운트가 이미 있다.
@@ -906,5 +940,5 @@ groups:
 | `specs/sre-addons/metrics-collection.md` | T2-8("발견 선행 — Quadro라 BMC 없을 수 있음")을 **실측으로 확정 처리하고 Tier 1/2로 승격**. §1 표의 "전원" 사각지대 행을 갱신. T1-5/6(스로틀·PCIe/NVLink)은 §3.4로 흡수 |
 | `specs/alerting/spec.md` | §2 함정(data01 수집 중) · §9(data03 DCGM 기동 확인 · Telegram 불가) 교정. §3.2 G1 PromQL을 §2.6.2로 교체. **§3.8에 하드웨어 카탈로그(HW*) 추가** |
 | `docs/inventory.yaml` | `hardware:` 블록(§1.11) + 드라이버·커널모듈 실측 교정(§3.8-5) |
-| `docs/runbooks/` | 신규: `nvidia-driver-mismatch.md`(G0-1) · `psu-redundancy-lost.md` · `inlet-temp-near-critical.md` · `gpu-xid-critical.md` · `log-ingest-stalled.md`(G0-2) · `sel-near-full.md` + 알림별 나머지. **파일명 = alertname의 kebab-case**(AC-2-6이 강제) |
+| `docs/runbooks/` | 신규: `nvidia-driver-mismatch.md`(G0-1, T0-3) · `psu-redundancy-lost.md` · `inlet-temp-near-critical.md` · `sel-near-full.md`. ~~`gpu-xid-critical.md`~~·~~`log-ingest-stalled.md`~~는 **작성하지 않는다** — fleet-hardening 축3의 `gpu-xid.md`·기존 `log-ingestion-stopped.md`가 담당하고 frontmatter `alerts:`로 선언한다. **담당은 파일명이 아니라 선언이 정본**(§2.6 규약, AC-2-6) |
 | `infra/monitoring/README.md` | BMC job의 60s/30s 분리 이유 · alerting 바인드 추가 시 백업 절차(2026-07-02 사고 재발 방지) |

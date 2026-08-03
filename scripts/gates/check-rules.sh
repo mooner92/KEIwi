@@ -43,7 +43,13 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-ENGINE=$(bash "$HERE/promtool.sh" --which 2>/dev/null)
+# promtool.sh --which 는 **해석 경로**(path|docker|cache|none)를 돌려준다.
+# 게이트가 찍는 **엔진 이름**은 spec §0.2.2 계약상 promtool|structural 두 가지뿐이다 —
+# path/docker/cache는 셋 다 "진짜 promtool이 돌았다"는 같은 뜻이고, 그 강도를 소비자가
+# 구분할 이유가 없다. 해석 경로를 그대로 찍으면 `engine=path`가 나와
+# T1-7("engine=promtool 확인")·AC-4-5의 문자열 계약이 깨진다.
+RESOLVER=$(bash "$HERE/promtool.sh" --which 2>/dev/null)
+if [[ "$RESOLVER" == "none" ]]; then ENGINE=structural; else ENGINE=promtool; fi
 
 # 인자 없음 → check 전체 + test 자동강등(D4-4). SKIP을 만들지 않는다.
 AUTO=0
@@ -57,47 +63,21 @@ if [[ ${#FILES[@]} -eq 0 ]]; then
 fi
 
 # ── 구조 폴백 엔진 ────────────────────────────────────────────────────────────
+# 로직은 tools/promtool_fallback.py 가 정본이다(T1-12 산출물).
+# 여기 인라인으로 복제하면 축2의 `check-metrics` 폴백과 규칙이 갈라진다 —
+# AC-2-6이 그 파일을 직접 호출하므로 한 곳에만 둔다.
+FALLBACK="$ROOT/tools/promtool_fallback.py"
 structural_check() {
-  python3 - "$@" <<'PY'
-import sys, yaml
-bad = 0
-for path in sys.argv[1:]:
-    try:
-        with open(path) as f:
-            doc = yaml.safe_load(f)
-    except Exception as e:
-        print(f"  FAIL {path}: YAML 파싱 실패 — {e}"); bad += 1; continue
-    if not isinstance(doc, dict) or "groups" not in doc:
-        print(f"  FAIL {path}: 최상위 'groups' 키 없음"); bad += 1; continue
-    groups = doc.get("groups")
-    if not isinstance(groups, list):
-        print(f"  FAIL {path}: 'groups'가 리스트가 아님"); bad += 1; continue
-    for gi, g in enumerate(groups):
-        if not isinstance(g, dict) or "name" not in g:
-            print(f"  FAIL {path}: groups[{gi}]에 name 없음"); bad += 1; continue
-        for ri, r in enumerate(g.get("rules") or []):
-            where = f"{path}:{g['name']}[{ri}]"
-            if not isinstance(r, dict):
-                print(f"  FAIL {where}: 규칙이 매핑이 아님"); bad += 1; continue
-            has_rec, has_alert = "record" in r, "alert" in r
-            if has_rec == has_alert:
-                print(f"  FAIL {where}: record/alert 중 정확히 하나여야 함"); bad += 1
-            expr = r.get("expr")
-            if expr is None or (isinstance(expr, str) and not expr.strip()):
-                print(f"  FAIL {where}: expr 없음/빈 값"); bad += 1; continue
-            e = str(expr)
-            for open_c, close_c, label in (("(", ")", "괄호"), ("[", "]", "대괄호"), ("{", "}", "중괄호")):
-                if e.count(open_c) != e.count(close_c):
-                    print(f"  FAIL {where}: {label} 불균형 — {e[:70]}"); bad += 1
-            if e.count('"') % 2 or e.count("'") % 2:
-                print(f"  FAIL {where}: 따옴표 불균형 — {e[:70]}"); bad += 1
-sys.exit(1 if bad else 0)
-PY
+  if [[ ! -f "$FALLBACK" ]]; then
+    echo "  FAIL 폴백 엔진 없음: $FALLBACK" >&2
+    return 1
+  fi
+  python3 "$FALLBACK" check-rules "$@"
 }
 
 case "$MODE" in
   check)
-    if [[ "$ENGINE" == "none" ]]; then
+    if [[ "$ENGINE" == "structural" ]]; then
       structural_check "${FILES[@]}" || { echo "RULES_FAIL engine=structural"; exit 1; }
       echo "RULES_OK engine=structural"
       echo "  NOTE: PromQL 의미 검증은 생략됐다(promtool 부재). 구조·문법만 검사." >&2
@@ -108,17 +88,21 @@ case "$MODE" in
       echo "RULES_OK engine=$ENGINE"
     fi
     # 인자 없음 호출은 여기서 test를 자동 강등해 이어 붙인다(D4-4) — SKIP 대신 NOTE.
-    if [[ $AUTO -eq 1 && "$ENGINE" == "none" ]]; then
+    if [[ $AUTO -eq 1 && "$ENGINE" == "structural" ]]; then
       echo "  NOTE: --test는 평가 엔진이 필요해 --schema-only로 강등됨." >&2
     fi
     exit 0 ;;
 
   test)
-    if [[ "$ENGINE" == "none" ]]; then
-      if [[ $SCHEMA_ONLY -eq 1 ]]; then
-        structural_check "${FILES[@]}" || exit 1
-        echo "RULES_TEST_SCHEMA_OK engine=structural"; exit 0
-      fi
+    # --schema-only 는 **엔진과 무관하게** 스키마 전용 경로다.
+    # 이 조건을 엔진 분기 뒤에 두면 promtool이 있을 때 `promtool test rules`가 규칙 파일을
+    # 단위테스트 파일로 오인해 `field groups not found in type main.unitTestFile`로 죽는다
+    # [실측 2026-08-03]. 강등 요청을 엔진 존재가 무시하면 안 된다.
+    if [[ $SCHEMA_ONLY -eq 1 ]]; then
+      structural_check "${FILES[@]}" || exit 1
+      echo "RULES_TEST_SCHEMA_OK engine=structural"; exit 0
+    fi
+    if [[ "$ENGINE" == "structural" ]]; then
       echo "SKIP(env: promtool) — 규칙 단위 테스트는 평가 엔진이 필요하다" >&2
       exit 2
     fi

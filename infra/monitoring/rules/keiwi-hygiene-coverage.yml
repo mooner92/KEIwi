@@ -1,0 +1,85 @@
+# KEIwi 위생 커버리지 + 재부팅 부채 — recording rules (record:만. ⚠️ alert 키 절대 금지).
+#
+# 성격: 에이전트는 생성만, 적용은 사람(헌장 §11). 라이브(/data/monitoring/rules/)는 직접 수정 금지(§12).
+# 배선: prometheus.yml 의 rule_files: ["/etc/prometheus/rules/*.yml"] 로 로드.
+#       적용 후 `docker kill -s HUP prometheus` (⚠️ `docker compose restart prometheus` 금지 —
+#       2026-07-02 대시보드 소실 사고의 원인이다).
+# ⚠️ 이 파일에는 record: 규칙만 존재한다. alert: 키가 하나라도 있으면 헌장 위반이고
+#    AC-1-10이 그것을 기계 검증한다. 알림은 Grafana 프로비저닝(alert-rules.yaml)이 정본이다.
+#
+# ── 왜 이 파일이 존재하나 ────────────────────────────────────────────────────
+# 2026-08-02 실측: count(up{job="node-exporter"}==1)=4 인데
+#                  count(node_hygiene_collector_last_run_timestamp_seconds)=2 였다.
+# 위생 메트릭이 data03·04에만 있고, 정작 NVIDIA 드라이버가 깨진 data05와 legacy data01에 없었다.
+# 근본 원인은 드라이버 불일치가 아니라 **"탐지가 없는 노드가 있다는 것을 아무도 몰랐다"**는 것이다.
+# 개별 메트릭만 더하면 다음번에 같은 방식으로 빠지는 노드가 또 생긴다 →
+# **커버리지 자체를 메트릭으로 만든다.** 노드 목록 하드코딩(absent())은 기각했다:
+# 노드 추가/제거마다 사람이 고쳐야 하고, 잊으면 정확히 지금 상황이 재현된다(spec §1.3).
+#
+# 네이밍 규약(Prometheus 공식): level:metric:operation — level=fleet(플릿 집계) | instance(노드별).
+
+groups:
+  - name: keiwi_hygiene_coverage
+    interval: 60s
+    rules:
+      # ── 커버리지 6건 ──────────────────────────────────────────────────────
+      # 이 구멍이 다시 조용히 열리는 것을 막는 유일한 신호.
+
+      # 분모: 스크랩이 성공하는 node-exporter 타깃 수. 2026-08-02 실측 4.
+      - record: fleet:node_exporter_up:count
+        expr: count(up{job="node-exporter"} == 1)
+
+      # 분자: 위생 수집기가 실제로 .prom을 쓰고 있는 노드 수. 배포 전 2 → 목표 4.
+      # `or vector(0)`: 전 노드에서 수집기가 죽으면 count()가 빈 벡터가 되어 gap 식이
+      #                 함께 사라진다(구멍이 최대일 때 신호도 같이 사라지는 최악의 실패모드).
+      - record: fleet:node_hygiene_reporting:count
+        expr: count(node_hygiene_collector_last_run_timestamp_seconds) or vector(0)
+
+      # 갭 = 살아 있는데 위생 메트릭이 없는 노드 수. 배포 전 2, 목표 0.
+      # NodeHygieneCoverageGap 알림의 입력이다(gap > 0, 30m).
+      # ⚠️ 좌변에도 `or vector(0)`이 필요하다. node-exporter가 전멸하면 좌변이 빈 벡터가 되고
+      #    빈 벡터와의 뺄셈은 빈 벡터라 **gap 시리즈 자체가 사라진다** → NodeHygieneCoverageGap이
+      #    noDataState=NoData로 조용해진다. "구멍이 최대일 때 신호도 함께 사라지는" 실패모드를
+      #    우변에서만 막고 좌변에 남겨두면 비대칭이다. NodeDown이 별도로 덮지만, 이 규칙이
+      #    스스로 침묵하지 않는 것과는 별개 문제다.
+      - record: fleet:node_hygiene_coverage:gap
+        expr: >-
+          (count(up{job="node-exporter"} == 1) or vector(0))
+          - (count(node_hygiene_collector_last_run_timestamp_seconds) or vector(0))
+
+      # 드라이버 커널모듈↔유저스페이스 불일치 노드 수. 배포 후 data05=1이 기대값이다.
+      - record: fleet:gpu_driver_mismatch:count
+        expr: count(node_nvidia_version_mismatch == 1) or vector(0)
+
+      # 판정 불능(두 버전 중 하나라도 파싱 실패) 노드 수. mismatch=0을 해석하기 전에 이걸 본다.
+      # 0이 아니면 "불일치 없음"이 아니라 "모른다"는 뜻이다.
+      - record: fleet:gpu_driver_probe_failed:count
+        expr: count(node_nvidia_probe_ok == 0) or vector(0)
+
+      # 무재부팅 기간(일). 부채 "나이"가 아니다 — 나이는 0→1 전이 시각으로만 알 수 있다(아래).
+      - record: instance:node_uptime:days
+        expr: (time() - node_boot_time_seconds) / 86400
+
+      # ── 재부팅 부채 4건 ───────────────────────────────────────────────────
+      # 알림이 아니라 **패널·티켓의 입력**이다(spec §1.2 D1-4 선택지 (C)).
+      # 실측: min_over_time(node_reboot_required[Xd])==1 인 노드 수가 X=7d 2 · 14d 2 · 30d 1이고,
+      #       offset 31d는 보존(30d) 밖이라 빈 벡터다 → **X>30d는 표현 자체가 불가능**하다.
+      #       즉 어떤 임계를 골라도 day-1 발화 0을 만들 수 없다. 발화를 피하려고 임계를 올리는 것은
+      #       임계 근거가 아니므로, 임계가 아니라 **적용 시점**을 미룬다(T1-13 청산 → T1-14 승격).
+      # 나이를 지어내지 않고 관측 창을 그대로 노출한다 — /run/reboot-required의 mtime은
+      #       "생성 시각"이 아니라 "마지막 갱신 시각"이라 못 쓴다(.103 mtime 07-28 vs 실제 전이 07-17).
+      #       창 3개는 나이를 구간으로 묶어주고(예: (14d,30d] → 실제 16.0일), 보존 밖은
+      #       정직하게 "구분 불가"로 남는다.
+      - record: fleet:node_reboot_required:count
+        expr: count(node_reboot_required == 1) or vector(0)
+
+      # ⚠️ 이 3건에 `== 1` 필터를 걸지 않는다. 값 0(부채 없음)도 시리즈로 남아야
+      #    AC-1-15 ①②의 "창 record가 보고 노드 전부를 덮는다"가 성립한다.
+      #    수집기는 파일이 없을 때도 node_reboot_required 0을 항상 방출하므로
+      #    min_over_time은 빈 벡터가 되지 않고 0을 반환한다(T1-14 승격 관문의 근거).
+      - record: instance:node_reboot_debt:min7d
+        expr: min_over_time(node_reboot_required[7d])
+      - record: instance:node_reboot_debt:min14d
+        expr: min_over_time(node_reboot_required[14d])
+      - record: instance:node_reboot_debt:min30d
+        expr: min_over_time(node_reboot_required[30d])

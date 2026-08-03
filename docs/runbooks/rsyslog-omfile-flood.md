@@ -1,5 +1,6 @@
 ---
 id: rsyslog-omfile-flood
+kind: incident                # 종결된 인시던트 기록 — 담당 알림이 없다(alerts·severity 없음이 정상)
 service: rsyslog.service
 category: infra
 signature: "omfile' suspended"
@@ -38,7 +39,7 @@ curl -s 'localhost:9200/keiwi-logs-*/_count' -H 'Content-Type: application/json'
 ## 진단 (해당 노드에서)
 
 ```bash
-ssh -p 764 <user>@<node-ip>          # 예: ssh -p 764 mhchoi@192.168.1.104
+ssh -p 764 "<user>@<node-ip>"        # 예: ssh -p 764 mhchoi@192.168.1.104
 df -h /var/log /var /                                 # ① 디스크 full? (흔한 원인 — 비웠다면 아님)
 sudo journalctl -u rsyslog -n 80 --no-pager | grep -ivE 'suspended|retry' | tail -25   # ② 진짜 이유(앞 메시지)
 grep -rsnE 'omfile|/var/log|:omfile|ActionFileDefault' /etc/rsyslog.conf /etc/rsyslog.d/   # ③ 출력 경로

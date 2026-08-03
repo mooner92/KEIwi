@@ -215,9 +215,18 @@ hardware-ops T0-1의 메트릭 이름 4개는 **그대로 쓴다**(재정의 금
       또는 container(=compose 바인드마운트로 읽음)를 선언하라.
 
 - name: 소비처 실증 검증(host 노드 — 실행 중 node-exporter가 정말 이 디렉터리를 읽는가)
+  # ⚠️ 패턴을 cmdline **선두에 앵커**하는 것이 이 태스크의 정확성 전부다.
+  #    `pgrep -f`는 **자기 자신을 감싼 셸도 매칭한다** — ansible shell 모듈은 `/bin/sh -c '<명령>'`으로
+  #    도는데 그 cmdline 안에 `node_exporter`와 `--collector.textfile.directory=…`가 문자열로 들어 있다.
+  #    앵커 없는 순진한 형태(`pgrep -af '(^|/)node_exporter' | grep -q -- '--collector...'`)는
+  #    **항상 rc=0**이라 검증이 아니라 "항상 통과하는 장식"이 된다.
+  #    [실증 2026-08-03] data01에서 존재하지 않는 디렉터리를 인자로 줘도 순진한 형태는 rc=0,
+  #    아래 앵커본은 rc=1을 반환했다. 실측 textfile 경로가 `node_exporter`를 포함하기 때문에
+  #    실환경에서 반드시 자기매칭한다 — 이 함정은 이론이 아니다.
   ansible.builtin.shell: >-
-    pgrep -af '(^|/)(node_exporter|prometheus-node-exporter)'
-    | grep -q -- '--collector.textfile.directory={{ node_hygiene_textfile_dir }}'
+    pgrep -f
+    '^([^[:space:]]*/)?(prometheus-)?node[_-]exporter[[:space:]].*--collector\.textfile\.directory={{ node_hygiene_textfile_dir | regex_escape }}'
+    >/dev/null
   register: _consumer_ok
   changed_when: false
   failed_when: false
@@ -351,9 +360,14 @@ groups:
 
 | alert | expr | for | severity | runbook |
 |---|---|---|---|---|
-| `NodeHygieneCoverageGap` | `fleet:node_hygiene_coverage:gap > 0` | 30m | sev3 | `node-hygiene-coverage-gap.md` |
-| `NodeHygieneStale` | `time() - node_hygiene_collector_last_run_timestamp_seconds > 5400` | 15m | sev3 | `node-hygiene-stale.md` |
+| `NodeHygieneCoverageGap` | `fleet:node_hygiene_coverage:gap > 0` | 30m | warning | `node-hygiene-coverage-gap.md` |
+| `NodeHygieneStale` | `time() - node_hygiene_collector_last_run_timestamp_seconds > 5400` | 15m | warning | `node-hygiene-stale.md` |
 
+
+> [!NOTE]
+> **severity 어휘는 `critical`·`warning` 둘뿐이다** — 라이브 `notification-policies.yaml`의
+> `object_matchers`가 이 두 값만 라우팅한다 [실측 2026-08-03]. `sev1~3` 같은 숫자 등급을 쓰면
+> **어느 정책에도 매칭되지 않아 알림이 조용히 기본 경로로 빠진다.**
 두 규칙 모두 **배포 시점 값이 정상 쪽**이다: `gap`은 T1-4 완료 후 0(그래서 T1-7이 T1-4 완료 30분 뒤), `stale`은 타이머가 30분 주기라 5400s 여유.
 
 ##### RebootRequiredStale — **이번 파동에서 알림으로 만들지 않는다**
@@ -380,7 +394,7 @@ groups:
 | ③ 청산 | **T1-13** `[server]` | 기존 부채 3건(.103·.104 + T1-4 후 .105)을 **재부팅 티켓**으로 처리. T2-18(열화 디스크)과 같은 성격 — 파동을 기다리지 않는다 |
 | ④ 승격 | **T1-14** `[server]` | `fleet:node_reboot_required:count`가 **0이 된 뒤에만** 알림을 켠다. 그러면 day-1 발화가 구조적으로 불가능하다 |
 
-**승격 시점의 규칙안**(T1-14에서 확정): `min_over_time(node_reboot_required[14d]) == 1`, for 15m, sev3, 런북 `reboot-required-stale.md`.
+**승격 시점의 규칙안**(T1-14에서 확정): `min_over_time(node_reboot_required[14d]) == 1`, for 15m, severity=warning, 런북 `reboot-required-stale.md`.
 `for: 14d` 대신 `min_over_time(...[14d])`인 이유는 유효하다 — Grafana/Prometheus 재시작이 pending을 리셋하므로 장기 `for`는 발화하지 않는 죽은 규칙이 된다. 보존 **30d**(`docker-compose.yml:24` `--storage.tsdb.retention.time=30d`) > 14d 확인됨.
 **임계 14일의 근거**: 연구 GPU 노드 재부팅은 사고가 아니라 예약 작업이고, 정비창을 잡는 데 2주면 충분하다는 운영 판단이다. 실측 근거가 아니라 **정책값**임을 명시한다(근거 없는 수치를 실측인 양 쓰지 않는다). 실측 분포는 이 값을 **고를 수 없다**는 것만 알려준다((B) 기각 근거) — 그래서 임계는 분포가 아니라 정책에서 오고, 대신 **적용 시점**을 분포가 결정한다(부채 0).
 
@@ -917,6 +931,33 @@ R7의 정밀도: **단위(`°C`/`%`)가 붙은 숫자만** 대조하므로 LogIn
 | `node-onboarding.md:147·148` | `# <user>…` / `echo '<user> …'` | PASS | 주석·작은따옴표 안이라 구조적으로 안전. **변경 없음** |
 
 > **표기 규약 — `<…>` 자리표시자는 따옴표 안에 둔다.** 축3이 새로 쓰는 런북 6종과 최소 골격 템플릿(T3-3)에 이 규약을 넣는다. R10이 잡는 것은 *문법 오류*뿐이라 무따옴표 표기는 **우연히 통과할 수 있고**(위 표 2행), 그 상태로 남으면 다음 편집에서 다시 red가 된다. 규약을 문서 쪽에 두는 이유는 게이트를 하나 더 늘리지 않기 위해서다 — 같은 결함을 두 번 잡는 규칙은 유지비만 늘린다.
+
+#### D3-10. CI 축(축5) 핸드오프 — 워크플로 파일은 여기서 만들지 않는다
+
+축3은 게이트만 만들고 **워크플로 파일(`.github/workflows/*.yml`)은 축5 소관**이다. 두 축이 같은 파일을 만들면 정본이 둘이 된다. 축5가 잡에 붙일 스텝과 규약만 여기 남긴다.
+
+```yaml
+# .github/workflows/<축5가 정한 파일>.yml — PR 잡에 넣을 스텝
+- name: runbook integrity gate
+  run: |
+    python3 -m pip install --quiet pyyaml     # 이 게이트의 유일한 외부 의존
+    bash scripts/gates/check-runbooks.sh      # exit 0 통과(WARN 포함) / 1 위반 / 2 환경부족
+
+# post-merge(main push) 잡 — PR 시점엔 blob/main에 파일이 없어 항상 red가 되므로 분리한다
+- name: runbook link check (post-merge)
+  run: |
+    git fetch --no-tags --depth=1 origin main
+    bash scripts/gates/check-runbooks.sh --check-main
+```
+
+| 항목 | 규약 |
+|---|---|
+| 의존 | `python3` + **PyYAML만.** 없으면 게이트가 `SKIP(env: …)` + **exit 2** — CI에서 exit 2는 **실패로 취급**한다(설치가 빠졌다는 뜻이지 통과가 아니다). 로컬에서만 SKIP 허용 |
+| 실행기 | 로컬·CI 모두 `scripts/verify-all.sh`가 `scripts/gates/check-*` 글롭으로 자동 편입. **배선 작업 불필요**(§0.2) |
+| PR vs post-merge | 기본 실행은 **워킹트리**(R3)만 본다. `--check-main`은 **머지 후** 잡 전용 — 런북을 추가하는 그 PR에서는 `blob/main`에 파일이 없어 닭-달걀이 된다 |
+| 실패 출력 | `R<n> FAIL: <대상> <이유>` 한 줄씩 + 마지막에 `FAIL: runbooks check — 위반 N건 (rules=…, runbooks=…, warn=…, engine=pyyaml)`. **규칙 수를 하드코딩하지 않으므로** 축1·축2가 알림을 추가해도 잡을 고칠 일이 없다 |
+| WARN | `R8`(알림 없는 런북)·`R11`(180일 초과)은 **exit 0**. CI를 막지 않는다 — 막으면 "런북 먼저·알림 나중"이 불가능해지고 축 간 데드락이 된다 |
+| 자기검증 | `--self-test`는 런타임 픽스처(`mktemp -d`)로 R1~R7 위반을 재현하고 **exit 1**로 끝난다. "항상 통과하는 가짜 게이트"가 아님을 증명하는 용도이므로 CI 정규 스텝에 넣지 않는다(넣으면 잡이 항상 red다) |
 
 ### 3.3 주요 판단
 

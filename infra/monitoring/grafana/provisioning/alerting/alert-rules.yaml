@@ -1,4 +1,4 @@
-# Grafana 알림 규칙 — 9건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30)
+# Grafana 알림 규칙 — 11건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30 / 위생 커버리지 2건, 2026-08-03)
 #
 # 적용: /data/monitoring/grafana/provisioning/alerting/ 로 복사(사람, §11).
 # 임계 결정 프레임워크·근거는 specs/alerting/spec.md — 이 파일이 정본이고 스펙이 따라온다.
@@ -14,7 +14,7 @@
 #
 # ── 전 임계는 30일 실측 분포로 정했다 (첫날 오발화 0건 검증 완료) ─────────
 #   디스크 30일 최대   86.6% (data04 /)     → 90% 15m
-#   GPU 온도 30일 p99  87°C (data04 GPU1)   → 92°C 10m  (85는 상시발화 결함이라 상향)
+#   GPU 온도 30일 최대 90°C (data04 GPU1)   → 92°C 10m  (85는 상시발화 결함이라 상향, 여유 2°C)
 #   메모리 30일 최저   9.9% (data01)        → 5% 15m
 #   XID latched 잔존값 43 (data05 2장)      → changes() 방식 (>0 비교는 상시발화)
 #   로그 인입 30분     실측 27,585건        → <100건
@@ -59,7 +59,7 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: '{{ $labels.instance }} node-exporter 응답 없음 (5분 이상)'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-down.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 2. 로그 인입 중단 — 이 세트에서 가장 중요한 규칙.
@@ -163,14 +163,16 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: '{{ $labels.instance }} {{ $labels.mountpoint }} 사용률 90% 초과'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/logging/README.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 4. GPU 과열 — 하드웨어 보호 마지노선.
       #
-      # 85°C였다가 92°C로 상향(2026-07-30). 30일 실측: data04 GPU1의 p99가 87°C,
-      # 최대 88°C — 85 임계는 정상 연구 부하에서 상시 발화하는 결함이었다
-      # (설정 당시 유휴값 50°C만 보고 분포를 안 본 실수). 92 = 관측 최대 88 + 여유 4.
+      # 85°C였다가 92°C로 상향(2026-07-30). 85 임계는 정상 연구 부하에서 상시 발화하는
+      # 결함이었다(설정 당시 유휴값 50°C만 보고 분포를 안 본 실수).
+      # 30일 실측 재측정(2026-08-03): max_over_time[30d] = data04 GPU1 90°C(다음이 data04
+      # GPU0 81, data05 GPU1 77) → 현재 여유는 4°C가 아니라 **2°C**다. 재발화가 잦아지면
+      # 임계를 또 올릴 게 아니라 공조·부하를 의심한다(docs/runbooks/gpu-thermal.md §1).
       # 근본적으로 "뜨겁다"보다 "성능이 깎인다"(스로틀링)가 맞는 신호이나
       # DCGM 기본 csv에 CLOCK_THROTTLE_REASONS가 없다 — 백로그 #1(csv 확장)에서 교체 예정.
       # ═══════════════════════════════════════════════════════════════════
@@ -201,8 +203,8 @@ groups:
           domain: infra
           node: '{{ $labels.instance }}'
         annotations:
-          summary: 'GPU 과열 {{ $labels.instance }} GPU{{ $labels.gpu }} — 85°C 초과 10분'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/specs/hardware-ops/README.md
+          summary: 'GPU 과열 {{ $labels.instance }} GPU{{ $labels.gpu }} — 92°C 초과 10분'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-thermal.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 5. 메모리 고갈 — OOM Killer가 프로세스를 죽이기 전에.
@@ -235,7 +237,7 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: '{{ $labels.instance }} 가용 메모리 5% 미만 (15분 지속)'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/memory-pressure.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 6~9. 결정적 실패(deterministic failure) 4건 — 2026-07-30 추가 (A단계).
@@ -246,9 +248,14 @@ groups:
 
       # 6. GPU XID 에러 — 새 발생만.
       # ⚠️ `> 0` 비교를 쓰면 안 된다: XID는 latched 게이지라 과거 값이 유지된다.
-      #    실측: data05 GPU 2장이 이미 43(드라이버 mismatch 사태의 흔적, 재부팅 전까지 잔존)
-      #    — `>0`이면 첫날부터 상시 발화였다. changes()는 이 latched 값을 무시하고
-      #    새 변화만 잡는다(검증: changes[24h]도 0건).
+      #    실측: data05 GPU 2장이 이미 43(재부팅 전까지 잔존) — `>0`이면 첫날부터 상시
+      #    발화였다. changes()는 이 latched 값을 무시하고 새 변화만 잡는다(검증: changes[24h] 0건).
+      #    ⚠️ 이 43의 원인을 "드라이버 mismatch 사태의 흔적"이라 적었던 이전 주석은 근거가
+      #    없어 삭제했다. OpenSearch 원문(2026-06-01, fleet_node=data05, 4건)은
+      #      `NVRM: Xid (PCI:0000:2b:00): 43, pid=146239, name=VLLM::Worker, channel 0x00000008`
+      #    로 pid/name을 달고 있다 → 1차 판정은 **앱 레벨**이다. 드라이버 mismatch는
+      #    `NVRM: API mismatch`라는 별개 시그니처이고 지금도 진행 중이다(이 알림과 무관).
+      #    판별 절차: docs/runbooks/gpu-xid.md §2~§3.
       - uid: keiwi-gpu-xid-new
         title: GpuXidErrorNew
         condition: C
@@ -277,7 +284,7 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: 'GPU 하드웨어 에러(XID) 신규 발생 — {{ $labels.instance }} GPU{{ $labels.gpu }}'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/specs/hardware-ops/README.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-xid.md
 
       # 7. OOM kill — 커널이 프로세스를 죽였다 = 이미 피해 발생.
       #    "메모리 여유 %" 임계보다 정확한 신호(연구 노드는 상시 타이트해 %가 무의미).
@@ -309,7 +316,7 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: 'OOM kill 발생 — {{ $labels.instance }} (최근 1시간). 어떤 프로세스가 죽었는지 journald 확인'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/memory-pressure.md
 
       # 8. SMART 실패 — 디스크가 스스로 "곧 죽는다"고 말하는 것. 연구 데이터는 재현
       #    불가라 데이터 손실 위험이 최우선 신호다.
@@ -343,7 +350,7 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: 'SMART 헬스 실패 — {{ $labels.instance }} {{ $labels.device }}. 디스크 교체 준비'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/monitoring/smartctl-exporter/README.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/smart-health-failed.md
 
       # 9. 디스크 소진 예측 — % 임계의 결함을 보완한다.
       #    "90%"는 3.5TB에선 350GB 여유인데 울리고, 서버마다 의미가 다르다.
@@ -378,4 +385,91 @@ groups:
           node: '{{ $labels.instance }}'
         annotations:
           summary: '{{ $labels.instance }} {{ $labels.mountpoint }} — 현재 추세로 4시간 내 가득 참'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/logging/README.md
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 10~11. 위생 커버리지 — **탐지가 없는 노드를 탐지한다.**
+      #
+      # 2026-08-02: up{job="node-exporter"}=4인데 위생 수집기는 2노드에만 있었다.
+      # 없는 쪽이 하필 NVIDIA 드라이버가 깨진 data05와 legacy data01이었고,
+      # data05는 62일간 nvidia-smi가 exit 18인데 알림이 0건이었다.
+      # 근본 원인은 드라이버가 아니라 **"구멍이 있다는 것을 아무도 몰랐다"**는 것이다.
+      # 그래서 개별 메트릭이 아니라 **커버리지 자체**를 알림으로 만든다.
+      # 노드 목록 하드코딩(absent())은 기각 — 노드가 늘 때마다 사람이 고쳐야 하고,
+      # 잊으면 정확히 지금 상황이 재현된다(spec §1.3).
+      #
+      # ⚠️ 적용 순서: 두 규칙 다 **T1-4(4노드 배포) 완료 30분 뒤**에 켠다.
+      #    배포 전에 켜면 gap=2가 상주 발화하고, 그것이 T0-7이 "알림 무시 습관의 시작"으로
+      #    지목한 패턴이다. 배포 후 gap=0 · 타이머 주기 30분 < 임계 90분이라 day-1 발화 0이다.
+      #
+      # severity 표기: spec §1.2 D1-4는 sev3라고 쓰지만 **이 파일의 어휘는 critical|warning**이고
+      #    notification-policies.yaml의 object_matchers도 그 둘만 매칭한다. sev3를 그대로 쓰면
+      #    서브라우트에 안 걸려 기본 경로로 떨어진다 → 이 파일의 정본 어휘인 warning으로 적는다
+      #    (sev3 ≡ warning. 어휘 통일은 hardware-ops 알림 축 소관).
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-node-hygiene-coverage-gap
+        title: NodeHygieneCoverageGap
+        condition: C
+        for: 30m         # 배포·재부팅 중 일시적 갭(타이머 첫 tick 대기)으로 울리지 않게
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 살아 있는 node-exporter 수 − 위생 메트릭을 내는 노드 수.
+              # 레코딩 규칙(rules/keiwi-hygiene-coverage.yml)이 선행돼야 한다.
+              expr: 'fleet:node_hygiene_coverage:gap'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        # NoData = 레코딩 규칙 미적용이거나 node-exporter가 전멸한 상태다.
+        # 후자는 NodeDown(critical)이 이미 울리므로 중복시키지 않는다 — DiskUsageHigh와 같은 판단.
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+        annotations:
+          summary: '위생 수집기가 없는 노드 존재 — 그 노드에는 드라이버/재부팅/apt 탐지가 통째로 없다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-coverage-gap.md
+
+      - uid: keiwi-node-hygiene-stale
+        title: NodeHygieneStale
+        condition: C
+        for: 15m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 마지막 수집 이후 경과 초. 타이머가 죽어도 node-exporter는 낡은 .prom을
+              # 계속 서빙하므로 "값이 있다"만으로는 신선도를 알 수 없다 — 이 식이 유일한 판별이다.
+              expr: 'time() - node_hygiene_collector_last_run_timestamp_seconds'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                # 5400s = 90분 = 타이머 주기 30분의 3배. 1회 실패는 봐주고 연속 실패만 잡는다.
+                - evaluator: { type: gt, params: [5400] }
+        # 시리즈 자체가 사라지는 경우는 위 CoverageGap이 잡는다(역할 분담).
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '{{ $labels.instance }} 위생 수집기 90분 이상 미실행 — 값은 남아 있지만 낡았다 (타이머 주기 30분)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-stale.md
