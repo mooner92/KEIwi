@@ -1,0 +1,166 @@
+   1 |  Pre-Init  |0000000097| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   2 |  Pre-Init  |0000000124| System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   3 |  Pre-Init  |0000000127| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   4 |  Pre-Init  |0000000163| System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   5 |  Pre-Init  |0000000164| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   6 |  Pre-Init  |0000000218| System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   7 |  Pre-Init  |0000000222| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   8 | 01/01/2001 | 09:02:34 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+   9 | 01/01/2001 | 09:02:37 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+   a | 01/01/2001 | 09:04:23 AM KST | OS Boot | C: boot completed | Asserted
+   b | 01/01/2001 | 09:04:23 AM KST | OEM record dc | 000137 | 0017f89b5c00
+   c | 01/01/2001 | 09:22:14 AM KST | OS Critical Stop | OS graceful shutdown | Asserted
+   d | 01/01/2001 | 09:22:14 AM KST | OEM record dd | 000137 | 00ff00050000
+   e |  Pre-Init  |0000000082| System ACPI Power State #0xaa | S0/G0: working | Asserted
+   f | 04/16/2019 | 03:27:39 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  10 | 04/16/2019 | 03:27:43 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  11 | 04/16/2019 | 03:28:04 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  12 | 04/16/2019 | 03:28:09 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  13 | 04/16/2019 | 03:29:52 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  14 | 04/16/2019 | 03:30:03 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  15 | 04/16/2019 | 03:30:05 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  16 | 04/16/2019 | 03:30:10 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  17 |  Pre-Init  |0000000095| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  18 | 04/16/2019 | 03:58:31 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  19 | 04/16/2019 | 04:00:02 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  1a | 04/16/2019 | 04:00:05 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1b | 04/16/2019 | 04:39:38 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1c | 04/15/2019 | 08:43:42 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  1d | 04/15/2019 | 08:43:45 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  1e | 04/15/2019 | 08:51:35 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  1f | 04/15/2019 | 08:51:38 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  20 |  Pre-Init  |0000000102| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  21 | 04/15/2019 | 09:13:08 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  22 | 04/15/2019 | 09:24:12 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  23 | 04/15/2019 | 09:26:14 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  24 | 04/15/2019 | 09:26:18 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  25 | 04/15/2019 | 09:45:02 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  26 | 04/15/2019 | 09:47:13 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  27 | 04/15/2019 | 09:47:18 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  28 | 04/15/2019 | 09:48:10 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  29 | 04/15/2019 | 09:48:11 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2a | 04/15/2019 | 02:03:33 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2b | 04/15/2019 | 10:05:43 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  2c | 04/15/2019 | 10:05:46 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2d | 04/15/2019 | 10:25:01 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  2e | 04/15/2019 | 11:18:27 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  2f | 04/15/2019 | 11:18:31 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  30 | 04/15/2019 | 11:23:04 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  31 | 04/15/2019 | 11:23:09 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  32 |  Pre-Init  |0000000102| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  33 | 04/15/2019 | 11:45:40 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  34 | 04/16/2019 | 01:33:44 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  35 | 04/16/2019 | 02:06:27 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  36 | 04/16/2019 | 02:08:41 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  37 | 04/16/2019 | 02:08:44 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  38 | 04/16/2019 | 02:43:42 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  39 |  Pre-Init  |0000000082| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3a | 04/16/2019 | 05:31:26 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  3b | 04/16/2019 | 05:31:30 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3c |  Pre-Init  |0000001983| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3d | 04/24/2019 | 03:12:36 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3e | 10/04/2019 | 03:28:32 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  3f | 10/04/2019 | 04:13:44 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  40 | 10/04/2019 | 05:14:30 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  41 | 03/10/2020 | 08:56:31 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  42 | 05/05/2020 | 06:19:13 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  43 | 05/05/2020 | 06:42:48 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  44 | 05/22/2020 | 10:26:57 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  45 | 09/24/2020 | 10:57:49 AM KST | Power Supply #0x32 | Failure detected | Asserted
+  46 | 09/24/2020 | 10:57:51 AM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  47 | 09/24/2020 | 10:57:51 AM KST | Power Supply #0x42 | Redundancy Lost | Asserted
+  48 | 09/24/2020 | 10:57:55 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  49 | 09/24/2020 | 11:19:02 AM KST | Power Supply #0x42 | Redundancy Lost | Deasserted
+  4a | 12/07/2020 | 05:55:22 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  4b |  Pre-Init  |0000000105| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  4c | 12/07/2020 | 06:54:29 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  4d | 07/27/2021 | 06:29:22 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  4e | 01/18/2022 | 05:07:51 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  4f | 01/18/2022 | 05:21:47 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  50 | 03/31/2023 | 01:14:53 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  51 |  Pre-Init  |0000000095| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  52 | 03/31/2023 | 02:43:58 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  53 | 03/31/2023 | 02:43:58 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  54 | 03/31/2023 | 02:43:58 PM KST | Power Supply #0x42 | Redundancy Lost | Asserted
+  55 | 03/31/2023 | 02:44:01 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  56 | 03/31/2023 | 02:44:01 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  57 | 03/31/2023 | 02:44:02 PM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  58 | 03/31/2023 | 02:44:02 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  59 | 03/31/2023 | 02:44:02 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  5a | 03/31/2023 | 02:44:11 PM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  5b | 03/31/2023 | 02:44:11 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  5c | 03/31/2023 | 02:44:11 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  5d | 03/31/2023 | 02:44:12 PM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  5e | 03/31/2023 | 02:44:12 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  5f | 03/31/2023 | 02:44:12 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  60 | 03/31/2023 | 02:44:25 PM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  61 | 03/31/2023 | 02:44:25 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  62 | 03/31/2023 | 02:44:25 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  63 | 03/31/2023 | 02:44:29 PM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  64 | 03/31/2023 | 02:44:29 PM KST | Power Supply #0x32 | Failure detected | Asserted
+  65 | 03/31/2023 | 02:44:29 PM KST | Power Supply #0x32 | Power Supply AC lost | Asserted
+  66 | 03/31/2023 | 02:46:32 PM KST | Power Supply #0x42 | Redundancy Lost | Deasserted
+  67 | 06/14/2024 | 05:22:29 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  68 | 05/08/2025 | 03:09:38 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  69 |  Pre-Init  |0000000162| System ACPI Power State #0xaa | S0/G0: working | Asserted
+  6a | 05/10/2025 | 09:32:10 AM KST | Power Supply #0x33 | Failure detected | Asserted
+  6b | 05/10/2025 | 09:32:11 AM KST | Power Supply #0x33 | Power Supply AC lost | Asserted
+  6c | 05/10/2025 | 09:32:11 AM KST | Power Supply #0x42 | Redundancy Lost | Asserted
+  6d | 05/10/2025 | 09:32:12 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  6e | 05/10/2025 | 09:54:31 AM KST | Power Supply #0x42 | Redundancy Lost | Deasserted
+  6f | 06/21/2025 | 09:04:53 AM KST | Power Supply #0x33 | Failure detected | Asserted
+  70 | 06/21/2025 | 09:04:54 AM KST | Power Supply #0x33 | Power Supply AC lost | Asserted
+  71 | 06/21/2025 | 09:04:54 AM KST | Power Supply #0x42 | Redundancy Lost | Asserted
+  72 | 06/21/2025 | 09:04:59 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  73 | 06/21/2025 | 10:02:41 AM KST | Power Supply #0x42 | Redundancy Lost | Deasserted
+  74 | 01/06/2026 | 03:33:25 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  75 | 01/06/2026 | 04:28:07 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  76 | 01/06/2026 | 05:04:16 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  77 | 01/06/2026 | 05:04:17 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  78 | 01/06/2026 | 05:08:23 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  79 | 01/06/2026 | 05:08:34 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  7a | 01/06/2026 | 05:08:38 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  7b | 01/06/2026 | 05:24:53 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  7c | 01/06/2026 | 05:59:05 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  7d | 02/24/2026 | 11:11:49 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  7e | 02/24/2026 | 11:12:13 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  7f | 02/24/2026 | 11:13:26 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  80 | 02/24/2026 | 11:16:09 AM KST | Drive Slot / Bay #0x02 | Drive Fault | Asserted
+  81 | 02/24/2026 | 11:16:09 AM KST | Drive Slot / Bay #0x06 | Drive Fault | Asserted
+  82 | 02/24/2026 | 11:16:15 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  83 | 02/24/2026 | 11:16:15 AM KST | Drive Slot / Bay #0x02 | Drive Fault | Asserted
+  84 | 02/24/2026 | 11:16:15 AM KST | Drive Slot / Bay #0x06 | Drive Fault | Asserted
+  85 | 02/24/2026 | 11:16:35 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  86 | 02/24/2026 | 11:16:35 AM KST | Drive Slot / Bay #0x02 | Drive Fault | Asserted
+  87 | 02/24/2026 | 11:16:35 AM KST | Drive Slot / Bay #0x06 | Drive Fault | Asserted
+  88 | 02/24/2026 | 11:17:15 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  89 | 02/24/2026 | 11:18:22 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  8a | 02/24/2026 | 11:18:22 AM KST | Drive Slot / Bay #0x02 | Drive Fault | Asserted
+  8b | 02/24/2026 | 11:18:23 AM KST | Drive Slot / Bay #0x06 | Drive Fault | Asserted
+  8c | 02/24/2026 | 11:18:25 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  8d | 02/24/2026 | 11:18:26 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  8e | 02/24/2026 | 11:18:39 AM KST | Drive Slot / Bay #0x02 | Drive Fault | Asserted
+  8f | 02/24/2026 | 11:18:39 AM KST | Drive Slot / Bay #0x06 | Drive Fault | Asserted
+  90 | 02/24/2026 | 11:18:44 AM KST | Chassis #0xac | Transition to Non-critical from OK | Asserted
+  91 | 02/24/2026 | 11:18:44 AM KST | Drive Slot / Bay #0x02 | Drive Fault | Asserted
+  92 | 02/24/2026 | 11:18:44 AM KST | Drive Slot / Bay #0x06 | Drive Fault | Asserted
+  93 | 02/24/2026 | 11:24:39 AM KST | Drive Slot / Bay #0x06 | Drive Present | Deasserted
+  94 | 02/24/2026 | 11:40:02 AM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  95 | 02/24/2026 | 11:40:03 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  96 | 02/24/2026 | 01:13:07 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  97 | 02/24/2026 | 01:19:37 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  98 | 02/24/2026 | 01:26:27 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  99 | 02/24/2026 | 01:35:57 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  9a | 02/24/2026 | 01:35:57 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  9b | 02/24/2026 | 01:43:31 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  9c | 02/24/2026 | 01:45:20 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  9d | 02/24/2026 | 01:46:37 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  9e | 02/24/2026 | 01:52:03 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  9f | 02/24/2026 | 01:53:42 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  a0 | 02/24/2026 | 01:58:32 PM KST | System ACPI Power State #0xaa | S4/S5: soft-off | Asserted
+  a1 | 02/24/2026 | 01:58:33 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  a2 | 02/24/2026 | 02:00:08 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  a3 | 02/24/2026 | 02:01:54 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  a4 | 02/24/2026 | 02:11:04 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  a5 | 02/24/2026 | 03:05:40 PM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
+  a6 | 03/04/2026 | 09:19:33 AM KST | System ACPI Power State #0xaa | S0/G0: working | Asserted
