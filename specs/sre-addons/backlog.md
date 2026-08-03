@@ -35,7 +35,8 @@
 ## SRE 커리어 성장 트랙 (KEIwi 위에서 포트폴리오화)
 - **SLO-as-code(Sloth)** = #7. "신뢰성을 숫자로 말하기"의 첫 단추·포트폴리오 중심.
 - **Observability-as-Code** — Grafana 대시보드·데이터소스·알림을 Terraform provider/git-sync로 Git 관리·PR 리뷰. KRDS 대시보드가 이미 자산.
-- **Ansible 성숙화** — molecule 테스트 + ansible-lint + CI + (필요시 Atlantis PR 게이팅). "테스트된 IaC 롤".
+- **Ansible 성숙화** — ~~molecule 테스트~~ + ansible-lint + CI + (필요시 Atlantis PR 게이팅). "테스트된 IaC 롤".
+  **molecule은 기각됐다**(ADR-0023, 2026-08-03): role 5개가 전부 systemd 유닛을 설치해 privileged 컨테이너가 필요하고 타깃이 균질하지 않다(16.04는 EOL이라 apt 저장소가 없어 컨테이너 프로비저닝이 네트워크 의존·플레이키). 대체 구현은 `ansible-lint`(profile moderate) + `--syntax-check` + **Jinja2 오프라인 렌더 스모크**(렌더된 셸→shellcheck · YAML→yamllint)이고 `scripts/gates/check-ansible.sh`가 CI에서 돈다. 재검토 조건은 **타깃 균질화(xenial 정리)** — 그때 비용 구조가 바뀐다(fleet-hardening 백로그 FB-06).
 - **작은 Chaos Engineering** — k8s 없이 Chaosd/Pumba/stress-ng로 단일노드 장애 주입 → 알림·런북·SLO burn 검증. "CNCF chaos를 non-k8s 물리서버에서" = 차별점.
 - **인시던트 훈련** — 런북 라이브러리(5A) + 무비난 포스트모템(#4) + Wheel of Misfortune 게임데이. 문서를 RAG 어시스턴트 검색소스로.
 - **Toil 정량화 → self-healing** — toil 목록화·측정(<50%) 후 Alertmanager webhook→Ansible self-heal. 자동화 전/후 시간 그래프=정량 성과.

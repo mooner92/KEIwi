@@ -1,4 +1,5 @@
-# Grafana 알림 규칙 — 9건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30)
+# Grafana 알림 규칙 — 14건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30 / 위생 커버리지 2건 ·
+#                            물리 디스크 열화 3건, 2026-08-03)
 #
 # 적용: /data/monitoring/grafana/provisioning/alerting/ 로 복사(사람, §11).
 # 임계 결정 프레임워크·근거는 specs/alerting/spec.md — 이 파일이 정본이고 스펙이 따라온다.
@@ -14,7 +15,7 @@
 #
 # ── 전 임계는 30일 실측 분포로 정했다 (첫날 오발화 0건 검증 완료) ─────────
 #   디스크 30일 최대   86.6% (data04 /)     → 90% 15m
-#   GPU 온도 30일 p99  87°C (data04 GPU1)   → 92°C 10m  (85는 상시발화 결함이라 상향)
+#   GPU 온도 30일 최대 90°C (data04 GPU1)   → 92°C 10m  (85는 상시발화 결함이라 상향, 여유 2°C)
 #   메모리 30일 최저   9.9% (data01)        → 5% 15m
 #   XID latched 잔존값 43 (data05 2장)      → changes() 방식 (>0 비교는 상시발화)
 #   로그 인입 30분     실측 27,585건        → <100건
@@ -56,10 +57,16 @@ groups:
         labels:
           severity: critical
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: '{{ $labels.instance }} node-exporter 응답 없음 (5분 이상)'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=NodeDown&node={{ $$labels.instance }}&from=now-6h'
+          summary: '{{ $$labels.instance }} node-exporter 응답 없음 (5분 이상)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-down.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 2. 로그 인입 중단 — 이 세트에서 가장 중요한 규칙.
@@ -127,6 +134,12 @@ groups:
           severity: critical
           domain: infra
         annotations:
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-logs-v3?orgId=1&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=LogIngestStalled&from=now-6h'
           summary: '통합 로그 인입 중단 — 최근 30분 유입 100건 미만 (정상 ≈17,600건)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/log-ingestion-stopped.md
 
@@ -160,17 +173,25 @@ groups:
         labels:
           severity: warning
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: '{{ $labels.instance }} {{ $labels.mountpoint }} 사용률 90% 초과'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/logging/README.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
+          summary: '{{ $$labels.instance | stripPort }} {{ $$labels.mountpoint }} 사용률 {{ printf "%.1f" $$values.A.Value }}% (임계 90% · 15m 지속)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 4. GPU 과열 — 하드웨어 보호 마지노선.
       #
-      # 85°C였다가 92°C로 상향(2026-07-30). 30일 실측: data04 GPU1의 p99가 87°C,
-      # 최대 88°C — 85 임계는 정상 연구 부하에서 상시 발화하는 결함이었다
-      # (설정 당시 유휴값 50°C만 보고 분포를 안 본 실수). 92 = 관측 최대 88 + 여유 4.
+      # 85°C였다가 92°C로 상향(2026-07-30). 85 임계는 정상 연구 부하에서 상시 발화하는
+      # 결함이었다(설정 당시 유휴값 50°C만 보고 분포를 안 본 실수).
+      # 30일 실측 재측정(2026-08-03): max_over_time[30d] = data04 GPU1 90°C(다음이 data04
+      # GPU0 81, data05 GPU1 77) → 현재 여유는 4°C가 아니라 **2°C**다. 재발화가 잦아지면
+      # 임계를 또 올릴 게 아니라 공조·부하를 의심한다(docs/runbooks/gpu-thermal.md §1).
       # 근본적으로 "뜨겁다"보다 "성능이 깎인다"(스로틀링)가 맞는 신호이나
       # DCGM 기본 csv에 CLOCK_THROTTLE_REASONS가 없다 — 백로그 #1(csv 확장)에서 교체 예정.
       # ═══════════════════════════════════════════════════════════════════
@@ -199,10 +220,16 @@ groups:
         labels:
           severity: warning
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: 'GPU 과열 {{ $labels.instance }} GPU{{ $labels.gpu }} — 85°C 초과 10분'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/specs/hardware-ops/README.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-gpu-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=GpuTempHigh&node={{ $$labels.instance }}&from=now-6h'
+          summary: 'GPU 과열 {{ $$labels.instance | stripPort }} GPU{{ $$labels.gpu }} — {{ printf "%.0f" $$values.A.Value }}°C (임계 92°C · 10m 지속)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-thermal.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 5. 메모리 고갈 — OOM Killer가 프로세스를 죽이기 전에.
@@ -232,10 +259,16 @@ groups:
         labels:
           severity: warning
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: '{{ $labels.instance }} 가용 메모리 5% 미만 (15분 지속)'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=MemoryLow&node={{ $$labels.instance }}&from=now-6h'
+          summary: '{{ $$labels.instance | stripPort }} 가용 메모리 {{ printf "%.1f" $$values.A.Value }}% (임계 5% · 15m 지속)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/memory-pressure.md
 
       # ═══════════════════════════════════════════════════════════════════
       # 6~9. 결정적 실패(deterministic failure) 4건 — 2026-07-30 추가 (A단계).
@@ -246,9 +279,14 @@ groups:
 
       # 6. GPU XID 에러 — 새 발생만.
       # ⚠️ `> 0` 비교를 쓰면 안 된다: XID는 latched 게이지라 과거 값이 유지된다.
-      #    실측: data05 GPU 2장이 이미 43(드라이버 mismatch 사태의 흔적, 재부팅 전까지 잔존)
-      #    — `>0`이면 첫날부터 상시 발화였다. changes()는 이 latched 값을 무시하고
-      #    새 변화만 잡는다(검증: changes[24h]도 0건).
+      #    실측: data05 GPU 2장이 이미 43(재부팅 전까지 잔존) — `>0`이면 첫날부터 상시
+      #    발화였다. changes()는 이 latched 값을 무시하고 새 변화만 잡는다(검증: changes[24h] 0건).
+      #    ⚠️ 이 43의 원인을 "드라이버 mismatch 사태의 흔적"이라 적었던 이전 주석은 근거가
+      #    없어 삭제했다. OpenSearch 원문(2026-06-01, fleet_node=data05, 4건)은
+      #      `NVRM: Xid (PCI:0000:2b:00): 43, pid=146239, name=VLLM::Worker, channel 0x00000008`
+      #    로 pid/name을 달고 있다 → 1차 판정은 **앱 레벨**이다. 드라이버 mismatch는
+      #    `NVRM: API mismatch`라는 별개 시그니처이고 지금도 진행 중이다(이 알림과 무관).
+      #    판별 절차: docs/runbooks/gpu-xid.md §2~§3.
       - uid: keiwi-gpu-xid-new
         title: GpuXidErrorNew
         condition: C
@@ -274,10 +312,16 @@ groups:
         labels:
           severity: critical
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: 'GPU 하드웨어 에러(XID) 신규 발생 — {{ $labels.instance }} GPU{{ $labels.gpu }}'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/specs/hardware-ops/README.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-gpu-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=GpuXidErrorNew&node={{ $$labels.instance }}&from=now-6h'
+          summary: 'GPU 하드웨어 에러(XID) 신규 발생 — {{ $$labels.instance }} GPU{{ $$labels.gpu }}'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-xid.md
 
       # 7. OOM kill — 커널이 프로세스를 죽였다 = 이미 피해 발생.
       #    "메모리 여유 %" 임계보다 정확한 신호(연구 노드는 상시 타이트해 %가 무의미).
@@ -306,15 +350,38 @@ groups:
         labels:
           severity: warning
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: 'OOM kill 발생 — {{ $labels.instance }} (최근 1시간). 어떤 프로세스가 죽었는지 journald 확인'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-onboarding.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=OomKillOccurred&node={{ $$labels.instance }}&from=now-6h'
+          summary: 'OOM kill 발생 — {{ $$labels.instance }} (최근 1시간). 어떤 프로세스가 죽었는지 journald 확인'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/memory-pressure.md
 
       # 8. SMART 실패 — 디스크가 스스로 "곧 죽는다"고 말하는 것. 연구 데이터는 재현
       #    불가라 데이터 손실 위험이 최우선 신호다.
       #    noDataState=NoData 이유: data05 smartctl 스크랩이 ufw 규칙 적용 전까지
       #    down이라(T0-7), Alerting으로 두면 그 자체가 오발화가 된다.
+      #
+      #    ⚠️ 2026-08-03 확장(fleet-hardening T2-8): 이 규칙은 **논리 볼륨 3개만** 보고
+      #       있었다. LV은 멤버 디스크에 grown defect 773개가 있어도 passed=true 를 말한다
+      #       (data04 ZC1AE78X 실측) — 즉 이 규칙은 물리 디스크에 대해 **무력**했다.
+      #       그래서 물리 디스크 판정(node_smart_disk_health_passed)을 같은 쿼리에 합쳤다.
+      #
+      #       왜 별도 refId B + 조건 OR 가 아닌가 (spec §2.2 D2-6 정정):
+      #         Grafana 서버사이드 표현식의 이항 연산은 **라벨이 매칭되는 시리즈끼리만** 계산한다.
+      #         두 메트릭은 라벨 스키마도 job 도 달라(:9633 device/serial_number vs
+      #         :9100 controller/serial) 매칭이 0건이고, 유일한 대안인 classic_conditions 는
+      #         **라벨을 접어버려** summary 의 {{ $$labels.instance }} 와 디스크별 중복제거가
+      #         함께 죽는다. PromQL 의 `or` 는 벡터 셀렉터의 **합집합** 연산자라 두 계열을
+      #         라벨 그대로 한 프레임에 담는다 — 여기서 필요한 것이 정확히 그것이다.
+      #
+      #       ⚠️ 비교(< 1)를 PromQL 쪽으로 옮기지 말 것. 옮기면 정상일 때 결과가 **빈 벡터**가
+      #          되고, noDataState=NoData 라 "전 디스크 정상"이 NoData 알림으로 둔갑한다.
+      #          bare 메트릭을 그대로 두고 threshold 가 거르는 현재 구조가 그것을 막는다.
       - uid: keiwi-smart-fail
         title: SmartHealthFailed
         condition: C
@@ -326,7 +393,7 @@ groups:
             model:
               refId: A
               instant: true
-              expr: 'smartctl_device_smart_status'
+              expr: 'smartctl_device_smart_status or node_smart_disk_health_passed'
           - refId: C
             datasourceUid: __expr__
             model:
@@ -340,10 +407,16 @@ groups:
         labels:
           severity: critical
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: 'SMART 헬스 실패 — {{ $labels.instance }} {{ $labels.device }}. 디스크 교체 준비'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/monitoring/smartctl-exporter/README.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=SmartHealthFailed&node={{ $$labels.instance }}&from=now-6h'
+          summary: 'SMART 헬스 실패 — {{ $$labels.instance }} {{ $$labels.device }}{{ $$labels.serial }}. 디스크 교체 준비'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/smart-health-failed.md
 
       # 9. 디스크 소진 예측 — % 임계의 결함을 보완한다.
       #    "90%"는 3.5TB에선 350GB 여유인데 울리고, 서버마다 의미가 다르다.
@@ -375,7 +448,278 @@ groups:
         labels:
           severity: critical
           domain: infra
-          node: '{{ $labels.instance }}'
+          node: '{{ $$labels.instance }}'
         annotations:
-          summary: '{{ $labels.instance }} {{ $labels.mountpoint }} — 현재 추세로 4시간 내 가득 참'
-          runbook_url: https://github.com/mooner92/KEIwi/blob/main/infra/logging/README.md
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskFillPredicted&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
+          summary: '{{ $$labels.instance | stripPort }} {{ $$labels.mountpoint }} — 현재 추세로 4시간 내 가득 참 (예측 여유 {{ humanize1024 $$values.A.Value }}B)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 10~11. 위생 커버리지 — **탐지가 없는 노드를 탐지한다.**
+      #
+      # 2026-08-02: up{job="node-exporter"}=4인데 위생 수집기는 2노드에만 있었다.
+      # 없는 쪽이 하필 NVIDIA 드라이버가 깨진 data05와 legacy data01이었고,
+      # data05는 62일간 nvidia-smi가 exit 18인데 알림이 0건이었다.
+      # 근본 원인은 드라이버가 아니라 **"구멍이 있다는 것을 아무도 몰랐다"**는 것이다.
+      # 그래서 개별 메트릭이 아니라 **커버리지 자체**를 알림으로 만든다.
+      # 노드 목록 하드코딩(absent())은 기각 — 노드가 늘 때마다 사람이 고쳐야 하고,
+      # 잊으면 정확히 지금 상황이 재현된다(spec §1.3).
+      #
+      # ⚠️ 적용 순서: 두 규칙 다 **T1-4(4노드 배포) 완료 30분 뒤**에 켠다.
+      #    배포 전에 켜면 gap=2가 상주 발화하고, 그것이 T0-7이 "알림 무시 습관의 시작"으로
+      #    지목한 패턴이다. 배포 후 gap=0 · 타이머 주기 30분 < 임계 90분이라 day-1 발화 0이다.
+      #
+      # severity 표기: spec §1.2 D1-4는 sev3라고 쓰지만 **이 파일의 어휘는 critical|warning**이고
+      #    notification-policies.yaml의 object_matchers도 그 둘만 매칭한다. sev3를 그대로 쓰면
+      #    서브라우트에 안 걸려 기본 경로로 떨어진다 → 이 파일의 정본 어휘인 warning으로 적는다
+      #    (sev3 ≡ warning. 어휘 통일은 hardware-ops 알림 축 소관).
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-node-hygiene-coverage-gap
+        title: NodeHygieneCoverageGap
+        condition: C
+        for: 30m         # 배포·재부팅 중 일시적 갭(타이머 첫 tick 대기)으로 울리지 않게
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 살아 있는 node-exporter 수 − 위생 메트릭을 내는 노드 수.
+              # 레코딩 규칙(rules/keiwi-hygiene-coverage.yml)이 선행돼야 한다.
+              expr: 'fleet:node_hygiene_coverage:gap'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        # NoData = 레코딩 규칙 미적용이거나 node-exporter가 전멸한 상태다.
+        # 후자는 NodeDown(critical)이 이미 울리므로 중복시키지 않는다 — DiskUsageHigh와 같은 판단.
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+        annotations:
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=NodeHygieneCoverageGap&from=now-6h'
+          summary: '위생 수집기가 없는 노드 존재 — 그 노드에는 드라이버/재부팅/apt 탐지가 통째로 없다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-coverage-gap.md
+
+      - uid: keiwi-node-hygiene-stale
+        title: NodeHygieneStale
+        condition: C
+        for: 15m
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 마지막 수집 이후 경과 초. 타이머가 죽어도 node-exporter는 낡은 .prom을
+              # 계속 서빙하므로 "값이 있다"만으로는 신선도를 알 수 없다 — 이 식이 유일한 판별이다.
+              expr: 'time() - node_hygiene_collector_last_run_timestamp_seconds'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                # 5400s = 90분 = 타이머 주기 30분의 3배. 1회 실패는 봐주고 연속 실패만 잡는다.
+                - evaluator: { type: gt, params: [5400] }
+        # 시리즈 자체가 사라지는 경우는 위 CoverageGap이 잡는다(역할 분담).
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $$labels.instance }}'
+        annotations:
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=NodeHygieneStale&node={{ $$labels.instance }}&from=now-6h'
+          summary: '{{ $$labels.instance }} 위생 수집기 90분 이상 미실행 — 값은 남아 있지만 낡았다 (타이머 주기 30분)'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-stale.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 12~14. 물리 디스크 열화 — RAID 컨트롤러 뒤 (fleet-hardening §2.2 D2-6, T2-8)
+      #
+      # 왜 지금 생겼나: 지금까지 디스크 신호는 **논리 볼륨 3개**가 전부였고, LV은 멤버
+      #   디스크에 grown defect 773개(data04 ZC1AE78X, POH 63,777h)가 쌓여도 끝까지
+      #   `SMART Health Status: OK`를 말한다. 고장 전조가 관측 스택에 원리적으로 안 보였다.
+      #
+      # ⚠️ **절대값 임계를 쓰지 않는다.** data04에 이미 GDL 773·66이 있어서 `> 0`을 걸면
+      #    첫날부터 critical 2건이 상주 발화한다 — T0-7이 "알림 무시 습관의 시작"으로 지목한
+      #    바로 그 패턴이다. 기존 773은 **알림이 아니라** 대시보드(결함 섹터 상위 10)와
+      #    교체 티켓(T2-18)으로 처리하고, 알림은 전부 **증가량** 기준으로 간다.
+      #    HPE가 권고 수치를 주지 않으므로 "GDL > 50" 같은 임계는 근거가 없고,
+      #    노드·모델·가동시간마다 의미가 달라 서버별 임계 지옥이 된다.
+      #
+      # ⚠️ **섀도 기간**: 셋 다 `severity: warning`으로 시작한다. specs/alerting §1.5의
+      #    2주 리뷰(§10-3 체크리스트)에서 발화 수·조치율을 집계한 뒤 T2-19가 승격을 판단한다.
+      #    승격 1순위는 DiskUncorrectedErrorsGrowing(데이터 손실이 이미 실현된 신호)이다.
+      #
+      # ⚠️ 세 규칙 모두 식이 **항상 값을 돌려주도록** 짜여 있다(비교를 threshold에 맡긴다).
+      #    비교를 PromQL로 옮기면 정상일 때 빈 벡터가 되고, noDataState=NoData라
+      #    "정상"이 NoData 알림으로 둔갑한다.
+      #
+      # ⚠️⚠️ **적용 순서 — 이걸 어기면 첫날부터 NoData 알림 3건이 상주한다.**
+      #    세 규칙은 `node_smart_*`가 라이브에 **존재한 뒤에만** 켠다.
+      #    수집기 배포 전에 이 파일을 반영하면 세 쿼리가 전부 빈 결과가 되고,
+      #    noDataState=NoData라 Grafana가 `DatasourceNoData` 인스턴스 3건을 만들어
+      #    기본 라우트(slack-infra)로 내보낸다 — T0-7이 지목한 "알림 무시 습관의 시작"이다.
+      #    올바른 순서: T2-13(data03 적용) → T2-14(data04 적용) → **스크랩 1주기 확인** →
+      #                 T2-16(이 파일 반영). 위생 커버리지 2건이 T1-4 뒤에 켜지는 것과 같은 규약.
+      #    확인 명령: q 'count(node_smart_disks)' 가 0이 아니어야 한다.
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-disk-defects-growing
+        title: DiskGrownDefectsGrowing
+        condition: C
+        for: 0s          # 증가는 되돌아오지 않는다 — 지속 시간을 기다릴 이유가 없다
+        data:
+          - refId: A
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 24h 창의 증가량. grown defect는 단조 증가 게이지라 increase()의 카운터
+              # 의미론이 그대로 맞는다(감소가 없으므로 리셋 보정이 개입하지 않는다).
+              # 디스크가 교체되면 serial이 바뀌어 **새 시리즈**가 되므로 옛 값 773이
+              # 새 디스크의 증가로 보이지 않는다.
+              expr: 'increase(node_smart_disk_grown_defect_list[24h])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        # 수집기가 죽으면 NodeHygieneStale과 같은 층에서 잡힌다(중복 발화 금지).
+        # ⚠️ 임시 OK — 원설계는 NoData(위 '적용 순서' 경고 참조: 수집기 배포 뒤에만 켠다)였으나
+        #    E1 배포가 전체 파일을 복사하면서 그 순서를 어겼고, 경고 그대로 DatasourceNoData가
+        #    상주 발화했다 [실측 2026-08-04: 2건 발화 + PhysicalDiskDisappeared pending].
+        #    수집기(T2-13/14) 배포 + 스크랩 1주기 확인 후 **T2-16에서 NoData로 복원**한다.
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $$labels.instance }}'
+        annotations:
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskGrownDefectsGrowing&node={{ $$labels.instance }}&from=now-6h'
+          summary: '오늘 새 불량섹터 — {{ $$labels.instance }} 시리얼 {{ $$labels.serial }}. 열화 진행 중이므로 교체 계획을 세운다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md
+
+      - uid: keiwi-disk-uncorrected-growing
+        title: DiskUncorrectedErrorsGrowing
+        condition: C
+        for: 0s
+        data:
+          - refId: A
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 미교정 오류 = 컨트롤러가 재시도로도 못 살린 I/O. **데이터 손실이 실현된 횟수**다.
+              # data04 ZC1968JB에 read 8·write 1이 이미 있지만, 그건 과거 누적이라
+              # 증가량 기준에서는 0이다(day-1 오발화 0 — AC-2-11이 검증).
+              expr: 'increase(node_smart_disk_uncorrected_errors_total[24h])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        # ⚠️ 임시 OK — 원설계는 NoData(위 '적용 순서' 경고 참조: 수집기 배포 뒤에만 켠다)였으나
+        #    E1 배포가 전체 파일을 복사하면서 그 순서를 어겼고, 경고 그대로 DatasourceNoData가
+        #    상주 발화했다 [실측 2026-08-04: 2건 발화 + PhysicalDiskDisappeared pending].
+        #    수집기(T2-13/14) 배포 + 스크랩 1주기 확인 후 **T2-16에서 NoData로 복원**한다.
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning     # 섀도 2주 후 critical 승격 1순위 (T2-19)
+          domain: infra
+          node: '{{ $$labels.instance }}'
+        annotations:
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskUncorrectedErrorsGrowing&node={{ $$labels.instance }}&from=now-6h'
+          summary: '미교정 I/O 오류 증가 — {{ $$labels.instance }} 시리얼 {{ $$labels.serial }} ({{ $$labels.op }}). 데이터 손실이 실현되고 있다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md
+
+      - uid: keiwi-physical-disk-disappeared
+        title: PhysicalDiskDisappeared
+        condition: C
+        for: 10m         # 수집 주기 15분 — 한 tick 놓친 것과 진짜 소실을 구분하는 최소 지속
+        data:
+          - refId: A
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 1시간 전 대비 대수 변화. **LV이 절대 말해주지 않는 사실**이다 —
+              # 어레이는 멤버가 빠져도 degraded 상태로 계속 OK를 반환한다.
+              #
+              # ⚠️ `A < A offset 1h` 형태로 쓰지 않는다. 정상일 때 결과가 빈 벡터가 되어
+              #    noDataState=NoData가 "정상"을 알림으로 바꾼다. 뺄셈으로 항상 값을 만든다.
+              # ⚠️ `or node_smart_disks`는 **배포 직후 1시간** 동안 offset 데이터가 없어
+              #    시리즈가 통째로 사라지는 것을 막는다(그 구간의 값은 0 = 변화 없음).
+              expr: 'node_smart_disks - (node_smart_disks offset 1h or node_smart_disks)'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [0] }
+        # ⚠️ 임시 OK — 원설계는 NoData(위 '적용 순서' 경고 참조: 수집기 배포 뒤에만 켠다)였으나
+        #    E1 배포가 전체 파일을 복사하면서 그 순서를 어겼고, 경고 그대로 DatasourceNoData가
+        #    상주 발화했다 [실측 2026-08-04: 2건 발화 + PhysicalDiskDisappeared pending].
+        #    수집기(T2-13/14) 배포 + 스크랩 1주기 확인 후 **T2-16에서 NoData로 복원**한다.
+        noDataState: OK
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $$labels.instance }}'
+        annotations:
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
+          # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=PhysicalDiskDisappeared&node={{ $$labels.instance }}&from=now-6h'
+          summary: '물리 디스크 대수 감소 — {{ $$labels.instance }} 컨트롤러 {{ $$labels.controller }}. 어레이는 degraded 상태에서도 OK를 말한다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md

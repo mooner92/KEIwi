@@ -13,15 +13,18 @@
 > **T0-1(탐지)을 T0-3(수복)보다 먼저 한다.** 수복하면 증거가 사라지고, "이 메트릭이 실제로 발화하는가"를 검증할 기회를 잃는다. mismatch=1 → 재부팅 후 0으로 떨어지는 것까지 그래프에 남겨야 한다.
 
 - [ ] **T0-1** (S) `node-hygiene` role에 NVIDIA 정합성 4메트릭 블록 추가 — `node_nvidia_smi_ok` · `node_nvidia_kernel_module_version` · `node_nvidia_userspace_version` · `node_nvidia_version_mismatch`. **선행: 없음.** 산출물: `roles/node-hygiene/templates/keiwi-node-hygiene.sh.j2` 수정. 검증: AC-3-2·AC-3-3
-- [ ] **T0-2** `[server]` (S) T0-1 배포 — `ansible-playbook playbooks/agents.yml --tags node-hygiene --check` → 실적용. **선행: T0-1.** 기대: data05에서 `node_nvidia_version_mismatch = 1` 관측(=탐지 성공 증명)
-- [ ] **T0-3** (S) 런북 `docs/runbooks/nvidia-driver-mismatch.md` 생성 — 증상(`nvidia-smi` exit 18) → 판별 3줄(`/proc/driver/nvidia/version` vs `modinfo nvidia` vs `readlink libnvidia-ml.so.1`) → 원인(무인 업그레이드 + 미재부팅) → 조치(재부팅) → 예방(ADR-0020). **선행: 없음**
-- [ ] **T0-4** `[server]` (M) **data05 재부팅으로 드라이버 수복.** 사전 확인: Q9(`:8003` 고아 소멸 → 어시스턴트 모델이 Qwen3-Coder-30B → Qwen2.5-Coder-32B로 바뀜, 의도 확인) · `:9836` 고아(`/gits/MineSweeper/...`) 처분. 사후 검증: `nvidia-smi` 정상 · 4유닛 active · `gpu_vram_total_bytes`에 data05 시리즈 복귀(ADR-0013 판정 회복) · CDI 재생성 성공 · `node_nvidia_version_mismatch = 0`. **선행: T0-2, T0-3**
+  - ⚠️ **구현은 fleet-hardening T1-3이다** — 메트릭 이름 4개는 그대로 쓰고(재정의 금지), 실측 교정 2건이 붙는다: ⓐ 유저스페이스 경로를 `ldconfig -p`→`readlink -f`로 해석(하드코딩하면 data01의 `/usr/lib/nvidia-418`에서 깨진다, spec §T0-1 각주) ⓑ `node_nvidia_probe_ok`·`node_nvidia_smi_exit_code` 2종 추가(판정불능/미수집 구분). 이 태스크는 **그 산출물을 인수**한다.
+- [ ] **T0-2** `[server]` (S) T0-1 배포 — `ansible-playbook playbooks/agents.yml --tags node-hygiene --check` → 실적용. **선행: T0-1, fleet-hardening T1-4.** 기대: data05에서 `node_nvidia_version_mismatch = 1` 관측(=탐지 성공 증명)
+  - ⚠️ **fleet-hardening T1-4 없이는 이 태스크 단독으로 기대치를 달성할 수 없다** — 교정 전 role은 `/etc/default/prometheus-node-exporter` stat 가드가 7개 태스크를 전부 게이팅해서 **data05(컨테이너)·data01(수동설치)를 통째로 스킵**한다. 스크립트에 블록을 넣어도 data05에 도달하지 않으므로 mismatch=1이 영원히 관측되지 않는다(fleet-hardening spec §1.1 커버리지 갭).
+- [ ] **T0-3** (S) 런북 `docs/runbooks/nvidia-driver-mismatch.md` 생성 — 증상(`nvidia-smi` exit 18) → 판별 3줄(`/proc/driver/nvidia/version` vs `modinfo nvidia` vs `readlink libnvidia-ml.so.1`) → 원인(무인 업그레이드 + 미재부팅) → 조치(재부팅) → 예방(ADR-0020). **frontmatter 계약 필수**(fleet-hardening spec §3.2 D3-2): `id: nvidia-driver-mismatch` · `kind: alert` · `category: gpu` · `severity: critical` · `alerts: []`(탐지 알림 신설 전이므로 빈 배열이 정상 — 게이트가 **WARN**으로 통과시킨다) + `docs/README.md` 런북 표에 한 줄(게이트 R9). 교차링크: [`gpu-xid.md`](../../docs/runbooks/gpu-xid.md) §4가 이 문서를 가리킨다(XID와 혼동해 재부팅하는 오조치 방지). **선행: 없음**
+- [ ] **T0-4** `[server]` (M) **data05 재부팅으로 드라이버 수복.** 사전 확인: Q9(`:8003` 고아 소멸 → 어시스턴트 모델이 Qwen3-Coder-30B → Qwen2.5-Coder-32B로 바뀜, 의도 확인) · `:9836` 고아(`/gits/MineSweeper/...`) 처분. 사후 검증: `nvidia-smi` 정상 · 4유닛 active · `gpu_vram_total_bytes`에 data05 시리즈 복귀(ADR-0013 판정 회복) · CDI 재생성 성공 · `node_nvidia_version_mismatch = 0`. **선행: T0-2, T0-3, fleet-hardening T1-11(증거 보존)**
+  - 🚫 **되돌릴 수 없는 순서 제약** — 재부팅이 T1-11보다 먼저 일어나면 `node_nvidia_version_mismatch`의 **1→0 전이가 시계열에 남지 않는다.** 그러면 이 태스크의 사후 검증 `= 0`은 "고쳤다"가 아니라 "원래 0이었다"와 구분되지 않고, AC-3-2("수복 전 1, 후 0, 두 값이 시계열에 모두 남아야")가 **영구 미달성**이 된다. T1-11이 `query_range` 응답을 JSON으로 커밋하는 것이 이 게이트의 완료 조건이다(TSDB 보존 30d 뒤에는 그 파일이 유일한 증거다). 위반 여부는 fleet-hardening AC-1-13이 재부팅 후 30일까지 기계 판정한다.
 - [x] **T0-5** `[server]` (M) **로그 인입 복구**(G0-2) — **완료 2026-07-30.** 원인은 하나가 아니라 **독립 결함 2개**였다:
   ① **수신측**(data03·04·05) — `/KEIwi`에서 `git checkout`이 `:ro` 바인드된 `logs.conf`를 다시 써 라이브 Logstash가 리로드하다 죽음(`No configuration found in the configured sources` 15초마다 반복). `docker restart keiwi-logstash`로 복구 후 백로그 flush.
   ② **발신측**(data01) — filebeat 7.17이 지원하지 않는 `include_matches: - not _SYSTEMD_UNIT=…`(8.x 문법)가 조용히 이벤트를 전멸시킴(`output.events active=0`, 커서 6일 정지, **ERROR 0줄**, systemctl은 active). 블록 제거로 복구.
   런북은 `docs/runbooks/log-ingestion-stopped.md`로 작성(계획한 `log-ingest-stalled.md`에서 증상 중심으로 개명). 검증: 4노드 전부 실시간 인입, 최근 24h 849k 이벤트.
   → **이 사고가 축2(알림)의 존재 근거다.** 5.7일간 아무도 몰랐고 발견 경로는 알림이 아니라 우연한 조회였다.
-- [ ] **T0-6** `[server]` (S) **data05 sudoers 교정**(G0-4). `sudo -n -l`에서 `(ALL) NOPASSWD: ALL` **뒤에** `(ALL : ALL) ALL`이 오는 순서 문제. `visudo -cf`로 검증. 기대: `sudo -n true` rc=0. **선행: 없음.** 막고 있는 것: 축1의 data05 배포 전체
+- [ ] **T0-6** `[server]` (S) **data05 sudoers 교정**(G0-4). `sudo -n -l`에서 `(ALL) NOPASSWD: ALL` **뒤에** `(ALL : ALL) ALL`이 오는 순서 문제. `visudo -cf`로 검증. 기대: `sudo -n true` rc=0. **선행: 없음.** 막고 있는 것: 축1의 data05 배포 전체 — 구체적으로 **fleet-hardening T1-4**(드라이런 ①까지 포함. `ansible.cfg`가 `become=True`라 `--check`도 특권을 요구한다) · **T1-7**(`/data/monitoring/rules/` 복사 + `docker kill -s HUP`) · **T1-9**(`docker logs`/`compose up -d node-exporter`). 대안 경로는 `-K`와 대화형 `sudo`이고, 되돌릴 수 없는 순서 제약 때문에 **T0-6이 안 끝났으면 기다리지 않고 그 경로로 진행한다**(fleet-hardening README §4.2.1)
 - [~] **T0-7** `[server]` (M) **day-1 오발화 후보 정리** — 2026-07-30 전 항목 진단 완료, 일부 실행 완료. 항목별 판정:
   - [x] **OpenSearch yellow** — **완료(green, unassigned 0)**. 원인: unassigned 37개 전부 `.opendistro-*` 시스템 인덱스의 **replica** 샤드(단일노드라 원천 할당 불가). 기존 인덱스 `number_of_replicas: 0` + ISM history가 매일 rollover로 재발하므로 인덱스 템플릿(`opendistro-system-replica0`)로 재발 차단. `keiwi-logs-*` 149개는 이미 0이었음.
   - [x] **data05 smartctl down** — **exporter는 무죄.** 6일째 `active`, `*:9633` 전체 바인드, 호스트에선 3주소 모두 200. Prometheus 컨테이너에서만 `context deadline exceeded` = **ufw가 docker 브리지→9633 유입을 드랍**(9836·9986은 허용돼 up — 9633만 규칙 누락). 적용 1줄: `sudo ufw allow from 172.18.0.0/16 to any port 9633 proto tcp`
@@ -29,8 +32,8 @@
   - [ ] **systemd failed — data03·04 `networkd-wait-online`** — 원인 실측: `eno2`가 no-carrier인데 configured → 전 인터페이스 대기 타임아웃. **`--any` drop-in을 node-hygiene role에 코드화 완료**(`node_hygiene_fix_wait_online`), 적용 대기.
   - [x] **systemd failed — data01 `rc-local`** — ⚠️ **건드리지 마라.** rc.local이 설정하는 `192.168.1.51`이 현재 bond0의 **primary IP로 라이브**(:764 응답, .101이 오히려 secondary). 업타임 1.22년이라 부팅 시 실제 IP 소스를 검증할 수 없음 — disable 시 재부팅 후 접속 불능 위험. failed 상태는 known-issue로 문서화(2021-04부터, 5년 무해).
   - [ ] **systemd failed — data01 `unattended-upgrades`** — 16.04 EOL이라 apt 소스가 죽어 서비스 무의미. disable 무방(낮은 우선순위).
-  - [~] **data04 `/` 86%** — 시스템측 정리 실행(journal 848M→200M 상한 + apt 캐시 591M) → **~1GB 회수에 그침**. 본질은 `/home` 272G(jhkim 134G · mhchoi 74G · dyjin 23G · jskim 22G) = **연구자 데이터라 관리자가 못 지움 → 통보 대상**. 후보: `/opt/conda/pkgs` 캐시 21G(`conda clean -p`, **공용이라 사용자 승인 필요**) · `/tmp` 5.1G(내용 확인 필요). 알림은 % 대신 `predict_linear`로 전환(실측: 24h 후 57GB 여유 = 당장 안전).
-  - [ ] **data01 메모리 90%** — 원인 특정: **sunakang의 Jupyter 커널 1개가 RSS 291GB(73.6%)**, 2025년부터 상주. 추가 커널 3개(16G·14G·3.8G). swap 41G 사용 중 = 시스템 압박. **자동 kill 금지(§11) — 연구자 통보 필요.** 유휴/좀비 GPU·메모리 넛지(백로그 #9)의 실증 사례 1호.
+  - [~] **data04 `/` 86%** — 시스템측 정리 실행(journal 848M→200M 상한 + apt 캐시 591M) → **~1GB 회수에 그침**. 본질은 `/home` 272G(user2 134G · user5 74G · user1 23G · user3 22G) = **연구자 데이터라 관리자가 못 지움 → 통보 대상**. 후보: `/opt/conda/pkgs` 캐시 21G(`conda clean -p`, **공용이라 사용자 승인 필요**) · `/tmp` 5.1G(내용 확인 필요). 알림은 % 대신 `predict_linear`로 전환(실측: 24h 후 57GB 여유 = 당장 안전).
+  - [ ] **data01 메모리 90%** — 원인 특정: **user6의 Jupyter 커널 1개가 RSS 291GB(73.6%)**, 2025년부터 상주. 추가 커널 3개(16G·14G·3.8G). swap 41G 사용 중 = 시스템 압박. **자동 kill 금지(§11) — 연구자 통보 필요.** 유휴/좀비 GPU·메모리 넛지(백로그 #9)의 실증 사례 1호.
   **선행: 없음.** 막고 있는 것: 축2 승격(AC-2-14). 남은 것 전부 사람 적용/통보/결정.
 - [ ] **T0-8** (S) `specs/alerting/spec.md` 사실 드리프트 3건 교정(spec §2.10) — data01 수집 중 / no-data는 data02뿐 / data03 DCGM 기동 확인 / data05 systemd 수집기 미작동. **선행: 없음**
 - [ ] **T0-9** (S) `docs/inventory.yaml` 드라이버·커널모듈 실측 교정(418.39 / 595.71.05-open / 535.309.01 / 595.71.05+595.84) + `kernel_module: open|proprietary` 필드 신설. 검증: AC-3-14. **선행: 없음**
@@ -39,11 +42,13 @@
 
 ## P1 — 설치 0으로 첫 성과 (반나절, 실패 위험 0)
 
-- [ ] **T1-1** (S) `rules/keiwi-hardware.yml` 생성 — `instance:node_chassis_power:watts` · `fleet:node_chassis_power:watts_sum`(0W 노드 제외) · `fleet:gpu_power:watts_sum` · `fleet:gpu_power_share:ratio` · `instance:node_chassis_energy:kwh1d` · `node:gpu_energy:kwh1d` · `product:node_bios_versions:count`. **`record:`만 — `alert:` 키 금지.** 검증: AC-1-1·AC-1-2. **선행: 없음**
-- [ ] **T1-2** (S) `rules/keiwi-standards.yml` 생성 — `fleet:gpu_driver_versions:count`(현재 2) · `fleet:kernel_releases:count`(현재 4). 검증: AC-3-1. **선행: 없음**
-- [ ] **T1-3** `[server]` (S) T1-1·T1-2를 라이브 `/data/monitoring/rules/`에 반영 + `docker compose restart prometheus`. **라이브 파일 직접 편집 금지(§12) — 레포본 복사.** 검증: AC-1-3·AC-1-4
-- [ ] **T1-4** (S) `syshealth.json`에 **row 「전력 · 냉각」 추가**(플릿 전력 stat / GPU 점유율 gauge / 노드별 추세 / 일일 kWh). BMC 메트릭 의존 패널은 P3 이후로 분리해 지금은 hwmon·DCGM만. 검증: AC-1-15. **선행: T1-1**
-- [ ] **T1-5** `[server]` (S) 대시보드 프로비저닝 반영. **`docker cp` 주입 금지**(README:100 — 2026-07-02 재생성으로 대시보드 소실 사고). 바인드 마운트 경로에 복사. **선행: T1-4**
+- [ ] **T1-1** (S) `rules/keiwi-hardware.yml` 생성 — **정본은 fleet-hardening 축4 T4-1이 공급했다**(레포에 이미 있다). 레코드 13종: `instance:node_chassis_power:watts` · `fleet:node_chassis_power:reporting_count`(정직성 분모) · `fleet:node_chassis_power:watts_sum`(0W 노드 제외) · `instance:gpu_power:watts` · `fleet:gpu_power:watts_sum` · `fleet:gpu_power_share:ratio` · `instance:gpu_power_share:ratio` · `instance:node_nongpu_power:watts` · `instance:node_chassis_energy:kwh1d`(원 메트릭 기반 + `> 0`) · `instance:gpu_energy:kwh1d` · `product:node_bios_revisions:count`(bios_release 포함) · `product:node_count:count` · `fleet:node_bios_drift:count`. **`record:`만 — `alert:` 키 금지**(`scripts/gates/check-rules.sh`가 강제). 검증: AC-1-1·AC-1-2 및 **축4 AC-4-1·AC-4-2·AC-4-3·AC-4-7~AC-4-10·AC-4-12**. **선행: 없음**
+- [ ] **T1-2** (S) `rules/keiwi-standards.yml` 생성 — **정본은 fleet-hardening 축4 T4-2가 공급했다**. `fleet:gpu_driver_versions:count`(라벨 필터 필수 — **현재 1**, 초안의 "2"는 라벨 부재 버킷을 센 거짓값) · `fleet:gpu_driver_unlabeled:count`(**현재 4** — 동반 필수) · `fleet:kernel_releases:count`(현재 4) · `fleet:gpu_driver_versions:count_hygiene`(`or vector(0)` 금지). 검증: AC-3-1 및 **축4 AC-4-1·AC-4-4·AC-4-11**. **선행: 없음**
+- [ ] **T1-3** `[server]` (S) T1-1·T1-2를 라이브 `/data/monitoring/rules/`에 반영 + **`sudo docker kill -s HUP prometheus`**. ⚠️ **`docker compose restart` 금지**(prometheus 서비스 포함 — 이 명령을 문자 그대로 남기지 않는 이유는 축4 AC-4-14가 그 문자열의 부재로 교정을 판정하기 때문이다) — 스크레이프·평가 공백에 더해 컨테이너 재생성 리스크가 있고, fleet-hardening spec §7.3이 이 명령을 2026-07-02 대시보드 소실 사고의 원인으로 지목한다. `--web.enable-lifecycle=false`라 HTTP reload(405)도 불가하다. 재적용 후 `prometheus_config_last_reload_successful`=1 **그리고** 신규 그룹 `health=ok`를 **둘 다** 확인한다(실패해도 Prometheus는 구 설정을 조용히 유지한다). **라이브 파일 직접 편집 금지(§12) — 레포본 복사.** 검증: AC-1-3·AC-1-4 및 축4 AC-4-17
+- [x] ~~**T1-4**~~ **[폐기 — 중복]** fleet-hardening **T4-6**이 row 400「전력 (섀시 · GPU)」로 완료했다. 아래 원문은 이력용:
+  -  (S) `syshealth.json`에 **row 「전력 · 냉각」 추가**(플릿 전력 stat / GPU 점유율 gauge / 노드별 추세 / 일일 kWh). BMC 메트릭 의존 패널은 P3 이후로 분리해 지금은 hwmon·DCGM만. 검증: AC-1-15. **선행: T1-1**
+- [x] ~~**T1-5**~~ **[폐기 — 중복]** fleet-hardening **T4-10**과 같은 일이다. 아래 원문은 이력용:
+  -  `[server]` (S) 대시보드 프로비저닝 반영. **`docker cp` 주입 금지**(README:100 — 2026-07-02 재생성으로 대시보드 소실 사고). 바인드 마운트 경로에 복사. **선행: T1-4**
 
 > [!NOTE]
 > P1이 끝나면 JD 관점 두 항목이 실물로 커버된다 — "사용률·용량 지표를 근거로 증설 시점 판단(전력)"과 "펌웨어·BIOS 드리프트". 신규 컴포넌트 0개다.
@@ -56,7 +61,7 @@
 - [ ] **T2-2** (S) `prometheus.yml` 전 `static_configs`에 `node: "dataNN"` 라벨 추가(B2). **inhibition·라우팅의 공통 축.** 검증: AC-2-3. **선행: 없음**
 - [ ] **T2-3** `[server]` (S) T2-1·T2-2 적용 + prometheus restart. Grafana 데이터소스가 프로비저닝본으로 바뀌면 기존 대시보드의 `${datasource}` 변수 동작을 함께 확인
 - [ ] **T2-4** (S) 대시보드 uid 정본 확정(Q7) — `keiwi-*` vs `keiwi-*-v3` 중복 해소. 결정 후 `dashboard_url` 애너테이션 규약 문서화. 검증: AC-2-7. **선행: 없음**
-- [ ] **T2-5** (S) `scripts/check-runbooks.sh` 작성 — `infra/monitoring/alerts/*.yml`의 모든 `alertname`을 kebab-case로 변환해 `docs/runbooks/<kebab>.md` 존재를 검증, 없으면 exit 1. `npm run verify`에 배선(§9 CI 강제). 검증: AC-2-6. **선행: 없음**
+- [x] **T2-5** (S) ~~`scripts/check-runbooks.sh` 작성~~ → **fleet-hardening T3-5로 이관**(대상 경로 `scripts/gates/check-runbooks.sh` — 구현 완료). 이관 근거: ① 레포 전역 게이트 경로가 `scripts/gates/check-*` 한 곳으로 통일됐다(fleet-hardening spec §0.2) ② **kebab 강제에는 반례가 있다** — `LogIngestStalled`의 kebab은 `log-ingest-stalled.md`인데 실제 런북은 `log-ingestion-stopped.md`다. 기계적 kebab 게이트는 **유일하게 올바른 알림 런북을 FAIL시킨다.** 정본은 frontmatter `alerts:` 선언이고 kebab은 폴백이다(R5) ③ 검사 대상을 `infra/monitoring/alerts/*.yml`(미생성)에 더해 Grafana provisioning YAML(라이브 평면)까지 넓혔다. 배선은 `npm run verify`가 아니라 `scripts/verify-all.sh`(레포 전역 게이트 정본, §0.2). 검증: AC-2-6(경로 정정본)
 
 ---
 
@@ -75,7 +80,9 @@
 
 - [ ] **T4-1** (S) `docs/decisions/0018-alerting-engine-and-channel.md` — 엔진=Grafana 통합 알림(§I-2 + Grafana 13 inhibition 실측 근거) / 규칙 원본=Prometheus 포맷 + convert API / **Slack egress 예외 1건 + 유출 필드 표 + 라벨 화이트리스트** / `X-Disable-Provenance` 정책. **선행: 없음.** 사용자 승인 필요(§C1)
 - [ ] **T4-2** (M) `infra/monitoring/alerts/` 규칙 v1 커밋 — `availability.yml`(A1·A3) · `gpu.yml`(G2·G3·H2 + XID는 T5-2 후) · `resource.yml`(R1·R2·R2b·R3) · `hardware.yml`(HW 8종) · `stack.yml`(S5·Watchdog) · `vllm.yml`(V1 가드 포함·V2). 전 규칙에 `severity`·`summary`·`runbook_url`·`dashboard_url`. 검증: AC-2-1·AC-2-8. **선행: T2-4, T2-5, T3-5**
-- [ ] **T4-3** (M) 런북 6종 생성 — `psu-redundancy-lost.md`(2025-05-10·06-21 실사건 인용) · `inlet-temp-near-critical.md` · `gpu-xid-critical.md` · `node-down.md` · `exporter-down.md` · `sel-near-full.md`. 검증: AC-2-6이 통과할 때까지. **선행: T4-2**
+- [ ] **T4-3** (M) 런북 **3종** 생성 — `psu-redundancy-lost.md`(2025-05-10·06-21 실사건 인용) · `inlet-temp-near-critical.md` · `sel-near-full.md`. **BMC 축 소관 3종만 남긴다.** 검증: AC-2-6이 통과할 때까지. **선행: T4-2**
+  - ~~`gpu-xid-critical.md`~~ → **삭제**. fleet-hardening 축3의 [`docs/runbooks/gpu-xid.md`](../../docs/runbooks/gpu-xid.md)가 담당한다(frontmatter `alerts: [GpuXidErrorNew, GpuXidCritical]`로 이미 선언 — `GpuXidCritical`이 배포되면 그 런북이 자동으로 대응된다). 코드별 분기표·원문 대조 절차가 이미 그 파일에 있다.
+  - ~~`node-down.md`~~·~~`exporter-down.md`~~ → **축3 [`node-down.md`](../../docs/runbooks/node-down.md) 하나로 통합**. "exporter down인지 노드 down인지"는 진단의 **첫 분기**이지 별개 문서가 아니다 — §2에 그 분기(+ data04 터널 오판 경로)를 담았다. **파일을 나누면 두 문서가 서로를 가리키다 둘 다 낡는다.** `ExporterDown`(A3) 알림이 생기면 그 런북 frontmatter `alerts:`에 한 줄 추가하면 된다(파일 신설 불필요).
 - [ ] **T4-4** `[server]` (S) Grafana 서비스 계정 + 토큰 발급(RBAC: Alerting Rules Reader/Writer · Set provisioning status · Datasources Reader · Folders CRW). 토큰은 `.env`만(§13). 주의: Grafana admin 비밀번호가 compose 값과 불일치한다는 기록(README:156). **선행: T2-3**
 - [ ] **T4-5** `[server]` (S) **섀도 모드 import** — `POST /api/convert/prometheus/config/v1/rules` + `X-Grafana-Alerting-Alert-Rules-Paused: true`. 검증: AC-2-4·AC-2-5. **선행: T4-2, T4-4**
 - [ ] **T4-6** (S) `gcx` 도입 + inhibition 4건 정의(spec §2.6.5). `grafanactl`은 2026-06-01 아카이브 예정 — `gcx`를 쓴다. 검증: AC-2-11. **선행: T2-2(라벨 정규화)**
@@ -108,7 +115,7 @@
 
 - [ ] **T6-1** (M) `docs/decisions/0020-gpu-driver-firmware-standard.md` — 표준=595.x open / **NVIDIA를 `unattended-upgrades` 블랙리스트**(G0-1 직접 원인 차단) / data01 legacy 예외. **선행: T0-4**
 - [ ] **T6-2** (M) `roles/nvidia-driver` — 목표 버전·플레이버를 inventory 변수로 선언, 현재 상태와 대조해 **드리프트를 보고(check 모드)하고 적용은 사람**(§11). **선행: T6-1**
-- [ ] **T6-3** `[server]` (L) data04를 535.309.01 → 595.x로 표준화(다운타임 창). 검증: AC-3-4(`fleet:gpu_driver_versions:count` = 1). **선행: T6-2**
+- [ ] **T6-3** `[server]` (L) data04를 535.309.01 → 595.x로 표준화(다운타임 창). 검증: AC-3-4(**`count_hygiene`=1 AND `unlabeled`=0** — DCGM 라벨만으로는 도달 불가하다는 것이 AC 본문의 결론이다. 옛 표현 `fleet:gpu_driver_versions:count`=1은 폐기). **선행: T6-2**
 - [ ] **T6-4** (M) `infra/monitoring/dcgm/keiwi-counters.csv` — `DCGM_EXP_XID_ERRORS_COUNT`·`DCGM_EXP_CLOCK_EVENTS_COUNT`·ECC SBE/DBE(VOL·AGG)·THERMAL/POWER_VIOLATION·NVLink 에러 4종·`POWER_MGMT_LIMIT`·`SLOWDOWN_TEMPERATURE` 주석 해제 + compose `-f` 마운트 + `--xid-count-window-size`/`--clock-events-count-window-size`. **선행: 없음(T4-2의 XID·G4 규칙이 이걸 기다린다)**
 - [ ] **T6-5** `[server]` (S) T6-4 적용(data03/04/05 dcgm-exporter 재시작). 검증: AC-3-5·AC-3-6. **선행: T6-4**
 - [ ] **T6-6** (S) T4-2의 XID 규칙을 `DCGM_EXP_XID_ERRORS_COUNT` 기반으로 교체하고 임시 `GpuXidLatchChanged`를 제거. `specs/alerting/spec.md` §3.2 PromQL 교정. **선행: T6-5**
@@ -148,4 +155,4 @@
 - [ ] **B07** NVLink 브리지 장착 가능성 — **섀시를 열어 슬롯 간격 실측**(안 열어보고 구매 권고 금지)
 - [ ] **B08** `datacenter-gpu-manager-4-core` 호스트 설치 → `dcgmi diag -r 2 -j` → textfile 변환(r1이 G0-1을 바로 잡는 항목임을 런북에 명시). r3(stress)는 T6-5 이후에만
 - [ ] **B09** `rack`/`pdu_circuit` 실사 → `inventory.yaml` 수기 필드 채움 → 전력 헤드룸을 절대값이 아니라 비율로 말할 수 있게 됨
-- [ ] **B10** `instance:node_bios_age:days` 결론(exporter 쪽 `keiwi_bmc_bios_age_days`로 이동, spec §1.8 주석)
+- [x] **B10** BIOS 경과일 recording rule 결론 — **fleet-hardening T4-7에서 삭제로 종결.** PromQL은 `bios_date` 라벨을 시간으로 파싱하지 못해 초안 식이 릴리스 일자가 아니라 수집 시각을 재고 있었다. 경과일 신호가 다시 필요해지면 exporter 쪽 `keiwi_bmc_bios_age_days` 신설을 **BMC 축의 새 백로그 항목**으로 연다(레코드는 만들지 않는다).

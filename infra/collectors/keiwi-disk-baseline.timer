@@ -1,0 +1,16 @@
+[Unit]
+# T-E4-6 — 03:00 일일 베이스라인 (specs/alert-enrichment §4.2 D4-1 "일일 cron 03:00")
+# cron 이 아니라 systemd timer 를 쓰는 이유: Persistent=true 로 노드가 꺼져 있던 날의
+# 실행을 따라잡고, 저널에 실행 이력이 남으며, 기존 KEIwi 관례(keiwi-log-heartbeat.timer)와 같다.
+Description=KEIwi 디스크 귀속 — 일일 베이스라인 스냅샷 타이머 (03:00)
+Documentation=file:///opt/keiwi/specs/alert-enrichment/spec.md
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# 세 노드에 동시에 du 를 걸지 않도록 흩뿌린다(연구 노드 새벽 작업 방해 최소화).
+RandomizedDelaySec=600
+Persistent=true
+Unit=keiwi-disk-baseline.service
+
+[Install]
+WantedBy=timers.target

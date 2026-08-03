@@ -3,13 +3,18 @@
 # data04(192.168.1.104:9100)는 .105에서 직접 도달 불가 → SSH 터널로 노출한다.
 # .105 호스트의 172.18.0.1:9104(도커 브리지 게이트웨이) → data04의 localhost:9100.
 # 적용(사람이, 헌장 §11):
+#   printf 'KEIWI_TUNNEL_TARGET=%s\n' "<data04계정>@192.168.1.104" \
+#     | sudo tee /etc/keiwi/tunnel-data04.env >/dev/null    # ① 접속 대상 (레포 밖, §13)
 #   sudo cp infra/monitoring/keiwi-tunnel-data04.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-tunnel-data04
 #
+# ⚠️ 접속 계정을 이 파일에 적지 않는 이유: 레포가 PUBLIC이고 노드 계정은 실재하는 사람의
+#    OS 계정이다(§13). EnvironmentFile은 `-` 없이 **필수**로 둔다 — 파일이 없으면 유닛이
+#    기동에 실패한다. 계정을 지운 자리에 침묵이 남으면 터널이 죽은 줄 모른다.
+#
 # 전제:
 #   · data04에 node-exporter(localhost:9100) + DCGM exporter(localhost:9400)가 떠 있어야 함.
-#   · .105에서 'ssh data04'가 키 인증으로 동작해야 함(~/.ssh/config의 Host data04, 또는
-#     아래 ExecStart의 data04를 mooner92@192.168.1.104로 교체).
+#   · .105의 User= 계정에서 대상으로 키 인증이 동작해야 함(ssh-copy-id -p 764).
 #   · 172.18.0.1 바인딩이 막히면 0.0.0.0:9104로 바꾸고 Prometheus 타깃도 172.18.0.1:9104 유지.
 
 [Unit]
@@ -19,6 +24,8 @@ Wants=network-online.target
 
 [Service]
 User=mooner92
+# KEIWI_TUNNEL_TARGET=<계정>@192.168.1.104 — 값은 레포 밖(§13). 파일 부재 = 기동 실패.
+EnvironmentFile=/etc/keiwi/tunnel-data04.env
 ExecStart=/usr/bin/ssh -N \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
@@ -28,7 +35,7 @@ ExecStart=/usr/bin/ssh -N \
   -L 172.18.0.1:9404:localhost:9400 \
   -L 172.18.0.1:9837:localhost:9836 \
   -L 172.18.0.1:9987:localhost:9986 \
-  mhchoi@192.168.1.104
+  ${KEIWI_TUNNEL_TARGET}
 Restart=always
 RestartSec=10
 

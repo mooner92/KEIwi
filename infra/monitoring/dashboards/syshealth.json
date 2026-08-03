@@ -2,7 +2,13 @@
   "uid": "keiwi-syshealth",
   "title": "KEIwi 시스템 건강",
   "description": "디스크 SMART·NVMe 수명·OS 위생(보안패치/재부팅대기/실패 systemd). A1(textfile+systemd)·A2(smartctl) 신규 메트릭 뷰. 메트릭 미수집 시 빈 패널로 안전. 에이전트 생성, 사람 import(§11).",
-  "tags": ["keiwi", "syshealth", "smart", "os", "m2"],
+  "tags": [
+    "keiwi",
+    "syshealth",
+    "smart",
+    "os",
+    "m2"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -10,11 +16,23 @@
   "graphTooltip": 0,
   "fiscalYearStartMonth": 0,
   "refresh": "30s",
-  "time": { "from": "now-6h", "to": "now" },
-  "timepicker": {
-    "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"]
+  "time": {
+    "from": "now-6h",
+    "to": "now"
   },
-  "annotations": { "list": [] },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "1h"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
   "links": [],
   "templating": {
     "list": [
@@ -33,7 +51,10 @@
         "name": "instance",
         "label": "노드 (node-exporter endpoint)",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
         "definition": "label_values(node_uname_info, instance)",
         "query": {
           "qryType": 1,
@@ -46,7 +67,15 @@
         "includeAll": true,
         "allValue": ".*",
         "hide": 0,
-        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
         "options": []
       }
     ]
@@ -56,31 +85,78 @@
       "id": 100,
       "type": "row",
       "title": "한눈에 (플릿 요약)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "collapsed": false,
       "panels": []
     },
     {
       "id": 1,
       "type": "stat",
-      "title": "SMART 종합 상태 (최저)",
-      "description": "smartctl_device_smart_status: 1=정상(PASS), 0=실패(FAIL). 플릿 전 디스크 중 최저값 — 하나라도 실패면 FAIL.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "title": "SMART 종합 상태 (논리 볼륨, 최저)",
+      "description": "smartctl_device_smart_status: 1=정상(PASS), 0=실패(FAIL). ⚠️ **논리 볼륨(HPE LOGICAL VOLUME) 3개의 최저값이다 — 물리 디스크가 아니다.** LV은 멤버 디스크에 grown defect 773개가 있어도 OK를 말한다(data04 실측). 물리 디스크 판정은 아래 「물리 디스크 목록」·「결함 섹터 상위」를 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "실패", "color": "red", "index": 0 }, "1": { "text": "정상", "color": "green", "index": 1 } } }
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "실패",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "정상",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
           ],
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
           "noValue": "데이터 없음"
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["min"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "auto",
         "colorMode": "background",
         "graphMode": "none",
@@ -88,7 +164,14 @@
         "textMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "min(smartctl_device_smart_status)" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "min(smartctl_device_smart_status)"
+        }
       ]
     },
     {
@@ -96,19 +179,47 @@
       "type": "stat",
       "title": "재부팅 대기 노드",
       "description": "node_reboot_required(textfile) == 1 인 노드 수. 0 이 정상.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
           "noValue": "0"
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "auto",
         "colorMode": "value",
         "graphMode": "none",
@@ -116,7 +227,14 @@
         "textMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(max by (instance) (node_reboot_required) == 1) or vector(0)" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "count(max by (instance) (node_reboot_required) == 1) or vector(0)"
+        }
       ]
     },
     {
@@ -124,19 +242,47 @@
       "type": "stat",
       "title": "실패 systemd 유닛 (전체)",
       "description": "node_systemd_unit_state{state=\"failed\"} 합. recording rule instance:node_systemd_units_failed:count 의 플릿 합. 0 이 정상.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
           "noValue": "0"
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "auto",
         "colorMode": "value",
         "graphMode": "none",
@@ -144,27 +290,66 @@
         "textMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(instance:node_systemd_units_failed:count) or vector(0)" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(instance:node_systemd_units_failed:count) or vector(0)"
+        }
       ]
     },
     {
       "id": 4,
       "type": "stat",
-      "title": "미적용 보안 업데이트 (전체)",
-      "description": "apt_upgrades_pending(textfile) 중 origin=security 합. origin 라벨이 없으면 값이 비어 보일 수 있음 — 하단 '노드별 미적용 업데이트' 표 참조.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "title": "미적용 보안 업데이트 (보고 노드만)",
+      "description": "sum(node_apt_security_upgrades_pending) — **커버리지가 부분집합이다.**\n\n⚠️ 2026-08-03 실측: 이 메트릭은 살아 있는 4노드 중 **2노드(.103·.104)에만** 존재한다\n(.101은 Ubuntu 16.04, .105는 수집기 미배포). 그런데 stat은 합계 **0**을 초록으로 그린다 —\n즉 **'보고하지 않음'이 '문제 없음'으로 위조된다.**\n\n이 패널을 볼 때는 아래 「위생 수집기 커버리지」를 **함께** 봐야 한다. 0이 안전을 뜻하려면\n커버리지가 4/4여야 하고, 그 배선은 축1 T1-4(node-hygiene 전 노드 배포)가 소유한다.\n커버리지가 채워지기 전까지 이 값은 '두 노드에 한해 0'이라는 뜻 이상이 아니다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 20 } ] },
-          "noValue": "데이터 없음"
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "noValue": "수집기 미배포"
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "auto",
         "colorMode": "value",
         "graphMode": "none",
@@ -172,144 +357,504 @@
         "textMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(apt_upgrades_pending{origin=~\".*[Ss]ecurity.*\"})" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(node_apt_security_upgrades_pending)"
+        }
       ]
     },
     {
       "id": 200,
       "type": "row",
-      "title": "디스크 건강 (SMART · NVMe)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "title": "디스크 건강 (물리 디스크 · 논리 볼륨)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
       "collapsed": false,
       "panels": []
     },
     {
-      "id": 5,
-      "type": "table",
-      "title": "SMART 종합 상태 (디스크별)",
-      "description": "smartctl_device_smart_status. 1=정상, 0=실패. smartctl_exporter 미배포 시 빈 표.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 201,
+      "type": "stat",
+      "title": "물리 디스크 수 (RAID 뒤)",
+      "description": "sum(node_smart_disks) — RAID 컨트롤러 뒤에서 실제로 응답한 물리 디스크 대수. 기대: data03 12 + data04 12. **LV은 멤버가 빠져도 끝까지 OK를 말하므로, 이 숫자의 하락만이 '디스크가 사라졌다'를 알려준다**(PhysicalDiskDisappeared가 감시). 빈 값은 0이 아니라 '미수집'이다 — 수집기 미배포 노드와 디스크 0본을 구분한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 7
+      },
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto", "filterable": true } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "미수집"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(node_smart_disks{instance=~\"$instance\"})"
+        }
+      ]
+    },
+    {
+      "id": 204,
+      "type": "timeseries",
+      "title": "결함 섹터 증가 (7일 창)",
+      "description": "serial:node_smart_defects:increase7d — 디스크별 grown defect **증가량**. 절대값이 아니라 증가량인 이유: data04에 이미 773·66이 있어서 절대 임계는 첫날부터 상주 발화가 된다(알림 무시 습관의 시작). 0선에서 떠오르는 순간이 열화 진행 중이라는 뜻이다. 규칙은 rules/keiwi-recording.yml 소유(미배포 시 빈 패널).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 18,
+        "x": 6,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "serial:node_smart_defects:increase7d{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}} {{serial}}"
+        }
+      ]
+    },
+    {
+      "id": 202,
+      "type": "table",
+      "title": "물리 디스크 목록 (모델 · 시리얼 · 결함 · 온도)",
+      "description": "node_smart_disk_info 에 grown defect·온도를 merge 한 인벤토리. ⚠️ **disk_index 는 베이 번호가 아니다** — 컨트롤러 내부 열거 순서이고 교체하면 밀린다. 물리 특정은 반드시 **시리얼**로 한다(런북 disk-grown-defects.md). SATA SSD 행의 결함 칸이 비는 것은 정상이다(grown defect는 SAS 개념).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "상태" },
+            "matcher": {
+              "id": "byName",
+              "options": "결함섹터"
+            },
             "properties": [
-              { "id": "mappings", "value": [ { "type": "value", "options": { "0": { "text": "실패", "color": "red", "index": 0 }, "1": { "text": "정상", "color": "green", "index": 1 } } } ] },
-              { "id": "custom.cellOptions", "value": { "type": "color-text" } }
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 100
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
             ]
           }
         ]
       },
-      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false, "reducer": ["sum"], "fields": "" } },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "smartctl_device_smart_status", "format": "table", "instant": true }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_smart_disk_info{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_smart_disk_grown_defect_list{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_smart_disk_temperature_celsius{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
         {
+          "id": "merge",
+          "options": {}
+        },
+        {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true, "job": true },
-            "indexByName": { "instance": 0, "device": 1, "model_name": 2, "serial_number": 3, "Value": 4 },
-            "renameByName": { "instance": "노드", "device": "장치", "model_name": "모델", "serial_number": "시리얼", "Value": "상태" }
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "ctrl_dev": true,
+              "Value #A": true,
+              "form_factor": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "controller": 1,
+              "disk_index": 2,
+              "model": 3,
+              "serial": 4,
+              "firmware": 5,
+              "protocol": 6,
+              "rotation_rate": 7,
+              "Value #B": 8,
+              "Value #C": 9
+            },
+            "renameByName": {
+              "instance": "노드",
+              "controller": "컨트롤러",
+              "disk_index": "인덱스(베이 아님)",
+              "model": "모델",
+              "serial": "시리얼",
+              "firmware": "펌웨어",
+              "protocol": "프로토콜",
+              "rotation_rate": "회전수(0=SSD)",
+              "Value #B": "결함섹터",
+              "Value #C": "온도(℃)"
+            }
           }
         }
       ]
     },
     {
-      "id": 6,
-      "type": "bargauge",
-      "title": "NVMe 수명 소모율 (%)",
-      "description": "smartctl_device_percentage_used: NVMe 쓰기 수명 소모율(0~100%, 100=수명 도달). SATA/HDD엔 없어 NVMe만 표시.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 203,
+      "type": "table",
+      "title": "결함 섹터 상위 10 (교체 후보)",
+      "description": "topk(10, node_smart_disk_grown_defect_list). 절대값이라 **알림이 아니라 눈으로 보는 목록**이다 — HPE가 권고 임계를 주지 않으므로 숫자에 임계를 걸지 않는다(알림은 증가량 기준). 여기 상위에 오른 디스크는 교체 티켓 대상이다(T2-18: data04 ZC1AE78X 773 · ZC1968JB 66).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 12
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 80 }, { "color": "red", "value": 90 } ] },
-          "noValue": "NVMe 데이터 없음"
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "noValue": "결함 0 (또는 미수집)"
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "smartctl_device_percentage_used", "legendFormat": "{{instance}} · {{device}}" }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(10, node_smart_disk_grown_defect_list{instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "controller": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "serial": 1,
+              "disk_index": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "instance": "노드",
+              "serial": "시리얼",
+              "disk_index": "인덱스(베이 아님)",
+              "Value": "결함섹터"
+            }
+          }
+        }
       ]
     },
     {
-      "id": 7,
+      "id": 5,
       "type": "table",
-      "title": "Reallocated sector 수 (SATA/SAS)",
-      "description": "smartctl_device_attribute{attribute_name=\"Reallocated_Sector_Ct\", attribute_value_type=\"raw\"}. 0 초과면 디스크 열화 신호. 지속 증가 시 교체 신호.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "title": "SMART 종합 상태 (논리 볼륨별)",
+      "description": "smartctl_device_smart_status. 1=정상, 0=실패. ⚠️ 여기 나오는 device는 **논리 볼륨**이고 serial_number는 컨트롤러 시리얼이다(data05 sda·sdb가 같은 PZXNL0ARHFU8J0인 이유). 물리 디스크는 옆 표를 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "filterable": true },
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 10 } ] }
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "재할당 섹터" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } } ] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "상태"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "실패",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "정상",
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
         ]
       },
-      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false, "reducer": ["sum"], "fields": "" } },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "smartctl_device_attribute{attribute_name=\"Reallocated_Sector_Ct\", attribute_value_type=\"raw\"}", "format": "table", "instant": true }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "smartctl_device_smart_status",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true, "job": true, "attribute_name": true, "attribute_value_type": true, "attribute_id": true, "attribute_flags_short": true, "attribute_flags_long": true },
-            "indexByName": { "instance": 0, "device": 1, "Value": 2 },
-            "renameByName": { "instance": "노드", "device": "장치", "Value": "재할당 섹터" }
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "device": 1,
+              "model_name": 2,
+              "serial_number": 3,
+              "Value": 4
+            },
+            "renameByName": {
+              "instance": "노드",
+              "device": "장치",
+              "model_name": "모델",
+              "serial_number": "시리얼",
+              "Value": "상태"
+            }
           }
         }
-      ]
-    },
-    {
-      "id": 8,
-      "type": "bargauge",
-      "title": "NVMe 예비 영역 잔량 (available spare %)",
-      "description": "smartctl_device_available_spare * 100. 임계치(available_spare_threshold, 보통 10%) 아래로 떨어지면 위험. 값 낮을수록 나쁨.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "orange", "value": 20 }, { "color": "green", "value": 50 } ] },
-          "noValue": "NVMe 데이터 없음"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
-      },
-      "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "smartctl_device_available_spare * 100", "legendFormat": "{{instance}} · {{device}}" }
       ]
     },
     {
       "id": 300,
       "type": "row",
       "title": "OS 위생 (재부팅 · 보안패치 · systemd)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
       "collapsed": false,
       "panels": []
     },
@@ -318,28 +863,97 @@
       "type": "table",
       "title": "재부팅 대기 (노드별)",
       "description": "node_reboot_required(textfile). 1=재부팅 필요(커널/라이브러리 업데이트 후). 0=정상.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 29
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "filterable": true },
-          "mappings": [ { "type": "value", "options": { "0": { "text": "정상", "color": "green", "index": 0 }, "1": { "text": "재부팅 필요", "color": "red", "index": 1 } } } ]
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "정상",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "재부팅 필요",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ]
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "상태" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } } ] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "상태"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
         ]
       },
-      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false, "reducer": ["sum"], "fields": "" } },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "max by (instance) (node_reboot_required{instance=~\"$instance\"})", "format": "table", "instant": true }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (instance) (node_reboot_required{instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true, "job": true },
-            "indexByName": { "instance": 0, "Value": 1 },
-            "renameByName": { "instance": "노드", "Value": "상태" }
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "Value": 1
+            },
+            "renameByName": {
+              "instance": "노드",
+              "Value": "상태"
+            }
           }
         }
       ]
@@ -348,30 +962,103 @@
       "id": 10,
       "type": "table",
       "title": "미적용 업데이트 (노드별)",
-      "description": "apt_upgrades_pending(textfile). origin별 대기 패키지 수. origin에 security 포함 여부로 보안 업데이트 식별.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "description": "node_apt_upgrades_pending(node-hygiene textfile). 노드별 대기 패키지 수. ⚠️ 2026-08-03 교정: 종전 이름 apt_upgrades_pending 은 라이브에 존재하지 않는다. origin 라벨은 이 수집기가 만들지 않으므로 열에서 제거했다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 29
+      },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "filterable": true },
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 20 } ] }
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "대기 수" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "gradient" } } ] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "대기 수"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              }
+            ]
+          }
         ]
       },
-      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false, "reducer": ["sum"], "fields": "" } },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "apt_upgrades_pending{instance=~\"$instance\"}", "format": "table", "instant": true }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_apt_upgrades_pending{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true, "job": true, "arch": true },
-            "indexByName": { "instance": 0, "origin": 1, "Value": 2 },
-            "renameByName": { "instance": "노드", "origin": "출처(origin)", "Value": "대기 수" }
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "arch": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "Value": 1
+            },
+            "renameByName": {
+              "instance": "노드",
+              "Value": "대기 수"
+            }
           }
         }
       ]
@@ -381,23 +1068,968 @@
       "type": "table",
       "title": "실패 systemd 유닛 (목록)",
       "description": "node_systemd_unit_state{state=\"failed\"} == 1. 죽은 서비스 목록. 비어 있으면 정상.",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 29
+      },
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto", "filterable": true } },
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
         "overrides": []
       },
-      "options": { "showHeader": true, "cellHeight": "sm", "footer": { "show": false, "reducer": ["sum"], "fields": "" } },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "node_systemd_unit_state{state=\"failed\", instance=~\"$instance\"} == 1", "format": "table", "instant": true }
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_systemd_unit_state{state=\"failed\", instance=~\"$instance\"} == 1",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true, "__name__": true, "job": true, "state": true, "type": true, "Value": true },
-            "indexByName": { "instance": 0, "name": 1 },
-            "renameByName": { "instance": "노드", "name": "유닛" }
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "state": true,
+              "type": true,
+              "Value": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "name": 1
+            },
+            "renameByName": {
+              "instance": "노드",
+              "name": "유닛"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 400,
+      "type": "row",
+      "title": "전력 (섀시 · GPU)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 401,
+      "type": "stat",
+      "title": "플릿 섀시 전력",
+      "description": "fleet:node_chassis_power:watts_sum — node_hwmon_power_average_watt{sensor=\"power1\"}(⚠️ 단수 _watt)의 합, 0W 노드 제외. 보조 값은 fleet:node_chassis_power:reporting_count(현재 3/4). data01(.101 DL380 Gen9)은 ACPI 전력계 객체가 존재하지만 값이 30일 보존 전 구간 0이라(센서 미지원) 합계에서 빠진다 — 합이 줄었을 때 '절전'인지 '노드 관측 상실'인지는 이 보고 노드 수로만 갈린다. 임계·알림 없음: 랙 전력 예산과 PSU 정격이 미측정이라 조치가 정의되지 않는다(spec §D4-5).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 38
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "보고 노드 수"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "colorMode": "none",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:node_chassis_power:watts_sum",
+          "legendFormat": "섀시 합계"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:node_chassis_power:reporting_count",
+          "legendFormat": "보고 노드 수"
+        }
+      ]
+    },
+    {
+      "id": 402,
+      "type": "gauge",
+      "title": "GPU 전력 점유율 (플릿)",
+      "description": "fleet:gpu_power_share:ratio = sum(DCGM_FI_DEV_POWER_USAGE) ÷ 섀시 합계. 2026-08-03 실측 0.234(부하에 따라 변동). 나머지는 CPU·냉각·디스크·PSU 손실 몫이다 — GPU를 다 꺼도 노드당 180~290W가 남는다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 38
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:gpu_power_share:ratio"
+        }
+      ]
+    },
+    {
+      "id": 403,
+      "type": "timeseries",
+      "title": "노드별 섀시 전력 추세",
+      "description": "instance:node_chassis_power:watts. data01은 상시 0선으로 보인다(센서 미지원) — 0이 '유휴'가 아니라 '미보고'임을 위 stat의 보고 노드 수와 함께 읽는다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:node_chassis_power:watts{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 404,
+      "type": "bargauge",
+      "title": "노드별 GPU 전력 점유율",
+      "description": "instance:gpu_power_share:ratio — dcgm(:9400) instance를 label_replace로 :9100 정규화해 조인한다. 2026-08-03 실측 .105=0.399 · .104=0.100 · .103=0.136. 같은 섀시인데 점유율이 4배 갈리는 것이 재배치·증설 판단의 입력이다. 비어 보이면 조인이 깨진 것이다(조인 실패는 에러가 아니라 무결과다).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 43
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "조인 결과 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:gpu_power_share:ratio{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 405,
+      "type": "timeseries",
+      "title": "전력 구성 (GPU vs 비-GPU)",
+      "description": "instance:gpu_power:watts + instance:node_nongpu_power:watts. 비-GPU는 섀시−GPU라 냉각·CPU·디스크·PSU 손실을 모두 포함한다. GPU 유휴 시에도 노드당 180~290W가 상시 소비된다는 사실이 여기서 보인다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 43
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:gpu_power:watts{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}} GPU"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:node_nongpu_power:watts{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}} 비-GPU"
+        }
+      ]
+    },
+    {
+      "id": 406,
+      "type": "bargauge",
+      "title": "일일 전력량 (24h)",
+      "description": "instance:node_chassis_energy:kwh1d + instance:gpu_energy:kwh1d. 섀시는 원 메트릭 avg_over_time[1d] 기반이라 규칙 배포 직후부터 정확하다(레코딩 축적 대기 없음). 0W 노드는 `> 0` 결과 필터로 아예 시리즈가 없다 — '0 kWh 노드'로 그려 오해를 만들지 않기 위함이다. GPU는 DCGM 누적 에너지(mJ)의 increase ÷ 3.6e9. 실측 data05 섀시 9.44 / GPU 3.72 kWh(비 0.394 ≈ 순시 점유율 0.399 → 카운터 신뢰 가능).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 43
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:node_chassis_energy:kwh1d{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}} 섀시"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:gpu_energy:kwh1d{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}} GPU"
+        }
+      ]
+    },
+    {
+      "id": 500,
+      "type": "row",
+      "title": "표준 드리프트 (펌웨어 · 드라이버 · 커널 · 재부팅 부채)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 501,
+      "type": "stat",
+      "title": "BIOS 드리프트 모델 수",
+      "description": "fleet:node_bios_drift:count — 같은 product_name 안에서 (bios_version, bios_release) 조합이 2종 이상인 모델 수. 0=드리프트 없음. ⚠️ 폐기된 구 규칙은 (a) 존재하지 않는 라벨 `product`로 그룹핑해 전부 한 그룹으로 뭉쳤고(그래서 3이 나왔다) (b) bios_version(HPE ROM 패밀리 코드 U30/U46/P89)만 봐서 동일 모델 내 리비전 차이를 구조적으로 미탐했다 — 둘 다 교정했다(근거: fleet-hardening spec §4.2). 옆 표의 대수와 함께 읽는다: 비교 가능한 모델은 DL380 Gen10 2대뿐이라 '0'은 '통일됐다'가 아니라 '비교할 그룹이 하나이고 거기서 같다'는 뜻이다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:node_bios_drift:count"
+        }
+      ]
+    },
+    {
+      "id": 502,
+      "type": "stat",
+      "title": "GPU 드라이버 버전 수 (DCGM 관측)",
+      "description": "fleet:gpu_driver_versions:count — DCGM_FI_DRIVER_VERSION 라벨이 **있는** GPU만 센다. ⚠️ 부분집합 지표다: 이 값만 보고 '통일됐다'고 읽으면 안 되고 반드시 옆의 '드라이버 미관측 GPU'와 함께 본다. 정본은 node-hygiene textfile 기반 fleet:gpu_driver_versions:count_hygiene 이며(data01 포함·유저스페이스 불일치까지 관측), 축1 T1-4 배포 후 T4-11이 정본을 교체한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              }
+            ]
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:gpu_driver_versions:count"
+        }
+      ]
+    },
+    {
+      "id": 503,
+      "type": "stat",
+      "title": "드라이버 미관측 GPU",
+      "description": "fleet:gpu_driver_unlabeled:count — **이 지표가 못 보는 GPU 수.** 현재 4(data03 ×2 + data04 ×2). 두 노드의 dcgm-exporter가 2022년 :latest 이미지라 DCGM_FI_DRIVER_VERSION 라벨 자체를 방출하지 않는다. 0이 되어야 왼쪽 '버전 수'가 비로소 플릿 전체를 뜻한다. 이 숫자가 DCGM 이미지 digest 고정 작업의 근거이며, 필터로 조용히 지우면 그 근거가 사라진다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 10,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:gpu_driver_unlabeled:count"
+        }
+      ]
+    },
+    {
+      "id": 504,
+      "type": "stat",
+      "title": "커널 릴리스 수",
+      "description": "fleet:kernel_releases:count — 현재 4(.101=4.4.0-179 · .104=6.8.0-101 · .105=6.8.0-117 · .103=6.8.0-134). data01은 16.04 legacy 예외라 이 값이 1로 수렴할 일은 없다. 그래서 임계색을 쓰지 않는다 — 영구히 유채색인 지표는 아무도 보지 않게 된다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "fleet:kernel_releases:count"
+        }
+      ]
+    },
+    {
+      "id": 505,
+      "type": "stat",
+      "title": "재부팅 부채 ≥14일 노드",
+      "description": "count(instance:node_reboot_debt:min14d == 1) — 14일 **연속** 재부팅 대기 상태인 노드 수.\n\n⚠️ 이 패널의 생산 레코드는 축1 keiwi-hygiene-coverage.yml 소유이고 T1-7로 배포된다.\n배포 전에는 **빈 값**이며 '규칙 미배포'로 표시된다 — 예전엔 `or vector(0)` + noValue:0 때문에\n**실제 2인 값이 0 초록으로 렌더됐다**(2026-08-03 실측: 패널 0 vs 진실 2). 부재를 0으로\n위조하면 '아직 안 왔다'와 '문제 없다'가 구분되지 않는다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 51
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "규칙 미배포 (축1 T1-7)"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "count(instance:node_reboot_debt:min14d == 1)"
+        }
+      ]
+    },
+    {
+      "id": 506,
+      "type": "table",
+      "title": "BIOS 리비전 인벤토리",
+      "description": "node_dmi_info. bios_version 은 HPE ROM 패밀리 코드(U30/U46/P89)라 모델 안에서 상수이고, 실제 리비전은 bios_release(2.2 / 1.58)다 — 드리프트 규칙이 두 라벨을 함께 그룹핑하는 이유가 이 표에서 눈으로 확인된다. 비교 가능한 모델 그룹이 DL380 Gen10 2대뿐이라는 사실도 함께 드러난다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_dmi_info{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "Value": true,
+              "board_name": true,
+              "board_vendor": true,
+              "board_serial": true,
+              "chassis_vendor": true,
+              "chassis_serial": true,
+              "product_family": true,
+              "product_serial": true,
+              "product_uuid": true,
+              "system_vendor": true,
+              "bios_vendor": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "product_name": 1,
+              "bios_version": 2,
+              "bios_release": 3,
+              "bios_date": 4,
+              "product_sku": 5
+            },
+            "renameByName": {
+              "instance": "노드",
+              "product_name": "모델",
+              "bios_version": "ROM 패밀리",
+              "bios_release": "리비전",
+              "bios_date": "릴리스 일자",
+              "product_sku": "SKU"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 507,
+      "type": "table",
+      "title": "재부팅 부채 창 (7d · 14d · 30d)",
+      "description": "instance:node_reboot_debt:min7d / min14d / min30d — 각 창에서 node_reboot_required 가 **한 번도 0이 된 적 없으면** 1. 창 3개가 부채 나이를 구간으로 묶는다(예: 7d·14d만 1이면 나이는 (14d, 30d] 구간, 30d까지 1이면 보존 한계라 '≥30일, 상한 미상'). TSDB 보존이 30일이라 그보다 오래된 부채의 나이는 **정직하게 알 수 없다** — 추정치를 지어내지 않는다. 왼쪽 '재부팅 대기 (노드별)'는 현재값 1/0만 보여주므로 대체하지 않고 나란히 둔다. 규칙은 축1 keiwi-hygiene-coverage.yml 소유(미배포 시 빈 표).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "—",
+                  "color": "text",
+                  "index": 0
+                },
+                "1": {
+                  "text": "부채",
+                  "color": "orange",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:node_reboot_debt:min7d{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:node_reboot_debt:min14d{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "instance:node_reboot_debt:min30d{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3
+            },
+            "renameByName": {
+              "instance": "노드",
+              "Value #A": "7일 연속",
+              "Value #B": "14일 연속",
+              "Value #C": "30일 연속"
+            }
           }
         }
       ]

@@ -1,0 +1,147 @@
+# 2026-08-03 실전 사건 리플레이 픽스처 (T-E4-5 · AC-E4-2)
+#   DiskUsageHigh data04 17:59 발화. 사람이 30분 손추적해서 얻은 결론:
+#     user6 · 17:45~17:48 · tensorflow venv 2개(각 1.1G)
+#   아래 원문은 2026-08-03 19:55 KST 에 data04 에서 **실제로 수집한 것**이며(read-only),
+#   #META 의 fired_at 만 발화 시각으로 앵커를 옮겼다. 가공·합성 데이터가 아니다.
+#   이 파일은 redaction 게이트의 **역증명 입력**이다(AC-E4-3): 전체 경로와 sudo 원문이
+#   실제로 들어 있어야 "빌더가 그것을 지운다"는 검사가 의미를 갖는다. 합성 데이터로 바꾸면
+#   게이트가 허수아비를 때리게 된다.
+#
+# ✅ 익명화 완료(2026-08-04) — 이 레포는 **PUBLIC**이라 §4.1-2가 판단을 결정했다. 경계 사례**다.
+#   Slack 반출은 아니지만 레포(사설·GitHub)에 계정명 + **전체 경로**(연구 프로젝트 디렉터리명
+#   포함)가 커밋된다. spec·README가 이미 이 사건의 계정명과 GB를 공개하므로 증분은 "경로"다.
+#   허용하지 않기로 하면 대체안: 홈 하위 경로의 프로젝트명만 치환한 사본으로 교체한다.
+#   유닛 테스트는 소유자·카테고리·크기·mtime·venv 루트 분리만 보므로 **전부 그대로 통과**한다
+#   (venv2/venv3 이름만 유지하면 된다). 재수집:
+#     scripts/collectors/disk-attribution.sh --node data04 --out raw
+#META node=data04 mount=/ minutes=360 min_size=100M fired_at=2026-08-03T17:59:00+09:00 launched_at=2026-08-03T19:55:46+09:00
+#TRANSPORT ssh user5@192.168.1.104 port=764
+#SECTION host
+data04lx
+#SECTION sudo_probe
+sudo=1
+#SECTION df
+Mounted on    1B-blocks         Used       Avail Use%
+/          436452343808 390880063488 23326478336  95%
+#SECTION du_home
+325247221760	/home
+143265832960	/home/user2
+129326305280	/home/user2/.ollama
+80560353280	/home/user5
+37179518976	/home/user5/.dot-0
+31748952064	/home/user6
+24872484864	/home/user1
+23455154176	/home/user3
+21328392192	/home/user4
+18364784640	/home/user4/proj-b
+13223165952	/home/user5/proj-c
+13011402752	/home/user3/.cache
+11413422080	/home/user5/.cache
+10939215872	/home/user1/proj-d
+10237239296	/home/user6/venv3
+7941300224	/home/user6/proj-e
+7865958400	/home/user6/proj-f
+6950592512	/home/user3/.dot-6
+6634512384	/home/user1/venv
+6122446848	/home/user2/proj-h
+5529571328	/home/user5/.npm
+3964596224	/home/user5/proj-i
+3854422016	/home/user1/.cache
+3696553984	/home/user2/proj-j
+3638636544	/home/user5/proj-k
+3609894912	/home/user2/proj-l
+2811031552	/home/user6/venv2
+2603732992	/home/user6/proj-d
+1809612800	/home/user4/proj-m
+1736822784	/home/user1/.npm
+1462374400	/home/user3/.local
+1289359360	/home/user3/.claude
+960811008	/home/user4/.local
+935419904	/home/user5/.claude
+925433856	/home/user5/proj-n
+728875008	/home/user1/proj-o
+549150720	/home/user5/proj-p
+548200448	/home/user5/proj-q
+544915456	/home/user1/.dot-17
+527294464	/home/user5/.dot-18
+494112768	/home/user5/proj-t
+417386496	/home/user5/.dot-20
+321404928	/home/user5/sub-1
+296255488	/home/user2/proj-w
+289603584	/home/user6/venv
+280862720	/home/user3/.npm
+274673664	/home/user1/.bun
+246026240	/home/user5/.local
+217882624	/home/user5/proj-x
+156659712	/home/user3/proj-y
+123240448	/home/user3/.dot-25
+112447488	/home/user5/sub-2
+110231552	/home/user5/sub-3|
+105742336	/home/user5/.dot-28
+101924864	/home/user1/.local
+96706560	/home/user4/.claude
+92762112	/home/user3/.bun
+89473024	/home/user4/.npm
+67751936	/home/user3/.dot-29
+56246272	/home/user1/.claude
+#SECTION recent_files
+1180397584|2026-08-03T17:48|user6|/home/user6/venv3/lib/python3.10/site-packages/tensorflow/data-1.so.2
+1180397584|2026-08-03T17:45|user6|/home/user6/venv2/lib/python3.10/site-packages/tensorflow/data-2.so.2
+821637304|2026-08-03T17:50|user6|/home/user6/proj-d/lib/python3.7/site-packages/tensorflow/sub-4/data-1.so
+821637304|2026-08-03T17:43|user6|/home/user6/proj-f/lib/python3.7/site-packages/tensorflow/sub-5/data-2.so
+821637088|2026-08-03T17:42|user6|/home/user6/proj-f/lib/python3.6/site-packages/tensorflow/sub-6/data-3.so
+810901424|2026-08-03T17:49|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-7/lib/data-1.so.8
+799377926|2026-08-03T17:40|user6|/home/user6/proj-e/sub-8/data-1.csv
+772315044|2026-08-03T17:40|user6|/home/user6/proj-e/sub-9/data-2.csv
+763192120|2026-08-03T17:44|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-10/lib/data-4.so
+732101454|2026-08-03T17:40|user6|/home/user6/proj-e/sub-11/data-3.csv
+709570886|2026-08-03T17:40|user6|/home/user6/proj-e/sub-12/data-4.csv
+697159696|2026-08-03T17:49|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-13/lib/data-5.so
+660481001|2026-08-03T17:40|user6|/home/user6/proj-e/sub-14/data-5.csv
+620403944|2026-08-03T17:40|user6|/home/user6/proj-e/sub-15/data-6.csv
+611027066|2026-08-03T17:40|user6|/home/user6/proj-e/sub-16/data-7.csv
+584644777|2026-08-03T17:40|user6|/home/user6/proj-e/sub-17/data-8.csv
+569645536|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-18/sub-19/lib/data-1.so.9
+561575067|2026-08-03T17:40|user6|/home/user6/proj-e/sub-20/data-9.csv
+550871776|2026-08-03T17:44|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-21/lib/data-6.so
+534321632|2026-08-03T17:49|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-22/sub-23/data-7.so
+524704790|2026-08-03T17:40|user6|/home/user6/proj-e/sub-24/data-10.csv
+511442856|2026-08-03T17:51|user6|/home/user6/proj-d/lib/python3.7/site-packages/sub-25/lib/data-8.so
+511442856|2026-08-03T17:42|user6|/home/user6/proj-f/lib/python3.6/site-packages/sub-26/lib/data-9.so
+510453504|2026-08-03T17:49|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-27/lib/data-10.so
+458532080|2026-08-03T17:43|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-28/sub-29/lib/data-2.so.8
+441938896|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-30/sub-31/lib/data-1.so.12
+332762424|2026-08-03T17:42|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-32/sub-33/lib/data-1.so.11
+331100633|2026-08-03T19:19|user5|/home/user5/.claude/sub-34/sub-35/data-1.jsonl
+292889192|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-36/sub-37/lib/data-2.so.11
+281313984|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-38/sub-39/lib/data-2.so.12
+275012592|2026-08-03T19:50|user5|/home/user5/.dot-18/sub-40/sub-41/sub-42/lib/sub-43/sub-44/sub-45/sub-46/sub-47/sub-48/sub-49
+275012592|2026-08-03T19:50|user5|/home/user5/.dot-18/sub-50/sub-51/sub-52/lib/sub-53/sub-54/sub-55/bin/sub-56
+265169072|2026-08-03T17:44|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-57/lib/data-11.so
+263770264|2026-08-03T17:48|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-58/lib/data-3.so.11
+261442248|2026-08-03T17:49|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-59/lib/data-12.so
+251616632|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-60/sub-61/lib/data-3.so.2
+244490828|2026-08-03T17:40|user6|/home/user6/proj-e/sub-62/data-11.csv
+240706416|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-63/sub-64/lib/data-2.so.9
+231886049|2026-08-03T17:40|user6|/home/user6/proj-e/sub-65/data-12.csv
+227333856|2026-08-03T17:41|user6|/home/user6/proj-e/sub-66/data-1.joblib
+217407488|2026-08-03T18:44|user5|/home/user5/proj-c/sub-67/sub-68/sub-69
+215066984|2026-08-03T17:44|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-70/lib/data-13.so
+212641432|2026-08-03T17:47|user2|/home/user2/proj-w/sub-71/sub-72/data-2.jsonl
+212602113|2026-08-03T17:46|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-73/lib/data-1.so.0
+180147912|2026-08-03T17:49|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-74/lib/data-14.so
+164303592|2026-08-03T17:48|user6|/home/user6/venv3/lib/python3.10/site-packages/tensorflow/data-4.so.2
+164303592|2026-08-03T17:45|user6|/home/user6/venv2/lib/python3.10/site-packages/tensorflow/data-5.so.2
+151346592|2026-08-03T17:42|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-75/sub-76/lib/data-4.so.11
+150128079|2026-08-03T19:55|root|/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs/snapshots/14/fs/var/log/nv-hostengine.log
+139188920|2026-08-03T17:40|user6|/home/user6/proj-e/sub-77/data-2.joblib
+129262048|2026-08-03T17:48|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-78/lib/data-3.so.8
+121866104|2026-08-03T17:48|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-79/lib/data-5.so.11
+120220216|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-80/sub-81/lib/data-6.so.11
+113856992|2026-08-03T17:43|user6|/home/user6/proj-f/lib/python3.7/site-packages/sub-82/sub-83/lib/data-4.so.8
+109604768|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-84/sub-85/lib/data-3.so.12
+108421928|2026-08-03T17:47|user6|/home/user6/venv3/lib/python3.10/site-packages/sub-86/sub-87/lib/data-3.so.9
+106700658|2026-08-03T17:41|user6|/home/user6/proj-e/sub-88/data-3.joblib
+#SECTION collected
+2026-08-03T19:55:58+09:00
+#SECTION end

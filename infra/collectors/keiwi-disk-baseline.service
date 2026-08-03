@@ -1,0 +1,51 @@
+[Unit]
+# T-E4-6 — 일일 디스크 베이스라인 스냅샷 (specs/alert-enrichment §4.2 D4-1)
+#
+# 왜 필요한가: 알림 시점의 `find -mmin` 만으로는 "이 시간창에 mtime 이 갱신된 파일"까지만
+# 안다. **얼마나 늘었나**는 어제와 비교해야 나온다. 이 타이머가 그 비교 대상을 매일 만든다.
+# 베이스라인이 없어도 수집기는 성립한다(그때는 limits[] 가 "delta 없음"을 명시한다) —
+# 이 타이머는 정확도를 올리는 것이지 전제가 아니다.
+#
+# 배치: data05. 에이전트는 이 파일을 **레포에 만들기만** 하고 적용은 사람이 한다(헌장 §11).
+#   sudo install -m 0644 infra/collectors/keiwi-disk-baseline.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-disk-baseline.timer
+#
+# 전제: data05의 SSH 키가 대상 노드 계정에 등록되어 있을 것(:764).
+#   계정명은 레포에 적지 않는다(PUBLIC 레포 · §13) — /etc/keiwi/collectors.env 로 주입한다:
+#     KEIWI_NODE_USER=<대부분의 노드 계정>   (다른 노드만 KEIWI_USER_DATA0N 으로 override)
+#   EnvironmentFile은 `-` 없이 필수다 — 파일이 없으면 유닛이 기동에 실패한다.
+#   계정을 지운 자리에 침묵이 남으면 베이스라인이 매일 비는 줄 모른다.
+#   ExecStart 는 **읽기 전용**이다(게이트 check-collector-readonly.sh).
+#   원격 stderr(permission denied 등)는 숨기지 않으므로 저널에 그대로 남는다 —
+#   data05 자기 자신은 sudo -n 이 안 되어 잡음이 많다(hardware-ops T0-6이 교정 소관).
+Description=KEIwi 디스크 귀속 — 일일 베이스라인 스냅샷 (read-only)
+Documentation=file:///opt/keiwi/specs/alert-enrichment/spec.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=mooner92
+Environment=KEIWI_ATTR_SNAPSHOT_DIR=/data/alert-relay/snapshots
+EnvironmentFile=/etc/keiwi/collectors.env
+# --out validate: 스냅샷은 남기되 저널에는 한 줄만 찍는다(JSON 전문 도배 금지).
+# --no-llm/--no-journal: 베이스라인은 결정적 수집만 필요하다. GPU·OpenSearch를 매일 새벽에
+#   깨우지 않는다. 알림 시점의 실제 수집은 relay(E3)가 이 옵션 없이 부른다.
+# `-` 접두사: 한 노드가 죽어도(SSH 불가·timeout) 나머지 노드의 베이스라인은 남는다.
+# oneshot 의 ExecStart 는 순차 실행이라 접두사가 없으면 첫 실패에서 멈춘다
+# [출처: systemd.service(5) EXEC PREFIXES]. 실패는 저널에 남고 external-watchdog 소관이다.
+ExecStart=-/opt/keiwi/scripts/collectors/disk-attribution.sh --node data03 --out validate --no-llm --no-journal
+ExecStart=-/opt/keiwi/scripts/collectors/disk-attribution.sh --node data04 --out validate --no-llm --no-journal
+ExecStart=-/opt/keiwi/scripts/collectors/disk-attribution.sh --node data05 --out validate --no-llm --no-journal
+TimeoutStartSec=900
+Nice=15
+IOSchedulingClass=idle
+# 하드닝 — 이 유닛은 스냅샷 디렉터리 말고는 아무 데도 쓰지 않는다.
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/data/alert-relay/snapshots
+
+[Install]
+WantedBy=multi-user.target

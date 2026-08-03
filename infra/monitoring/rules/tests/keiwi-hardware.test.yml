@@ -1,0 +1,187 @@
+# promtool 단위 테스트 — keiwi-hardware.yml
+#
+# 실행: bash scripts/gates/check-rules.sh --test infra/monitoring/rules/tests/keiwi-hardware.test.yml
+#      (promtool이 있어야 판정된다. 없으면 SKIP(env: promtool) + rc=2 가 정답이고
+#       CI infra-iac 잡이 정본이다 — spec §0.2.2: test rules 에는 폴백이 원리적으로 불가능)
+#
+# 이 파일의 존재 이유
+#   hardware-ops 초안의 BIOS 버전 카운트 레코드는 라이브에서 값을 냈기 때문에
+#   "동작한다"고 판정됐다. 값이 나오는 것과 옳은 값이 나오는 것은 다르다.
+#   아래 (A)는 **구 규칙이었다면 반드시 red가 되는** 입력이다 — 이 테스트가 있었다면
+#   그 규칙은 머지되지 않았다. 라이브 접근 없이 CI에서 돈다.
+
+rule_files:
+  - ../keiwi-hardware.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ───────────────────────────────────────────────────────────────────────────
+  # (A) BIOS 미탐 회귀 — 같은 모델·같은 bios_version(U30)·다른 bios_release(2.2 vs 2.4)
+  #     구 규칙(bios_version 만으로 그룹핑) = 1 → 미탐
+  #     신 규칙(bios_release 포함)          = 2 → 탐지
+  #     드리프트 카운트 1(= Gen10 한 모델에서 드리프트)
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "BIOS 리비전 드리프트 — 같은 ROM 패밀리 안에서의 차이를 잡는다"
+    input_series:
+      - series: 'node_dmi_info{instance="192.168.1.103:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.2"}'
+        values: "1x10"
+      - series: 'node_dmi_info{instance="192.168.1.104:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.4"}'
+        values: "1x10"
+      - series: 'node_dmi_info{instance="192.168.1.105:9100",product_name="ProLiant DL380 Gen10 Plus",bios_version="U46",bios_release="1.58"}'
+        values: "1x10"
+    promql_expr_test:
+      # 신 규칙: Gen10 에서 리비전 2종이 보인다
+      - expr: product:node_bios_revisions:count
+        eval_time: 10m
+        exp_samples:
+          - labels: 'product:node_bios_revisions:count{product_name="ProLiant DL380 Gen10"}'
+            value: 2
+          - labels: 'product:node_bios_revisions:count{product_name="ProLiant DL380 Gen10 Plus"}'
+            value: 1
+      # ⚠️ 회귀 고정 — **구 규칙의 식을 그대로 평가**해 미탐(1)을 문서화한다.
+      #    이 줄이 red가 되는 날은 구 규칙이 옳아진 날이 아니라 입력이 바뀐 날이다.
+      - expr: count by (product_name) (count by (product_name, bios_version) (node_dmi_info))
+        eval_time: 10m
+        exp_samples:
+          - labels: '{product_name="ProLiant DL380 Gen10"}'
+            value: 1 # ← 미탐. 신 규칙은 같은 입력에서 2를 낸다
+          - labels: '{product_name="ProLiant DL380 Gen10 Plus"}'
+            value: 1
+      # ⚠️ 회귀 고정 2 — 구 규칙은 라벨 이름도 틀렸다(`product`는 존재하지 않는 라벨).
+      #    존재하지 않는 라벨로 by 하면 전부 {} 한 그룹으로 뭉쳐 3이 나오고,
+      #    hardware-ops BiosVersionDrift(`> 1`)가 day-1 오발화한다.
+      - expr: count by (product) (count by (product, bios_version) (node_dmi_info))
+        eval_time: 10m
+        exp_samples:
+          - labels: "{}"
+            value: 2 # ← 이 픽스처(U30·U46 2종)에서 2. 라이브(U46·U30·P89 3종)에서는 3.
+            # 어느 쪽이든 `> 1` 이라 hardware-ops BiosVersionDrift 가 day-1 오발화한다.
+      - expr: fleet:node_bios_drift:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:node_bios_drift:count"
+            value: 1
+      # 분모 — 1대뿐인 모델에서는 드리프트가 정의되지 않는다는 사실을 함께 낸다
+      - expr: product:node_count:count
+        eval_time: 10m
+        exp_samples:
+          - labels: 'product:node_count:count{product_name="ProLiant DL380 Gen10"}'
+            value: 2
+          - labels: 'product:node_count:count{product_name="ProLiant DL380 Gen10 Plus"}'
+            value: 1
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (A2) 드리프트 없음(라이브 현재 상태) — 오탐 0 확인.
+  #      같은 모델 2대가 같은 리비전이면 drift=0 이어야 하고, `or vector(0)` 덕에
+  #      "빈 벡터"가 아니라 명시적 0이 나와야 한다.
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "드리프트 없음이 빈 값이 아니라 0으로 나온다"
+    input_series:
+      - series: 'node_dmi_info{instance="192.168.1.103:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.2"}'
+        values: "1x10"
+      - series: 'node_dmi_info{instance="192.168.1.104:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.2"}'
+        values: "1x10"
+    promql_expr_test:
+      - expr: fleet:node_bios_drift:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:node_bios_drift:count"
+            value: 0
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (B) 0W 노드 제외 + 정직성 분모
+  #     .101은 ACPI 전력계가 존재하지만 항상 0을 보고한다(Gen9/iLO4 미지원).
+  #     0을 합에 넣으면 "과소집계된 합"이 되고, 제외 사실은 reporting_count가 남긴다.
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "0W 노드 제외 + reporting_count 동반"
+    input_series:
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.105:9100",chip="lnxsybus:00_acpi000d:00",sensor="power1",job="node-exporter"}'
+        values: "394x10"
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.104:9100",chip="lnxsybus:00_acpi000d:00",sensor="power1",job="node-exporter"}'
+        values: "325x10"
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.103:9100",chip="lnxsybus:00_acpi000d:00",sensor="power1",job="node-exporter"}'
+        values: "210x10"
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.101:9100",chip="lnxsybus:00_acpi000d:00",sensor="power1",job="node-exporter"}'
+        values: "0x10"
+    promql_expr_test:
+      # 라벨 정리 — chip/sensor/job이 떨어지고 instance만 남아야 $instance 필터가 맞는다
+      - expr: instance:node_chassis_power:watts
+        eval_time: 5m
+        exp_samples:
+          - labels: 'instance:node_chassis_power:watts{instance="192.168.1.101:9100"}'
+            value: 0
+          - labels: 'instance:node_chassis_power:watts{instance="192.168.1.103:9100"}'
+            value: 210
+          - labels: 'instance:node_chassis_power:watts{instance="192.168.1.104:9100"}'
+            value: 325
+          - labels: 'instance:node_chassis_power:watts{instance="192.168.1.105:9100"}'
+            value: 394
+      - expr: fleet:node_chassis_power:watts_sum
+        eval_time: 5m
+        exp_samples:
+          - labels: "fleet:node_chassis_power:watts_sum"
+            value: 929 # 394+325+210, .101(0W)은 빠진다
+      - expr: fleet:node_chassis_power:reporting_count
+        eval_time: 5m
+        exp_samples:
+          - labels: "fleet:node_chassis_power:reporting_count"
+            value: 3 # 4대 중 3대만 보고 — 이 숫자가 없으면 합계 감소가 절전으로 보인다
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (C) :9400 → :9100 정규화 조인 성립
+  #     정규화가 깨지면 instance:gpu_power_share:ratio 가 **조용히 빈 벡터**가 된다
+  #     (조인 실패는 에러가 아니라 무결과다 — 패널만 비고 아무도 모른다).
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "dcgm(:9400) ↔ node-exporter(:9100) 조인 키 정규화"
+    input_series:
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.105:9100",sensor="power1"}'
+        values: "400x10"
+      - series: 'DCGM_FI_DEV_POWER_USAGE{instance="192.168.1.105:9400",gpu="0",job="dcgm"}'
+        values: "120x10"
+      - series: 'DCGM_FI_DEV_POWER_USAGE{instance="192.168.1.105:9400",gpu="1",job="dcgm"}'
+        values: "80x10"
+    promql_expr_test:
+      - expr: instance:gpu_power:watts
+        eval_time: 5m
+        exp_samples:
+          - labels: 'instance:gpu_power:watts{instance="192.168.1.105:9100"}'
+            value: 200
+      - expr: instance:gpu_power_share:ratio
+        eval_time: 5m
+        exp_samples:
+          - labels: 'instance:gpu_power_share:ratio{instance="192.168.1.105:9100"}'
+            value: 0.5
+      - expr: instance:node_nongpu_power:watts
+        eval_time: 5m
+        exp_samples:
+          - labels: 'instance:node_nongpu_power:watts{instance="192.168.1.105:9100"}'
+            value: 200
+      - expr: fleet:gpu_power_share:ratio
+        eval_time: 5m
+        exp_samples:
+          - labels: "fleet:gpu_power_share:ratio"
+            value: 0.5
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (D) kWh가 **원 메트릭** 기반이라 레코딩 축적을 기다리지 않는다 + 0W 노드가 0kWh로
+  #     뜨지 않는다(`> 0` 결과 필터). 300W 정상 → 24h 평균 300W → 7.2 kWh.
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "kWh 원메트릭 기반 · 0W 노드 제외"
+    input_series:
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.105:9100",sensor="power1"}'
+        values: "300x60"
+      - series: 'node_hwmon_power_average_watt{instance="192.168.1.101:9100",sensor="power1"}'
+        values: "0x60"
+    promql_expr_test:
+      - expr: instance:node_chassis_energy:kwh1d
+        eval_time: 60m
+        exp_samples:
+          # .101은 결과 필터에 걸려 **시리즈 자체가 없다** — "0 kWh 노드"로 그려지지 않는다
+          - labels: 'instance:node_chassis_energy:kwh1d{instance="192.168.1.105:9100"}'
+            value: 7.2

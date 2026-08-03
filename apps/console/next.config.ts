@@ -28,7 +28,16 @@ const nextConfig: NextConfig = {
   // 실측: localhost ✓ / 127.0.0.1 ✗ 로 갈렸다.
   //
   // 사내망 전용 개발 서버라 LAN 대역 허용은 위험하지 않다(프로덕션엔 영향 없음 — dev 전용 옵션).
-  allowedDevOrigins: ["127.0.0.1", "localhost", "192.168.1.105", "*.excusa.uk"],
+  //
+  // 배포마다 달라지는 값(LAN IP·자체 도메인)은 소스에서 뺐다 — KEIWI_DEV_ORIGINS 로 주입한다
+  // (쉼표 구분). 기본값에는 어느 배포에서나 같은 127.0.0.1·localhost 만 남긴다:
+  // 이 둘이 빠지면 위 하이드레이션 사고가 그대로 재현되므로 env로 덮지 않고 **항상 더한다**.
+  //   예) KEIWI_DEV_ORIGINS="192.0.2.10,*.example.com"   (실값은 .env.local 에만, §13)
+  allowedDevOrigins: (process.env.KEIWI_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .concat(["127.0.0.1", "localhost"]),
 };
 
 // Sentry 빌드 플러그인 래핑 (specs/error-tracking §5).

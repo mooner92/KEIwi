@@ -168,8 +168,8 @@ POST/GET https://o<orgId>.ingest.sentry.io/api/<projectId>/cron/<monitor_slug>/<
 **(3) PII — 가설이 아니라 실데이터다.** `keiwi-logs-2026.07.29`에서 그대로 뽑은 문서:
 
 ```
-message: "Accepted password for mhchoi from 192.168.100.108 port 6425 ssh2"
-process.command_line: "\"sshd: mhchoi [priv]\""
+message: "Accepted password for user5 from 192.168.100.108 port 6425 ssh2"
+process.command_line: "\"sshd: user5 [priv]\""
 process.pid: 2475390
 process.thread.capabilities.effective: [CAP_CHOWN, CAP_DAC_OVERRIDE, ... 41개]
 service: "ssh.service"   host_name: "data05lx"   category: "system"
@@ -469,7 +469,7 @@ denyUrls: [/\/grafana\//, /extensions\//, /^chrome(-extension)?:\/\//, /^moz-ext
 | **AC-S-10** | **Crons 하트비트 실동작** | 체크인 스크립트를 5분 주기로 돌린 뒤 Sentry monitor 상태가 `ok`. 이어서 **스크립트를 일부러 멈추고 `checkin_margin`+1분 대기 → 이슈 생성 + 알림 수신 확인**(수동, 절차를 런북에 기록) |
 | **AC-S-11** | **Crons 페이로드 최소성** | 체크인 스크립트에 호스트명·수치·사유가 없다: `! grep -qE 'hostname\|@timestamp\|\$\(.*\)' roles/watchdog/templates/sentry-checkin.sh.j2` 의 URL 조립부 (판정은 로컬, 전송은 status만) |
 | **AC-S-12** | **egress 예외 건수 상한** | ADR-0018(Slack) + ADR-0022(E1·E2) = **3건**. `grep -c 'egress 예외' docs/decisions/*.md` 로 센 수가 3 초과면 리뷰 실패 |
-| **AC-S-13** | 런북 존재 | `docs/runbooks/sentry-cron-missed.md` 존재(hardware-ops AC-2-6의 `check-runbooks.sh` 규약 재사용) |
+| **AC-S-13** | 런북 존재 | `docs/runbooks/sentry-cron-missed.md` 존재(hardware-ops AC-2-6의 런북 왕복 규약 재사용 — 게이트는 fleet-hardening T3-5로 **이관**돼 `scripts/gates/check-runbooks.sh`로 구현됐다) |
 
 ---
 
@@ -510,6 +510,6 @@ denyUrls: [/\/grafana\//, /extensions\//, /^chrome(-extension)?:\/\//, /^moz-ext
 - [ ] **T-S2a** **로컬 싱크로 페이로드 실측**(AC-S-1) — 실제 DSN 없이 envelope 덤프 → 필드 목록을 §6.1 표와 대조해 표를 갱신. *에이전트.*
 - [ ] **T-S2b** `sentry.server.config.ts` / `instrumentation-client.ts` / `sentry.edge.config.ts` 작성(§6.2) + `check:secrets`에 Sentry DSN 패턴 1줄 추가(AC-S-6). *에이전트.*
 - [ ] **T-S2c** **AC-S-7 Turbopack 회귀 검증**(#19367) — `next dev`·`next build` 무크래시. 실패 시 SDK 버전 하향 또는 도입 보류. *에이전트.*
-- [ ] **T-S2d** AC-S-2~S-9 CI 게이트 스크립트 `scripts/check-sentry-egress.sh` + `npm run verify`에 편입. *에이전트.*
+- [ ] **T-S2d** AC-S-2~S-9 CI 게이트 스크립트 `scripts/check-sentry-egress.sh` **[미구현 — 파일 없음]** + 배선. 경로 정본은 `scripts/gates/check-sentry-egress.sh`이고(fleet-hardening §0.2) 거기 떨어뜨리면 `scripts/verify-all.sh`가 자동 편입한다. *에이전트.*
 - [ ] **T-S3** 2주 관찰 → 쿼터 소모·이벤트 종류 집계 → Crons 2·3 추가 / Team 승격 판단. *사람.*
 - [ ] **T-S4** §7.2의 기존 문서 반영 4건(alerting spec §3.0·§5, hardware-ops §2.9, log-ingestion 런북 §5). *에이전트.*

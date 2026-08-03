@@ -21,6 +21,15 @@
 #
 # 참고: OpenSearch 가 compatibility.override_main_response_version=true 로 7.10.2 를
 #       보고해도, 여기서 flavor/version 을 명시하므로 플러그인이 OpenSearch 로 동작.
+#
+# ── elasticsearch.yaml 을 삭제했다 (fleet-hardening T5-13, 2026-08-03) ──────
+# 같은 디렉터리에 있던 elasticsearch.yaml 이 이 파일과 **name·uid(keiwi-logs-es)를 중복
+# 선언**하고 type만 달랐다(elasticsearch vs grafana-opensearch-datasource). 라이브에는
+# 이 파일 하나뿐이라 레포가 라이브보다 파일이 하나 많았고, 그 상태로 §12의 "레포본을
+# 복사한다" 절차를 따르면 절차 자체가 uid 충돌 사고가 된다.
+# 주석 처리나 .disabled 개명이 아니라 **삭제**한 이유: 남겨두면 다음 사람이 되살린다.
+# 되돌리기 어려운 쪽은 오히려 반대 방향(두 파일을 라이브에 복사해 Grafana를 재시작하는 것)이다.
+# 이 중복은 scripts/gates/check-grafana-provisioning.py 의 P1·P2 가 상시 감시한다.
 
 apiVersion: 1
 

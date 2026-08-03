@@ -121,7 +121,7 @@
 | `infra/error-tracking/scripts/check-env.sh` | 배포 **전** env 키 존재·길이 검증(빈 시크릿이 기동을 막는 사고 재발 방지) |
 | `infra/ansible/roles/watchdog/templates/keiwi-heartbeat-*.sh.j2` | heartbeat 송신 스크립트 + systemd timer. **축2 T4-12의 role에 얹는다** |
 | `apps/console/instrumentation.ts` · `instrumentation-client.ts` · `sentry.server.config.ts` · `sentry.edge.config.ts` · `src/app/global-error.tsx` | SDK 배선 |
-| `apps/console/scripts/check-error-tracking.sh` | 정적 금지 규칙 CI(`npm run verify` 편입) |
+| `apps/console/scripts/check-error-tracking.sh` **[미구현]** | 정적 금지 규칙 CI. 파일이 아직 없다(E3-9 소관) — `scripts/gates/`에 떨어뜨리면 `scripts/verify-all.sh`가 배선 없이 편입한다(fleet-hardening §0.2) |
 | `docs/runbooks/glitchtip-heartbeat-missed.md` · `docs/runbooks/glitchtip-down.md` | 런북 2종 |
 
 ---

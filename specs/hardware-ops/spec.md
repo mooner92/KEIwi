@@ -176,49 +176,88 @@ textfile 모드에서는 job 추가가 **불필요**하다(기존 node-exporter�
 
 ### 1.8 recording rules (`rules/keiwi-hardware.yml`) — P1은 이것만으로 성과가 난다
 
+> [!IMPORTANT]
+> **이 절의 정본은 `infra/monitoring/rules/keiwi-hardware.yml`이다** (fleet-hardening 축4 T4-1이 공급).
+> 아래는 그 요약이며, 초안에 있던 **거짓 규칙 2건은 fleet-hardening spec §4에서 실측으로 확정해 교정했다.**
+> 값이 갈리면 레포의 규칙 파일이 이긴다 — 스펙과 파일이 갈라지면 사람이 어느 쪽을 복사할지 판단하게 되고,
+> 그 판단이 §12 사고의 입구다.
+
 ```yaml
 groups:
   - name: keiwi_power
     interval: 60s
     rules:
-      # 노드별 섀시 전력(W). acpi_power_meter → hwmon. data01은 0W(Gen9/iLO4 미보고) → 합계에서 제외.
+      # 노드별 섀시 전력(W). acpi_power_meter → hwmon. 라벨 정리로 instance만 남긴다.
+      # data01(.101 Gen9)은 ACPI 전력계 객체가 존재하지만 값이 30일 보존 전 구간 0이다
+      # (센서 미지원) → 합계에서 제외하고, 제외 사실은 reporting_count로 노출한다.
       - record: instance:node_chassis_power:watts
-        expr: node_hwmon_power_average_watt{sensor="power1"}
+        expr: sum by (instance) (node_hwmon_power_average_watt{sensor="power1"})
 
-      # 플릿 전력 합. 0W 노드 제외 = "과소집계된 850W"를 만들지 않기 위한 정직성 조건.
+      # ── 정직성 분모(신규). 이게 없으면 노드가 빠질 때 합계 감소가 "절전"으로 보인다. 현재 3/4.
+      - record: fleet:node_chassis_power:reporting_count
+        expr: count(instance:node_chassis_power:watts > 0) or vector(0)
+
       - record: fleet:node_chassis_power:watts_sum
-        expr: sum(instance:node_chassis_power:watts > 0)
+        expr: sum(instance:node_chassis_power:watts > 0) or vector(0)
+
+      # GPU 전력 — dcgm instance(:9400)를 node-exporter 형태(:9100)로 정규화해 조인 키 통일.
+      - record: instance:gpu_power:watts
+        expr: sum by (instance) (label_replace(DCGM_FI_DEV_POWER_USAGE, "instance", "$1:9100", "instance", "(.*):9400"))
 
       - record: fleet:gpu_power:watts_sum
-        expr: sum(DCGM_FI_DEV_POWER_USAGE)
+        expr: sum(instance:gpu_power:watts) or vector(0)
 
-      # GPU가 플릿 전력에서 차지하는 비율. 2026-07-30 실측 0.256.
+      # GPU가 플릿 전력에서 차지하는 비율. 2026-08-03 실측 0.234(부하에 따라 변동).
       - record: fleet:gpu_power_share:ratio
         expr: fleet:gpu_power:watts_sum / fleet:node_chassis_power:watts_sum
 
-      # 노드별 일일 전력량(kWh). W 평균 × 24h ÷ 1000.
-      - record: instance:node_chassis_energy:kwh1d
-        expr: avg_over_time(instance:node_chassis_power:watts[1d]) * 24 / 1000
+      # 노드별 GPU 점유율·비-GPU 전력(신규) — 증설·재배치 판단의 입력.
+      - record: instance:gpu_power_share:ratio
+        expr: instance:gpu_power:watts / on(instance) (instance:node_chassis_power:watts > 0)
+      - record: instance:node_nongpu_power:watts
+        expr: (instance:node_chassis_power:watts > 0) - on(instance) instance:gpu_power:watts
 
-      # GPU 일일 전력량(kWh). DCGM 누적 에너지는 mJ → ÷3.6e9.
-      - record: node:gpu_energy:kwh1d
-        expr: sum by (instance) (increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION[1d])) / 3.6e9
+      # 노드별 일일 전력량(kWh). ⚠️ 교정: **원 메트릭 기반**이어야 한다.
+      #   레코딩 시리즈([1d])를 참조하면 적용 후 24h 동안 과소값이 나오고 — 첫날 값이 틀리면
+      #   신뢰를 잃고 그대로 방치된다. 원 메트릭은 30일치가 이미 있어 즉시 정확하다.
+      #   ⚠️ `> 0` 결과 필터 필수 — 없으면 data01이 0 kWh 시리즈를 내고 패널이
+      #      "data01은 전력을 안 쓴다"로 읽힌다.
+      - record: instance:node_chassis_energy:kwh1d
+        expr: sum by (instance) (avg_over_time(node_hwmon_power_average_watt{sensor="power1"}[1d])) * 24 / 1000 > 0
+
+      # GPU 일일 전력량(kWh). DCGM 누적 에너지는 mJ → ÷3.6e9. instance 정규화 포함.
+      - record: instance:gpu_energy:kwh1d
+        expr: sum by (instance) (label_replace(increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION[1d]), "instance", "$1:9100", "instance", "(.*):9400")) / 3.6e9
 
   - name: keiwi_firmware_drift
     interval: 5m
     rules:
-      # 동일 모델 안에서 관측된 BIOS 버전 종류 수. 1 초과 = 드리프트.
-      # node_dmi_info는 이미 수집 중(dmi 컬렉터 success=1) — 신규 컴포넌트 0.
-      - record: product:node_bios_versions:count
-        expr: count by (product_name) (count by (product_name, bios_version) (node_dmi_info))
+      # ⚠️ 교정 — 초안의 BIOS 버전 카운트 레코드(bios_version만으로 그룹핑하던 것)는 **폐기**한다.
+      #   폐기된 레코드의 정확한 이름과 폐기 근거는 fleet-hardening spec §4.2(D4-1·D4-6)에 있다.
+      #   ① `by (product)`를 쓴 판본은 라벨 이름 자체가 틀렸다(실제 라벨은 product_name).
+      #      존재하지 않는 라벨로 by 하면 전부 {} 한 그룹으로 뭉쳐 max=3이 나오고
+      #      아래 BiosVersionDrift(`> 1`)가 **day-1 오발화**한다 [실측 2026-08-03].
+      #   ② 라벨을 고쳐도 부족하다. bios_version은 HPE ROM 패밀리 코드(U30/U46/P89)라
+      #      동일 모델에서 상수다 — data03·04가 U30/2.2로 같은데 한쪽만 U30/2.4로 올라가도
+      #      값이 1 그대로다(구조적 미탐). 실제 리비전은 bios_release다.
+      #   → 그룹 키에 bios_release를 넣고 **이름도 바꾼다**(구 이름 잔존을 grep으로 검증하기 위해).
+      - record: product:node_bios_revisions:count
+        expr: count by (product_name) (count by (product_name, bios_version, bios_release) (node_dmi_info))
 
-      # BIOS 릴리스 경과일. data03/04 = 2019-03-19(약 7년), data01 = 2017-02-17(약 9년).
-      - record: instance:node_bios_age:days
-        expr: (time() - on(instance) group_left() max by (instance) (node_dmi_info * 0 + timestamp(node_dmi_info))) / 86400
+      # 분모 — 1대뿐인 모델에서는 드리프트가 정의되지 않는다. Gen10=2, Gen10 Plus=1, Gen9=1.
+      - record: product:node_count:count
+        expr: count by (product_name) (node_dmi_info)
+
+      - record: fleet:node_bios_drift:count
+        expr: count(product:node_bios_revisions:count > 1) or vector(0)
 ```
 
 > [!NOTE]
-> `instance:node_bios_age:days`는 `bios_date` 라벨을 시간으로 변환할 수 없어(PromQL은 라벨 문자열을 파싱하지 못한다) **정확한 계산이 불가능하다.** 경과일은 exporter 쪽(§1.4 `keiwi_bmc_info`)에서 계산해 `keiwi_bmc_bios_age_days` gauge로 내보내는 것이 옳다. 위 레코드는 **삭제 대상 후보**로 표시하고 P3에서 결론을 낸다. (스펙에 틀린 PromQL을 남기지 않기 위해 명시한다.)
+> **BIOS 경과일 레코드는 만들지 않는다 — 삭제로 결론(B10 종결. 초안 레코드명은 fleet-hardening spec §4.2 D4-6 참조).**
+> `bios_date` 라벨을 시간으로 변환할 수 없어(PromQL은 라벨 문자열을 파싱하지 못한다) 초안의 식은
+> **BIOS 릴리스 일자가 아니라 시리즈 수집 시각**을 재고 있었다. 경과일이 다시 필요해지면 exporter 쪽
+> (§1.4 `keiwi_bmc_info`)에서 계산해 `keiwi_bmc_bios_age_days` gauge로 내보내는 것이 옳고,
+> 그건 **BMC 축의 새 백로그 항목**으로 연다. recording rule로는 만들지 않는다.
 
 ### 1.9 SEL → OpenSearch (`category=hardware`)
 
@@ -244,8 +283,8 @@ Grafana annotation으로 SEL 사건을 메트릭 타임라인에 겹친다 → "
 
 | 패널 | 타입 | 쿼리 | 표시 |
 |---|---|---|---|
-| 플릿 전력 | stat | `fleet:node_chassis_power:watts_sum` | W. 서브텍스트에 "data01 제외(미보고)" |
-| GPU 전력 점유율 | gauge | `fleet:gpu_power_share:ratio` | 0~1 percentunit. 현재 0.256 |
+| 플릿 전력 | stat | `fleet:node_chassis_power:watts_sum` + `fleet:node_chassis_power:reporting_count` | W. **보고 노드 수를 보조 값으로 함께** 표시(현재 3/4, data01 제외) — 합계 감소가 절전인지 노드 이탈인지 한 화면에서 갈린다 |
+| GPU 전력 점유율 | gauge | `fleet:gpu_power_share:ratio` | 0~1 percentunit. 2026-08-03 실측 0.234(부하에 따라 변동 — 고정값으로 읽지 말 것) |
 | 노드별 전력 추세 | timeseries | `instance:node_chassis_power:watts` | 24h |
 | 일일 전력량 | bar | `instance:node_chassis_energy:kwh1d` | kWh |
 | 인렛 온도 vs BMC 임계 | timeseries | `keiwi_bmc_sensor_celsius{sensor=~".*Inlet.*"}` + threshold 라인 `keiwi_bmc_sensor_threshold_celsius{level="upper_critical"}` | °C. **임계선을 데이터로 그린다** |
@@ -258,7 +297,7 @@ Grafana annotation으로 SEL 사건을 메트릭 타임라인에 겹친다 → "
 | 패널 | 타입 | 쿼리 |
 |---|---|---|
 | 펌웨어 인벤토리 표 | table | `keiwi_bmc_info` (라벨 → 열: node·product·bios_version·ilo_fw·serial·sku) |
-| BIOS 드리프트 | stat | `max(product:node_bios_versions:count)` (현재 **2**, 목표 1) |
+| BIOS 드리프트 | stat | `fleet:node_bios_drift:count` (현재 **0** — 비교 가능한 모델 그룹이 DL380 Gen10 2대뿐이고 거기서 리비전이 같다). 분모 `product:node_count:count`를 같은 row에 함께 띄운다: 그것 없이는 0이 "통일됐다"인지 "비교할 게 없다"인지 구분되지 않는다 |
 | SEL 사용률 | bargauge | `keiwi_bmc_sel_used_ratio` (0.46 / 0.64) |
 | 최근 하드웨어 이벤트 | logs(OpenSearch) | `category:hardware` 최근 20건 |
 | 수집기 신선도 | stat | `time() - keiwi_bmc_collector_last_run_timestamp_seconds` |
@@ -408,7 +447,7 @@ POST /api/convert/prometheus/config/v1/rules
 | `pid`, `cmdline`, XID 로그의 `name=VLLM::Worker` | 프로세스 정보 | **높음** | **금지** |
 | annotations `summary`/`description` | 임계와 실측값 | 중 | **허용**(수치만, 라벨 보간 금지) |
 | `values`/`valueString` | 메트릭 수치 | 중 | 허용 |
-| `generatorURL`/`dashboardURL`/`panelURL`/`silenceURL` | 내부 호스트명 또는 `grafana.excusa.uk` | 중 | **`grafana.excusa.uk`만 허용**(내부 IP URL 금지) |
+| `generatorURL`/`dashboardURL`/`panelURL`/`silenceURL` | 내부 호스트명 또는 외부 도메인(터널 뒤) | 중 | **허용목록 호스트만**(주소는 레포에 적지 않는다 §13 — 현행은 내부 IP `192.168.1.105:3000`·`:3106`) |
 
 > [!CAUTION]
 > **가장 주의할 점**: `user` 라벨과 XID 로그의 `pid`/`name`을 템플릿에 그대로 태우면 **연구원 계정명이 외부 SaaS에 영구 적재된다.** 되돌릴 수 없다. 그래서 v1의 Slack 템플릿은 **화이트리스트 방식**(alertname/severity/node/gpu/job만 출력)이며, 블랙리스트가 아니다 — 새 라벨이 생겨도 자동으로 새지 않는다. 상세는 링크로만 보낸다("콘솔에서 확인").
@@ -424,7 +463,28 @@ POST /api/convert/prometheus/config/v1/rules
 ### 2.6 alert 규칙 v1 카탈로그 — 전부 라이브에서 실행해 시리즈 유무·현재값을 확인한 것만 싣는다
 
 공통 규약: `labels.severity ∈ {sev1,sev2,sev3}` · `annotations.summary`(1줄 증상) · `annotations.runbook_url` · `annotations.dashboard_url`.
-**런북 파일명 규약**: alertname을 kebab-case로 변환 → `docs/runbooks/<kebab>.md`(예 `NodeDown` → `node-down.md`). CI가 존재를 검증한다(AC-2-6).
+**런북 담당 규약** (2026-08-03 갱신 — *파일명 kebab 강제* → *frontmatter 선언*): 런북이 담당 alertname을 **선언**하는 것이 정본이고, 파일명 규칙은 폴백이다.
+
+```yaml
+---
+id: gpu-xid                  # = 파일 stem (콘솔 runbooks.ts:38이 요구)
+kind: alert                  # alert | procedure | incident (부재 시 alert로 간주)
+alerts: [GpuXidErrorNew]     # ← 이 런북이 담당하는 alertname. 여기가 정본
+category: gpu
+severity: critical
+---
+```
+
+- **공통 계약**(모든 `docs/runbooks/*.md`): `id`(=파일 stem) · `kind` · `category`
+- **알림 런북 추가 계약**(`kind: alert`만): `alerts`(배열) · `severity`
+- kebab 파일명(`NodeDown` → `node-down.md`)은 **`alerts:`가 없을 때만** 폴백으로 쓴다.
+  강제하지 않는 이유: `LogIngestStalled`의 kebab은 `log-ingest-stalled.md`인데 실제 런북은
+  `log-ingestion-stopped.md`다 — **kebab 강제는 유일하게 올바른 알림 런북을 FAIL시킨다.**
+- `kind`로 나눈 이유: 절차서(`node-onboarding.md`)·종결 인시던트(`rsyslog-omfile-flood.md`)는
+  담당 알림이 없다. 전 문서에 `alerts`를 강요하면 `alerts: []`·`severity: none` 같은 **거짓 필드**가 생긴다.
+- 알림이 아직 없는 런북(`alerts: []`)은 게이트가 **WARN**으로 통과시킨다(런북 먼저·알림 나중을 허용 — T0-3이 막히지 않게).
+
+CI가 이 왕복(알림 → 런북 → `alerts:` 선언)을 검증한다 — 게이트는 fleet-hardening T3-5로 **이관**(`scripts/gates/check-runbooks.sh`, AC-2-6).
 
 #### 2.6.1 가용성
 
@@ -548,9 +608,14 @@ POST /api/convert/prometheus/config/v1/rules
   labels: { severity: sev2 }
 
 - alert: BiosVersionDrift
-  expr: max(product:node_bios_versions:count) > 1
+  # ⚠️ 교정 — 초안이 참조하던 BIOS 버전 카운트 레코드는 **삭제됐다**(§1.8).
+  #   그대로 두면 영구 no-data인 죽은 알림이 된다. 레코드명만 갈아끼우는 것이 아니라
+  #   존폐를 판단했고, **존치**로 결론냈다: 드리프트를 알림으로 볼지의 판단 자체는
+  #   이 축(알림)의 소관으로 유효하고, 교정 레코드가 같은 의도를 표현하며,
+  #   현재값 0이라 day-1 발화도 없다. 활성화(배포) 판단은 §2의 게이트를 그대로 따른다.
+  expr: max(fleet:node_bios_drift:count) > 0
   for: 1h
-  labels: { severity: sev3 }        # 현재 2 (data03/04 U30 2.2 vs data05 U46 1.58는 다른 모델이라 제외됨)
+  labels: { severity: sev3 }        # 현재 0 (비교 가능한 모델 그룹은 DL380 Gen10 2대뿐이고 리비전이 같다)
 
 - alert: NvidiaVersionMismatch
   # 축3의 textfile 메트릭. 이 규칙 하나가 G0-1(6일 방치)을 10분 탐지로 바꾼다.
@@ -642,7 +707,7 @@ Slack egress를 1건 승인하면 **관찰자를 알림 스택 밖에 둘 수 �
 | **AC-2-3** | 라벨 정규화(B2) | `q 'count(up) - count(up{node=~"data0[1-5]"})'` → `0` |
 | **AC-2-4** | 규칙 import 완료 | `curl -s -H "Authorization: Bearer $T" $G/api/v1/provisioning/alert-rules \| jq length` → `≥ 20` |
 | **AC-2-5** | 섀도 모드 | 동 응답 `jq '[.[]\|select(.isPaused==true)]\|length'` == 전체 length |
-| **AC-2-6** | **런북 존재 CI 게이트** | `scripts/check-runbooks.sh` → 모든 alertname의 kebab 파일이 `docs/runbooks/`에 존재, 없으면 exit 1 |
+| **AC-2-6** | **런북 왕복 CI 게이트** (fleet-hardening T3-5로 **이관** — 경로 정정 `scripts/check-runbooks.sh` → `scripts/gates/check-runbooks.sh`) | `bash scripts/gates/check-runbooks.sh` → 모든 alertname이 `docs/runbooks/*.md` 전용 런북을 가리키고 그 런북이 frontmatter `alerts:`로 담당을 선언(§2.6 규약, kebab은 폴백), 위반 시 exit 1 |
 | **AC-2-7** | 딥링크 정본 | 전 규칙 `dashboard_url`이 `-v3`가 아닌(또는 정본으로 확정된) uid만 참조: `! grep -q 'keiwi-.*-v3' infra/monitoring/alerts/*.yml` |
 | **AC-2-8** | XID 규칙이 latched 게이지를 쓰지 않음 | `! grep -qE 'increase\(DCGM_FI_DEV_XID_ERRORS' infra/monitoring/alerts/*.yml` |
 | **AC-2-9** | Slack 라벨 화이트리스트 | 템플릿 파일에 `user`·`pid`·`cmdline`·`instance`·`modelName` 문자열 부재: `! grep -qE '\.user\|\.pid\|\.cmdline\|\.instance\|modelName' infra/monitoring/grafana/provisioning/alerting/templates/*.yaml` |
@@ -673,9 +738,19 @@ groups:
   - name: keiwi_standards
     interval: 5m
     rules:
-      # 플릿에서 관측된 GPU 드라이버 버전 종류 수. 2026-07-30 실측 = 2 (595.71.05, 535.309.01). 목표 1.
+      # 플릿에서 관측된 GPU 드라이버 버전 종류 수. ⚠️ 교정 — 라벨 필터가 **필수**다.
+      #   초안 식(필터 없음)이 반환한 2는 "버전 2종"이 아니라 "라벨 있는 버킷 1 + **라벨 없는 버킷 1**"
+      #   이었다 [실측 2026-08-03: {DCGM_FI_DRIVER_VERSION="595.71.05"}=2 · {}=4,
+      #   label/DCGM_FI_DRIVER_VERSION/values는 값이 **1개뿐**]. data03·04의 dcgm-exporter가
+      #   버전 라벨을 방출하지 않기 때문이고, 전 노드가 같은 버전이 되어도 계속 2를 보고한다.
+      #   → 라벨 있는 것만 세고, 사각지대 크기를 fleet:gpu_driver_unlabeled:count로 **반드시 동반 노출**한다.
+      #   필터만 걸고 끝내면 "1종으로 통일됨"이라는 더 나쁜 거짓말이 된다. 교정 후 실측 = 1.
       - record: fleet:gpu_driver_versions:count
-        expr: count(count by (DCGM_FI_DRIVER_VERSION) (DCGM_FI_DEV_GPU_UTIL))
+        expr: count(count by (DCGM_FI_DRIVER_VERSION) (DCGM_FI_DEV_GPU_UTIL{DCGM_FI_DRIVER_VERSION!=""})) or vector(0)
+
+      # 이 지표가 **못 보는** GPU 수. 현재 4(data03 ×2 + data04 ×2). 0이 되어야 위 값이 플릿 전체를 뜻한다.
+      - record: fleet:gpu_driver_unlabeled:count
+        expr: count(DCGM_FI_DEV_GPU_UTIL{DCGM_FI_DRIVER_VERSION=""}) or vector(0)
 
       # 커널 릴리스 종류 수. 실측 = 4 (4.4.0-179 / 6.8.0-101 / 6.8.0-117 / 6.8.0-134).
       - record: fleet:kernel_releases:count
@@ -687,10 +762,23 @@ groups:
 ```sh
 # roles/node-hygiene/templates/keiwi-node-hygiene.sh.j2 에 블록 추가 (신규 role 불필요)
 node_nvidia_kernel_module_version{version="595.71.05"} 1   # awk from /proc/driver/nvidia/version
-node_nvidia_userspace_version{version="595.84"} 1          # readlink libnvidia-ml.so.1
+node_nvidia_userspace_version{version="595.84"} 1          # ldconfig -p → readlink -f (※ 각주)
 node_nvidia_smi_ok 0                                       # `nvidia-smi -L`; echo $?  → 0=정상
 node_nvidia_version_mismatch 1                             # 두 값 비교
 ```
+
+> [!NOTE]
+> **※ NVML 경로를 하드코딩하지 마라 — data01에서 깨진다** [실측 2026-08-03, 4노드 전수].
+> `readlink libnvidia-ml.so.1`을 고정 경로(`/usr/lib/x86_64-linux-gnu/`)로 쓰면 data01은
+> NVML이 **`/usr/lib/nvidia-418/libnvidia-ml.so.1`**이라 빈 문자열이 나오고, 그것을 mismatch로
+> 해석하면 legacy 노드가 영구 오탐한다. `ldconfig -p`로 링커가 실제로 고르는 경로를 얻은 뒤
+> `readlink -f`로 실파일까지 따라간다 — 4노드(418.39 / 595.71.05 / 535.309.01 / 595.84) 전부 정확했다.
+>
+> **구현은 fleet-hardening T1-3**이고, 거기서 메트릭 2개가 더 붙는다:
+> `node_nvidia_probe_ok`(두 버전을 모두 파싱했는가 — 판정불능과 정상의 구분)와
+> `node_nvidia_smi_exit_code`(런북이 exit 18로 분기). 파싱 실패 시 mismatch를 1로 두면 data01이
+> 영구 오탐하고, 0으로 두면 "측정하지 않은 것이 정상으로 보이는" 이 사고의 실패모드를
+> 메트릭 레벨에서 재생산한다 — 그래서 **세 번째 상태**가 필요하다.
 
 > [!IMPORTANT]
 > **`node_nvidia_smi_ok` 단 하나가 6일 방치를 1분 탐지로 바꾼다.** 이 문장이 P1의 정당화 전부다. 배선처는 이미 존재한다 — node-exporter `--collector.textfile.directory`가 data01/03/04에 적용돼 있고 data04에 `keiwi_node_hygiene.prom`이 실존한다. data05는 compose에 `/var/lib/node_exporter/textfile:/host/textfile:ro` 마운트가 이미 있다.
@@ -810,7 +898,7 @@ groups:
 
 **축3) 대기 시간 — 수요 초과의 직접 증거.** `vllm:request_queue_time_seconds_bucket`·`num_requests_waiting`·`num_preemptions_total`·`kv_cache_usage_perc`가 이미 수집 중이라 **합성 지표가 불필요하다.**
 
-**축5) 전력·열 헤드룸.** `node:gpu_power:watts`(현재 data05 155.5 / data04 32.8 / data03 28.2) · `node:gpu_energy:kwh1d`(data05 gpu0 누적 4.165e11 mJ ≈ **115.7 kWh** 생애 소비) · 그리고 §1.8의 섀시 전력. 랙 예산은 `inventory.yaml`의 `pdu_circuit`이 채워진 뒤에만 비율로 말한다(그 전에는 W 절대값만).
+**축5) 전력·열 헤드룸.** `instance:gpu_power:watts`(현재 data05 157.1 / data04 32.4 / data03 28.6) · `instance:gpu_energy:kwh1d`(data05 gpu0 누적 4.165e11 mJ ≈ **115.7 kWh** 생애 소비) · 그리고 §1.8의 섀시 전력. 랙 예산은 `inventory.yaml`의 `pdu_circuit`이 채워진 뒤에만 비율로 말한다(그 전에는 W 절대값만).
 
 **증설 트리거 3개 (ADR-0021)**
 
@@ -850,10 +938,10 @@ groups:
 
 | # | 검증 | 명령 / 기대 |
 |---|---|---|
-| **AC-3-1** | 드리프트 시리즈 존재 | `q 'fleet:gpu_driver_versions:count'` → 숫자(현재 `2`), `q 'fleet:kernel_releases:count'` → `4` |
+| **AC-3-1** | 드리프트 시리즈 존재 **+ 사각지대 동반 노출** | `q 'fleet:gpu_driver_versions:count'` → `1`(라벨 있는 GPU만. 초안이 적은 `2`는 라벨 부재 버킷을 센 거짓값이었다) · `q 'fleet:gpu_driver_unlabeled:count'` → `4`(**필수 동반 검증** — 이 값이 없으면 위의 1은 "통일됐다"는 거짓말이다) · `q 'fleet:kernel_releases:count'` → `4` |
 | **AC-3-2** | 유저스페이스 불일치 탐지 | `q 'node_nvidia_version_mismatch'` → G0-1 수복 **전** `1`, **후** `0`. 두 값이 시계열에 모두 남아야 한다 |
 | **AC-3-3** | smi 헬스 | `q 'min(node_nvidia_smi_ok)'` → `1` |
-| **AC-3-4** | 표준화 완료 | 표준화 후 `q 'fleet:gpu_driver_versions:count'` → `1`(data01은 legacy 예외라 DCGM 미수집이므로 분모에 없다) |
+| **AC-3-4** | 표준화 완료 | **DCGM 기준으로는 도달 불가**(라벨 부재 GPU 4장이 남는 한 `1`은 부분집합에 대한 참일 뿐이다) → `q 'fleet:gpu_driver_versions:count_hygiene'` → `1` **AND** `q 'fleet:gpu_driver_unlabeled:count'` → `0` 으로 교체. count_hygiene 은 node-hygiene textfile 기반이라 data01(legacy)과 유저스페이스 불일치까지 덮는다. **선행: fleet-hardening 축1 T1-4 배포** |
 | **AC-3-5** | DCGM csv 확장 | `q 'count(count by (xid) (DCGM_EXP_XID_ERRORS_COUNT))'` → `≥ 1`, `q 'count(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL)'` → `≥ 6` |
 | **AC-3-6** | clock_event 라벨 | `q 'count(count by (clock_event) (DCGM_EXP_CLOCK_EVENTS_COUNT))'` → `≥ 1` |
 | **AC-3-7** | 벤치 신선도 | `q 'time() - max(keiwi_gpu_bench_last_run_timestamp_seconds)'` → `< 691200`(8일, weekly 타이머 + 여유) |
@@ -886,7 +974,7 @@ groups:
 
 [README §6](./README.md#6-이-스펙이-하지-않는-것-스코프-아웃--암묵-누락-금지)과 동일. 추가로 이 spec 범위에서 제외:
 - **PSU 출력 불균형 알림**(§2.6.4 주석 — 조치 불명확으로 게이트 탈락, 패널만)
-- **`instance:node_bios_age:days`**(§1.8 주석 — PromQL로 라벨 날짜 파싱 불가, exporter 쪽으로 이동)
+- **BIOS 경과일 recording rule** — **삭제로 종결**(B10, fleet-hardening T4-7. 초안 레코드명은 fleet-hardening spec §4.2 D4-6). PromQL로 라벨 날짜 파싱이 불가해 초안 식은 릴리스 일자가 아니라 수집 시각을 재고 있었다. 경과일이 다시 필요하면 exporter 쪽 `keiwi_bmc_bios_age_days` 신설을 BMC 축의 새 백로그로 연다
 - **팬 RPM 기반 어떤 것도**(§1.2)
 - **자동 조치·자동 kill**(§11)
 
@@ -906,5 +994,5 @@ groups:
 | `specs/sre-addons/metrics-collection.md` | T2-8("발견 선행 — Quadro라 BMC 없을 수 있음")을 **실측으로 확정 처리하고 Tier 1/2로 승격**. §1 표의 "전원" 사각지대 행을 갱신. T1-5/6(스로틀·PCIe/NVLink)은 §3.4로 흡수 |
 | `specs/alerting/spec.md` | §2 함정(data01 수집 중) · §9(data03 DCGM 기동 확인 · Telegram 불가) 교정. §3.2 G1 PromQL을 §2.6.2로 교체. **§3.8에 하드웨어 카탈로그(HW*) 추가** |
 | `docs/inventory.yaml` | `hardware:` 블록(§1.11) + 드라이버·커널모듈 실측 교정(§3.8-5) |
-| `docs/runbooks/` | 신규: `nvidia-driver-mismatch.md`(G0-1) · `psu-redundancy-lost.md` · `inlet-temp-near-critical.md` · `gpu-xid-critical.md` · `log-ingest-stalled.md`(G0-2) · `sel-near-full.md` + 알림별 나머지. **파일명 = alertname의 kebab-case**(AC-2-6이 강제) |
+| `docs/runbooks/` | 신규: `nvidia-driver-mismatch.md`(G0-1, T0-3) · `psu-redundancy-lost.md` · `inlet-temp-near-critical.md` · `sel-near-full.md`. ~~`gpu-xid-critical.md`~~·~~`log-ingest-stalled.md`~~는 **작성하지 않는다** — fleet-hardening 축3의 `gpu-xid.md`·기존 `log-ingestion-stopped.md`가 담당하고 frontmatter `alerts:`로 선언한다. **담당은 파일명이 아니라 선언이 정본**(§2.6 규약, AC-2-6) |
 | `infra/monitoring/README.md` | BMC job의 60s/30s 분리 이유 · alerting 바인드 추가 시 백업 절차(2026-07-02 사고 재발 방지) |

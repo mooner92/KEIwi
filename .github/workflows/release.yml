@@ -1,0 +1,78 @@
+# 태그 게이트 — 릴리스 태그가 게이트 red 상태로 붙는 것을 막는다 (spec §5 D5-6 / T5-20)
+#
+# 왜 이 워크플로가 따로 있나:
+#   v0.2.0 이 **게이트가 red 인 채로** 태그됐다(`check-no-secrets.sh` rc=1, 히트 16행).
+#   PR CI 만으로는 "태그를 붙이는 순간의 트리"가 검증되지 않는다 — 태그는 커밋을 고르는
+#   행위이고, 그 커밋이 초록이었는지는 아무도 다시 보지 않는다.
+#   태그를 되돌리지는 못하지만, 릴리스 커밋에 빨간 표시가 남고 후속 릴리스가 멈춘다.
+#
+# PR CI 와 다른 점 두 가지:
+#   ① `verify-all.sh` 를 **통째로** 돌린다. 잡별 스텝 열거가 아니라 글롭 순회라 새 게이트가
+#      배선 없이 편입되고, SKIP(env) 이 하나라도 있으면 rc=2 로 실패한다 —
+#      "도구가 없어 검사가 사라진 상태"를 초록으로 태그하지 않는다.
+#   ② `--with-build` 를 붙인다. 라이브 .next 를 건드리지 않고 빌드를 검증할 수 있는 곳은
+#      여기와 CI 뿐이다(§12).
+name: release-gate
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/console/package-lock.json
+      - name: 콘솔 의존성
+        run: npm ci
+        working-directory: apps/console
+      # venv 를 쓰는 이유는 ci.yml 과 같다(PEP 668 externally-managed).
+      - name: 게이트 도구 설치 (venv)
+        run: |
+          set -euo pipefail
+          python3 -m venv "$HOME/.venv-gates"
+          "$HOME/.venv-gates/bin/pip" install --quiet --upgrade pip
+          "$HOME/.venv-gates/bin/pip" install --quiet "yamllint==1.38.0" "ansible-lint==26.6.0" "PyYAML==6.0.1" "Jinja2==3.1.2"
+          echo "$HOME/.venv-gates/bin" >> "$GITHUB_PATH"
+      # shellcheck 도 핀한다. 러너 프리인스톨 버전(0.9.x)은 로컬(0.10.0)과 규칙 집합이 달라
+      # **같은 코드가 로컬에서 초록, CI에서 빨강**이 될 수 있다 — 그 red는 우리 결함이 아니라서
+      # 무시하는 습관을 만든다. sha256 은 promtool 과 달리 상류가 sums 파일을 배포하지 않아
+      # **2026-08-03 내려받은 산출물에서 직접 계산한 값**이다(이후 변조 감지용 핀).
+      - name: shellcheck 설치 (버전 핀)
+        run: |
+          set -euo pipefail
+          v=0.10.0
+          sha=6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
+          curl -sSLo /tmp/sc.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${v}/shellcheck-v${v}.linux.x86_64.tar.xz"
+          echo "${sha}  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp "shellcheck-v${v}/shellcheck"
+          sudo install -m 0755 "/tmp/shellcheck-v${v}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | head -2
+      - name: promtool 설치
+        run: |
+          set -euo pipefail
+          v=3.11.3
+          sha=9479af67673316278958cda1f39b88a09f8921084e039c65acca060d0447bb38
+          curl -sSLo /tmp/p.tgz "https://github.com/prometheus/prometheus/releases/download/v${v}/prometheus-${v}.linux-amd64.tar.gz"
+          echo "${sha}  /tmp/p.tgz" | sha256sum -c -
+          tar -xzf /tmp/p.tgz -C /tmp --strip-components=1 "prometheus-${v}.linux-amd64/promtool"
+          sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
+      - name: 전 게이트 + 빌드
+        run: bash scripts/verify-all.sh --with-build
+      # 태그와 CHANGELOG 가 갈리면 "무엇이 배포됐는지"를 아무도 재구성할 수 없다.
+      # 형식은 Keep a Changelog: `## [0.2.0] - 2026-07-31`
+      - name: CHANGELOG 에 이 태그 섹션이 있는가
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          grep -q "^## \[${tag}\]" CHANGELOG.md \
+            || { echo "FAIL: CHANGELOG.md 에 ## [${tag}] 섹션이 없다"; exit 1; }
+          echo "OK: CHANGELOG ## [${tag}]"

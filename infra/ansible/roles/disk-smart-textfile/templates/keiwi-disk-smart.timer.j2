@@ -1,0 +1,16 @@
+# KEIwi 물리 디스크 SMART 수집 타이머 (Ansible 관리 — 대상에서 직접 편집 금지)
+# 부팅 후 {{ disk_smart_boot_delay }}, 이후 {{ disk_smart_interval }}마다 수집기 실행.
+# 주기 근거는 roles/disk-smart-textfile/defaults/main.yml 의 disk_smart_interval 주석.
+[Unit]
+Description=KEIwi 물리 디스크 SMART 주기 수집 타이머
+
+[Timer]
+OnBootSec={{ disk_smart_boot_delay }}
+OnUnitActiveSec={{ disk_smart_interval }}
+# 다운타임 동안 놓친 실행은 부팅 직후 한 번 보정.
+Persistent=true
+# 4노드가 정확히 같은 순간에 컨트롤러를 두드리지 않게 흩뿌린다(부하 스파이크 방지).
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

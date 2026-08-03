@@ -49,7 +49,7 @@ GPU는 총 **6장**(data03 Quadro RTX 6000×2 · data04 RTX 6000×2 · data05 A4
 ## 적용 순서 (.105에서, 사람 — §11)
 
 > [!WARNING] 전제
-> data04 sshd는 **포트 764**. .105의 `mooner92` 공개키가 data04 `mhchoi`에 등록돼야 합니다(`ssh-copy-id -p 764 mhchoi@192.168.1.104`). ufw active면 도커 브리지(`172.18.0.0/16`)가 터널/vLLM 포트에 닿게 **포트별로** 열어야 합니다(안 열면 타깃 down/timeout).
+> data04 sshd는 **포트 764**. .105 실행 계정의 공개키가 data04 계정에 등록돼야 합니다(`ssh-copy-id -p 764 "$KEIWI_USER_DATA04@192.168.1.104"` — 계정명은 레포에 적지 않는다, [ansible README](../ansible/README.md)). ufw active면 도커 브리지(`172.18.0.0/16`)가 터널/vLLM 포트에 닿게 **포트별로** 열어야 합니다(안 열면 타깃 down/timeout).
 
 > [!NOTE] data03은 터널 없이 직접 스크랩 (2026-07-03)
 > 같은 서브넷 노드는 **직접 스크랩이 우선**(터널은 도달 불가 시만). data03은 자기 ufw에서 `.105 → 9100/9400/9836/9986`만 허용하면 끝 — 아래 ①(터널)은 data04 전용이고, ②의 `prometheus.yml`에 data03 타깃(192.168.1.103)이 이미 반영돼 있습니다.
@@ -163,7 +163,7 @@ curl -s localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info{node=
 
 ## Grafana 익명 뷰어 (LAN 조회 전용, 2026-07-02)
 
-내부(IP) 접속 임베드에서 Grafana 로그인 없이 대시보드를 보이게 하는 설정 — **조회(Viewer)만 익명**, 편집/관리자는 여전히 로그인. 외부(grafana.excusa.uk)는 Cloudflare Access가 앞단에서 차단하므로 익명이 외부에 노출되지 않습니다. 권장본: [`docker-compose.yml`](./docker-compose.yml).
+내부(IP) 접속 임베드에서 Grafana 로그인 없이 대시보드를 보이게 하는 설정 — **조회(Viewer)만 익명**, 편집/관리자는 여전히 로그인. 외부(Cloudflare Tunnel 뒤 — 주소는 레포에 적지 않습니다 §13)는 Cloudflare Access가 앞단에서 차단하므로 익명이 외부에 노출되지 않습니다. 권장본: [`docker-compose.yml`](./docker-compose.yml).
 
 **[server] 사람이 적용(§11)** — data05에서:
 ```bash

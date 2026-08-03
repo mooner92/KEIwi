@@ -1,0 +1,46 @@
+# yamllint 설정 — 레포 전역 YAML 게이트 (spec fleet-hardening §5 D5-2 / T5-7)
+#
+# 목적은 스타일 통일이 아니라 **사고를 막는 것**이다. 그래서 켜는 규칙과 끄는 규칙의
+# 기준이 "이 규칙이 잡는 실패가 우리에게 실제로 일어났거나 일어날 수 있는가"다.
+#
+# ⚠️ 규칙 이름은 `key-duplicates` 다. `duplicate-key` 라는 규칙은 yamllint에 **없고**,
+#    그렇게 쓰면 `invalid config: no such rule` 로 게이트가 exit 2 가 된다
+#    (출력 메시지 `duplication of key` 를 내는 것이 `key-duplicates` 다).
+extends: default
+
+rules:
+  # ── 켠다: 조용히 값을 잃는 것들 ──────────────────────────────────────────
+  # PyYAML safe_load 는 중복 키를 **조용히 마지막 값으로 덮어쓴다**. 파이썬 검사기로는
+  # 원리적으로 못 잡는 결함이라 린터가 유일한 방어선이다.
+  key-duplicates: enable
+
+  # ── 끈다: 우리 자산에서 오탐만 만드는 것들 ───────────────────────────────
+  # 프로비저닝·대시보드 YAML은 긴 PromQL·URL을 한 줄에 담는다. 줄바꿈하면 오히려 깨진다.
+  line-length: disable
+  # on/off/yes/no 를 불리언으로 읽는 문제는 실제로 있으나, GitHub Actions 의 `on:` 이
+  # 구조적으로 여기 걸린다(대체 표기가 없다). 에러가 아니라 경고로 남겨 눈에는 띄게 한다.
+  truthy:
+    level: warning
+    check-keys: true
+  # 주석 스타일(#뒤 공백·앞 2칸)은 사고와 무관하고, 우리 파일은 주석에 근거를 길게 적는다.
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  # 문서 시작 마커(---)는 우리 자산 대부분이 쓰지 않는다. 파싱에 영향 없다.
+  document-start: disable
+  # 들여쓰기는 파일마다 리스트 스타일이 갈린다(- 앞 들여쓰기 유무). 파싱은 둘 다 유효하다.
+  indentation:
+    level: warning
+    indent-sequences: consistent
+  # 파일 끝 개행·행 끝 공백은 실패로 다룰 가치가 없다(diff 노이즈만 만든다).
+  new-line-at-end-of-file: {level: warning}
+  trailing-spaces: {level: warning}
+  # 값 없는 키(`FOO:`)는 .env 예시·프로비저닝 자리표시자에서 정상 표기다.
+  empty-values: disable
+  # 플로우 매핑의 안쪽 공백(`{ from: 600, to: 0 }`)을 허용한다. alert-rules.yaml이 이 표기를
+  # 44곳에서 쓰고(Grafana 문서 표기와 같다) 가독성이 명백히 낫다. 실패 모드가 없는 스타일
+  # 규칙 때문에 라이브 프로비저닝 파일을 44곳 건드리는 것은 §12 관점에서 손해다.
+  braces: {max-spaces-inside: 1}
+  brackets: {max-spaces-inside: 1}
+  # 8자리 숫자(날짜 꼴)에 대한 octal 경고는 우리 자산에 해당 없음 — 기본값 유지.

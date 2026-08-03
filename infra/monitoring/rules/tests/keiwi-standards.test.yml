@@ -1,0 +1,157 @@
+# promtool 단위 테스트 — keiwi-standards.yml
+#
+# 실행: bash scripts/gates/check-rules.sh --test infra/monitoring/rules/tests/keiwi-standards.test.yml
+#      (promtool 필수. 없으면 SKIP(env: promtool) + rc=2 가 정답 — spec §0.2.2)
+#
+# 이 파일의 존재 이유
+#   구 규칙 `count by (DCGM_FI_DRIVER_VERSION)(DCGM_FI_DEV_GPU_UTIL)` 는 라이브에서 2를 냈고,
+#   hardware-ops 는 그 2를 "버전 2종"으로 읽어 스펙에 박았다. 실제로는
+#   "라벨 있는 버킷 1 + **라벨 없는 버킷 1**"이다. 아래 (A)의 입력에서 구 규칙은 2,
+#   신 규칙은 1을 낸다 — 이 테스트가 있었다면 그 오독은 머지되지 않았다.
+
+rule_files:
+  - ../keiwi-standards.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ───────────────────────────────────────────────────────────────────────────
+  # (A) 라벨 부재 버킷을 "버전"으로 세지 않는다 + 사각지대 크기를 별도로 노출한다
+  #     입력: 라벨 있는 GPU 2장(data05 A40) + 라벨 없는 GPU 2장(data03 RTX6000)
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "드라이버 버전 카운트 — 라벨 부재를 버전으로 세지 않는다"
+    input_series:
+      - series: 'DCGM_FI_DEV_GPU_UTIL{instance="192.168.1.105:9400",gpu="0",DCGM_FI_DRIVER_VERSION="595.71.05"}'
+        values: "0x10"
+      - series: 'DCGM_FI_DEV_GPU_UTIL{instance="192.168.1.105:9400",gpu="1",DCGM_FI_DRIVER_VERSION="595.71.05"}'
+        values: "0x10"
+      # data03·data04 dcgm-exporter 는 2022년 :latest 이미지라 버전 라벨을 방출하지 않는다
+      - series: 'DCGM_FI_DEV_GPU_UTIL{instance="192.168.1.103:9400",gpu="0"}'
+        values: "0x10"
+      - series: 'DCGM_FI_DEV_GPU_UTIL{instance="192.168.1.103:9400",gpu="1"}'
+        values: "0x10"
+    promql_expr_test:
+      # 신 규칙: 관측된 버전은 1종
+      - expr: fleet:gpu_driver_versions:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_versions:count"
+            value: 1
+      # ⚠️ 회귀 고정 — **구 규칙의 식을 그대로 평가**한다. 2가 나오는데 그 2는
+      #    "버전 2종"이 아니라 "라벨 있는 버킷 + 라벨 없는 버킷"이다.
+      #    전 노드가 같은 버전으로 통일돼도 이 식은 계속 2를 보고한다(영구 미수렴).
+      - expr: count(count by (DCGM_FI_DRIVER_VERSION) (DCGM_FI_DEV_GPU_UTIL))
+        eval_time: 10m
+        exp_samples:
+          - labels: "{}"
+            value: 2 # ← 거짓. 신 규칙은 같은 입력에서 1이다
+      # 사각지대 크기 — 이 시리즈가 없으면 위의 1은 "통일됐다"는 더 나쁜 거짓말이 된다
+      - expr: fleet:gpu_driver_unlabeled:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_unlabeled:count"
+            value: 2
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (A2) 사각지대가 사라지고 실제 드리프트가 생긴 경우 — 필터가 "1로 고정"이 아님을 증명한다
+  #      (필터를 걸어놓고 값이 늘 1이면 지표가 죽은 것과 같다)
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "라벨이 전부 붙고 버전이 갈리면 2를 낸다 · unlabeled는 0"
+    input_series:
+      - series: 'DCGM_FI_DEV_GPU_UTIL{instance="192.168.1.105:9400",gpu="0",DCGM_FI_DRIVER_VERSION="595.71.05"}'
+        values: "0x10"
+      - series: 'DCGM_FI_DEV_GPU_UTIL{instance="192.168.1.104:9400",gpu="0",DCGM_FI_DRIVER_VERSION="535.309.01"}'
+        values: "0x10"
+    promql_expr_test:
+      - expr: fleet:gpu_driver_versions:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_versions:count"
+            value: 2
+      - expr: fleet:gpu_driver_unlabeled:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_unlabeled:count"
+            value: 0
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (B) DCGM이 통째로 사라져도 "0종"이 아니라 0(=사각지대 0)과 구분된다
+  #     `or vector(0)` 를 붙인 두 시리즈는 GPU가 하나도 없을 때 0을 낸다.
+  #     이것이 허용되는 이유: 이 플릿에서 "DCGM 시리즈 전무"는 관측 상실이고,
+  #     그 사실은 축1 fleet:node_exporter_up:count / 커버리지 갭이 별도로 말한다.
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "GPU 시리즈 전무 — 빈 벡터가 아니라 0"
+    input_series:
+      - series: 'node_uname_info{instance="192.168.1.101:9100",release="4.4.0-179"}'
+        values: "1x10"
+    promql_expr_test:
+      - expr: fleet:gpu_driver_versions:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_versions:count"
+            value: 0
+      - expr: fleet:gpu_driver_unlabeled:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_unlabeled:count"
+            value: 0
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (C) 커널 릴리스 카운트 — 교정 불필요했던 규칙의 회귀 방지
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "커널 릴리스 종류 수"
+    input_series:
+      - series: 'node_uname_info{instance="192.168.1.101:9100",release="4.4.0-179"}'
+        values: "1x10"
+      - series: 'node_uname_info{instance="192.168.1.103:9100",release="6.8.0-134"}'
+        values: "1x10"
+      - series: 'node_uname_info{instance="192.168.1.104:9100",release="6.8.0-101"}'
+        values: "1x10"
+      - series: 'node_uname_info{instance="192.168.1.105:9100",release="6.8.0-117"}'
+        values: "1x10"
+    promql_expr_test:
+      - expr: fleet:kernel_releases:count
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:kernel_releases:count"
+            value: 4
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (D) count_hygiene 은 **or vector(0) 이 없어야** 한다 —
+  #     축1 T1-4 배포 전(시리즈 부재)에는 결과가 **비어 있는 것이 정답**이다.
+  #     여기에 0이 나오면 "드리프트 없음"으로 오독된다. exp_samples: [] 가 그 계약이다.
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "hygiene 정본 지표는 미배포 시 0이 아니라 비어 있다"
+    input_series:
+      - series: 'node_uname_info{instance="192.168.1.105:9100",release="6.8.0-117"}'
+        values: "1x10"
+    promql_expr_test:
+      - expr: fleet:gpu_driver_versions:count_hygiene
+        eval_time: 10m
+        exp_samples: []
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # (E) hygiene 시리즈가 오면 플릿 전체(data01 포함)를 덮는다 — T4-11 승격 조건
+  # ───────────────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: "hygiene 시리즈가 오면 값을 낸다"
+    input_series:
+      - series: 'node_nvidia_kernel_module_version{instance="192.168.1.101:9100",version="418.39"}'
+        values: "1x10"
+      - series: 'node_nvidia_kernel_module_version{instance="192.168.1.103:9100",version="595.71.05"}'
+        values: "1x10"
+      - series: 'node_nvidia_kernel_module_version{instance="192.168.1.104:9100",version="535.309.01"}'
+        values: "1x10"
+      - series: 'node_nvidia_kernel_module_version{instance="192.168.1.105:9100",version="595.71.05"}'
+        values: "1x10"
+    promql_expr_test:
+      - expr: fleet:gpu_driver_versions:count_hygiene
+        eval_time: 10m
+        exp_samples:
+          - labels: "fleet:gpu_driver_versions:count_hygiene"
+            value: 3 # 418.39 · 535.309.01 · 595.71.05 — DCGM은 이 중 1종만 본다

@@ -2,14 +2,34 @@
 # roles/node-hygiene/defaults/main.yml — node-exporter 미사용 수집기(systemd·textfile) 기본값
 #
 # 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
-# 목표: 이미 라이브인 apt node-exporter(data03/04)에서 systemd·textfile 수집기를 켜고,
-#       OS 위생 메트릭(apt 보안 업데이트·reboot-required·마지막 ansible 적용 시각)을 노출.
-# data05(컨테이너)는 이 role 대상이 아니다 → infra/monitoring/docker-compose.yml에서 동일 플래그 부여.
+# 목표: 플릿 **전 노드**에서 systemd·textfile 수집기를 켜고, OS 위생 메트릭
+#       (apt 대기·reboot-required·마지막 ansible 적용 시각·NVIDIA 드라이버 정합성)을 노출.
+# data05(컨테이너)도 대상이다 — compose가 /var/lib/node_exporter/textfile을 /host/textfile로
+#   바인드마운트하므로 수집 스크립트는 호스트에 깔린다(node_hygiene_consumer=container).
 
-# node-exporter(apt) textfile 수집 디렉터리. node-exporter가 읽고, 수집 스크립트가 *.prom을 쓴다.
+# ── 노드별 스위치 3종 (spec §1.2 D1-1/D1-2) ─────────────────────────────────
+
+# 소비처: node-exporter가 .prom을 어떻게 읽는가. **선언하지 않으면 role이 assert로 멈춘다.**
+#   host      — node-exporter가 --collector.textfile.directory로 직접 읽는다(data01·03·04)
+#   container — compose 바인드마운트로 읽는다(data05: /var/lib/node_exporter/textfile → /host/textfile:ro)
+# 기본값을 host로 두는 이유: 새 노드는 대개 host이고, 예외(container)는 inventory에 적는다.
+node_hygiene_consumer: host
+
+# apt 카운터 수집 여부. false면 node_apt_{upgrades,security_upgrades}_pending을 **아예 노출하지 않는다**.
+#   data01(16.04 EOL)은 248건이 영구 대기라 신호 가치가 0인데 30분마다 가장 무거운 작업(apt-get -s)을
+#   돌린다 — inventory.ini에서 false. 0을 내보내지 않고 미노출로 두는 이유는 "측정 안 함"과
+#   "측정했더니 0"을 구분하기 위해서다(이 role이 고치는 실패모드와 같은 종류).
+node_hygiene_apt_enabled: true
+
+# NVIDIA 커널모듈↔유저스페이스 정합성 수집 여부. GPU 없는 노드에서도 켜둬도 무해하다
+#   — /proc/driver/nvidia/version이 없으면 스크립트가 nvidia 메트릭을 전부 미노출한다.
+node_hygiene_nvidia_enabled: true
+
+# node-exporter textfile 수집 디렉터리. node-exporter가 읽고, 수집 스크립트가 *.prom을 쓴다.
 node_hygiene_textfile_dir: /var/lib/node_exporter/textfile
 
-# Debian/Ubuntu prometheus-node-exporter 패키지의 실행 인자 파일(ARGS=). 존재 여부로 apt 노드 판별.
+# Debian/Ubuntu prometheus-node-exporter 패키지의 실행 인자 파일(ARGS=).
+# 존재 여부는 **ARGS 자동 주입이 가능한 노드인지**만 판별한다(role 적용 여부가 아니다).
 node_hygiene_defaults_file: /etc/default/prometheus-node-exporter
 
 # 켤 수집기 플래그(트랙 A1). ARGS에 이 값을 주입한다.

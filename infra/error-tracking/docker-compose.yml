@@ -15,16 +15,18 @@ x-environment: &default-environment
   VALKEY_URL: redis://valkey:6379
   SECRET_KEY: ${SECRET_KEY}
   EMAIL_URL: consolemail:// # SMTP 없음 — 알림은 Slack webhook이 담당(spec §4)
-  GLITCHTIP_DOMAIN: https://glitchtip.excusa.uk # Slack 메시지의 이슈 링크를 만든다(§2.3)
-  DEFAULT_FROM_EMAIL: keiwi@excusa.uk
+  # 외부 진입 주소는 **레포에 적지 않는다**(PUBLIC 레포 · §13) — /data/glitchtip/.env 로 주입.
+  # 기본값은 내부 전용이라 env 없이도 뜬다(현재 상태: 터널 E1-7 미완 = 루프백/내부 IP 사용).
+  GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://192.168.1.105:8090} # Slack 이슈 링크를 만든다(§2.3)
+  DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL:-keiwi@localhost}     # EMAIL_URL=consolemail 이라 표시용
   # ALLOWED_HOSTS — 기본이 와일드카드 `["*"]`라 기동 시 경고가 뜬다(실측: createsuperuser
   # 실행 중 RuntimeWarning). Django의 Host 헤더 검증이므로 실제 접근 경로를 전부 넣는다:
-  #   glitchtip.excusa.uk = Cloudflare 터널(E1-7) · localhost/127.0.0.1 = SSH 포트포워딩
+  #   외부 도메인 = Cloudflare 터널(E1-7, env로 주입) · localhost/127.0.0.1 = SSH 포트포워딩
   #   172.18.0.1 = Prometheus 컨테이너의 /metrics 스크랩
   # settings.py L26·L71에서 env.list(콤마 구분)로 읽는다[정본 확인].
-  ALLOWED_HOSTS: glitchtip.excusa.uk,localhost,127.0.0.1,172.18.0.1
+  ALLOWED_HOSTS: ${GLITCHTIP_ALLOWED_HOSTS:-localhost,127.0.0.1,172.18.0.1,192.168.1.105}
   # CSRF는 스킴을 포함해야 한다(Django 4+). settings.py L749 env.list[정본 확인].
-  CSRF_TRUSTED_ORIGINS: https://glitchtip.excusa.uk,http://localhost:8090,http://127.0.0.1:8090
+  CSRF_TRUSTED_ORIGINS: ${GLITCHTIP_CSRF_ORIGINS:-http://localhost:8090,http://127.0.0.1:8090,http://192.168.1.105:8090}
   # /metrics 엔드포인트 활성화. 기본 False라 켜지 않으면 404다[정본 urls.py L80·settings.py L44].
   # 조사 보고의 "6.0에서 /metrics 경로가 고정됐다"는 틀렸다 — 실측 404로 확인.
   ENABLE_OBSERVABILITY_API: "True"
