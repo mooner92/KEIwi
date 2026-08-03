@@ -21,6 +21,8 @@ export type AssistantInitial = {
   service?: string;
   fleetNode?: string;
   message?: string;
+  /** 시간창 시작(예 "now-6h") — 알림 딥링크의 ?from → ErrorContext.from(E2). */
+  from?: string;
 };
 
 // 탐색 진입을 돕는 예시(클릭 시 그대로 질의).
@@ -75,6 +77,7 @@ export function AssistantPanel({
         service: initial.service,
         fleetNode: initial.fleetNode,
         message: initial.message,
+        from: initial.from,
       });
     }
   }, [initial]);

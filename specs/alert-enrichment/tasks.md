@@ -43,10 +43,10 @@
 ## E2 — 딥링크
 
 - [x] **T-E2-1** (S) 전 규칙에 annotation 3종 추가 — `__dashboardUid__`(system-v3/gpu-v3/logs-v3 규칙별 배정), `drilldown_url`(var 후보 3종 미러링), `console_url`(`alert=·node=·mount=·from=` 파라미터, 한국어 없음). spec §2.2 D2-1. **선행: T-E1-1.** 검증: AC-E2-1
-- [ ] **T-E2-2** (S) 콘솔 `/incidents` 소보수 — `alert`(프리셋 질문 테이블)·`mount`·`from` searchParams 수용 + node 정규화 유틸(`data04`|IP|IP:port → fleetNode, `types/fleet.ts` 매핑 재사용 여부 구현 시 확인). **선행: 없음(E1과 독립).** 검증: AC-E2-3·AC-E2-4
+- [x] **T-E2-2** (S) 콘솔 `/incidents` 소보수 — `alert`(프리셋 질문 테이블)·`mount`·`from` searchParams 수용 + node 정규화 유틸(`data04`|IP|IP:port → fleetNode, `types/fleet.ts` 매핑 재사용 여부 구현 시 확인). **선행: 없음(E1과 독립).** 검증: AC-E2-3·AC-E2-4
 - [ ] **T-E2-3** (S) `/logs` searchParams 주입(useState 초기값 배선) — **선택(P2)**, E2 게이트에 불필요. **선행: 없음.** 검증: 수동
 - [ ] **T-E2-4** `[server]` (S) 적용 + 실클릭 검증 — drilldown_url이 var-instance만으로 노드 전환되는지(3a35dd8 경위상 의심 지점). 실패 시 spec D2-1 폴백(노드명 매핑 E3 이관) 발동 기록. `__panelId__`는 이때 패널 ID 확정해 채움(열린 질문 3). **선행: T-E2-1·T-E2-2.** 검증: AC-E2-2
-- [ ] **T-E2-5** (S) 콘솔 변경분 Playwright 시각 QA + 스크린샷 공유(기존 관례 `docs/testing.md`). **선행: T-E2-2.** 검증: AC-E2-3 부속
+- [x] **T-E2-5** (S) 콘솔 변경분 Playwright 시각 QA + 스크린샷 공유(기존 관례 `docs/testing.md`). **선행: T-E2-2.** 검증: AC-E2-3 부속
 
 ## E3 — 스레드 보강 (alert-relay)
 
