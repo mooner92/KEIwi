@@ -141,6 +141,8 @@ vLLM      근거 로그에 [1][2] 번호를 붙여 진단 생성 — 사내 GPU,
 > [!CAUTION] 어디서 작업하면 안 되는가 — 먼저 읽을 것
 > **`/KEIwi`는 라이브 워킹트리다.** 라이브 Logstash가 `infra/logging/logstash/pipeline/`을 `:ro`로 바인드하고 `config.reload.automatic`이 켜져 있어, 거기서의 **모든 git 작업이 프로덕션 변경**이다 — `git pull` · **`git checkout`** · `git merge` · `git stash`. 실제로 이것이 5.7일 로그 장애의 원인 ②였다.
 > 또한 콘솔은 `apps/console/.next`를 **라이브로 서빙**하므로 `npm run build`·`systemctl restart keiwi-console`은 **사람이** 한다(§11·§12).
+>
+> ⚠️ **프로덕션 빌드 전 `NEXT_PUBLIC_SITE_URL`을 반드시 설정한다.** `NEXT_PUBLIC_*`는 **빌드 시각에 번들로 인라인**되므로, 없이 빌드하면 `metadataBase`·`openGraph.url`이 기본값 `http://localhost:3105`로 **조용히 퇴행**한다(런타임에 고칠 수 없다). 값은 `apps/console/.env.local`에 두고 `.env.example` §사이트 URL을 참고한다. 정적 검사로는 못 잡는다 — 로컬 개발에서는 localhost가 정답이라 게이트를 걸면 오탐이 된다.
 > → 기능 작업은 **별도 worktree**에서 한다(예: 디자인 v3 작업 루트 `/home/mooner92/keiwi-design`, dev `:3106`). 불가피하게 `/KEIwi`에서 git을 만져야 하면 `docker stop keiwi-logstash` → 작업 → `docker start`.
 
 ```bash

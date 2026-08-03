@@ -4,9 +4,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { pretendardGov } from "./fonts";
 import { AppShell } from "@/components/shell/app-shell";
+// 배포 도메인은 소스에 박지 않는다 — NEXT_PUBLIC_SITE_URL 파생(config/env.ts).
+// 미설정이면 localhost 기본값이라 env 없이도 build가 성공한다(CI 러너 시크릿 0).
+import { getSiteUrl } from "@/config/env";
+
+const SITE_URL = getSiteUrl();
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://keiwi.excusa.uk"),
+  metadataBase: new URL(SITE_URL),
   applicationName: "KEIwi",
   title: {
     default: "KEIwi — 관제 콘솔",
@@ -21,7 +26,7 @@ export const metadata: Metadata = {
     siteName: "KEIwi 관제 콘솔",
     title: "KEIwi — 관제 콘솔",
     description: "KEI 연구 서버 플릿 모니터링·로깅·진단 온프레미스 관제 콘솔.",
-    url: "https://keiwi.excusa.uk",
+    url: SITE_URL,
     locale: "ko_KR",
   },
 };

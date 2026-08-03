@@ -1,0 +1,181 @@
+# KEIwi CI — 헌장 §9("수용기준은 CI가 강제한다") 이행 (spec fleet-hardening §5 D5-6)
+#
+# 설계 고정점 4가지. 각각 기각한 대안이 있고 근거는 ADR-0023에 있다.
+#
+#   ① GitHub 호스티드 전용. self-hosted 러너를 data03/05에 두면 연구 GPU 워크로드와 자원을
+#      경쟁하고, 러너가 내부망 자격으로 라이브에 도달해 **§12(라이브 수정 금지)를 우회하는
+#      경로**가 생긴다. 실측상 모든 게이트가 내부망 없이 통과한다.
+#   ② `paths:` 필터를 쓰지 않는다. required status check 가 skip 되면 브랜치 보호가 영구
+#      pending 으로 머지를 막는다. 총 소요 ~2분이고 퍼블릭이라 과금 0 — 절약할 것이 없는
+#      곳에서 알려진 함정을 밟을 이유가 없다.
+#   ③ 서드파티 액션 0. 퍼블릭 레포의 워크플로는 공급망 공격 표면이다. 필요한 도구가 전부
+#      러너 프리인스톨이거나 `pip install` 한 줄이라 편의 액션의 이득이 없다.
+#      액션 major 는 실제 확인 후 핀했다(checkout v7.0.1 · setup-node v7.0.0, 2026-08-03 조회).
+#   ④ 러너에 시크릿 0. `next build` 가 env 하나 없이 rc=0 임이 실측이다 —
+#      이 파일에 GitHub **secrets 컨텍스트 참조**가 단 한 건도 없어야 한다(AC-5-15가 판정한다).
+#      ⚠️ 그 표현식을 이 주석에 **그대로 적지 않는다** — 판정이 파일 본문 grep이라, 금지 대상을
+#         설명하는 문장 자신이 히트가 된다(spec §5.2가 자격증명 리터럴에 건 규약과 같은 처리).
+#
+# 잡이 3개인 이유는 도구 체인이 셋으로 갈리기 때문이다(node / python·shell / IaC·promtool).
+# 브랜치 보호의 required status check 이름이 이 3개다: console · repo-gates · infra-iac.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+# 같은 ref 의 이전 실행은 취소한다 — 1인 운영에서 오래된 실행을 기다릴 이유가 없다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── 콘솔: 빌드까지 도는 유일한 곳 ────────────────────────────────────────
+  # data05 에서는 build 게이트가 **구조적으로 불가능**하다 — 라이브가 apps/console/.next 를
+  # 서빙 중이라 같은 디렉터리에서 빌드하면 운영이 깨진다(§12, docs/testing.md).
+  # CI 도입의 가장 큰 실익이 "자동화"가 아니라 **라이브를 안 건드리고 빌드를 검증할 유일한
+  # 장소**라는 것이 이 잡이다.
+  console:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/console
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: apps/console/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      # ⚠️ 순서 고정: build 가 반드시 check:secrets 보다 앞이다. S3(서버 전용 env의 클라이언트
+      #    번들 노출)는 .next/static 을 읽고, 산출물이 없으면 **skip 이 아니라 실패**한다.
+      #    이전 구현은 조용히 skip 했고 그래서 순서만 바뀌면 게이트가 무음 통과했다.
+      - run: npm run build
+      - run: npm run check:secrets
+      - run: npm run check:no-raw-hex
+
+  # ── 레포 전역 게이트: 파이썬·셸 도구 체인 ───────────────────────────────
+  repo-gates:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # shellcheck·jq·python3 는 ubuntu 러너 프리인스톨이다(액션 불필요).
+      #
+      # venv 를 쓰는 이유: ubuntu 24.04 의 시스템 python 은 PEP 668 externally-managed 라
+      # `pip install --user` 가 거부된다. venv 를 PATH 앞에 두면 `python3` 가 그 안의 인터프리터로
+      # 해석되어 게이트가 쓰는 PyYAML 까지 한 번에 해결된다(첫 실행에서 깨지지 않게).
+      - name: 게이트 도구 설치 (venv)
+        run: |
+          set -euo pipefail
+          python3 -m venv "$HOME/.venv-gates"
+          "$HOME/.venv-gates/bin/pip" install --quiet --upgrade pip
+          # 버전을 핀한다 — 린터가 새 규칙을 들고 올라오면 코드가 그대로인데 어느 날 갑자기
+          # CI가 red가 된다. 그 red는 우리가 만든 결함이 아니라서 무시하는 습관을 만든다.
+          # 로컬(data05) 설치본과 같은 버전이다 — 로컬 초록 = CI 초록의 전제.
+          "$HOME/.venv-gates/bin/pip" install --quiet "yamllint==1.38.0" "PyYAML==6.0.1"
+          echo "$HOME/.venv-gates/bin" >> "$GITHUB_PATH"
+      # shellcheck 도 핀한다. 러너 프리인스톨 버전(0.9.x)은 로컬(0.10.0)과 규칙 집합이 달라
+      # **같은 코드가 로컬에서 초록, CI에서 빨강**이 될 수 있다 — 그 red는 우리 결함이 아니라서
+      # 무시하는 습관을 만든다. sha256 은 promtool 과 달리 상류가 sums 파일을 배포하지 않아
+      # **2026-08-03 내려받은 산출물에서 직접 계산한 값**이다(이후 변조 감지용 핀).
+      - name: shellcheck 설치 (버전 핀)
+        run: |
+          set -euo pipefail
+          v=0.10.0
+          sha=6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
+          curl -sSLo /tmp/sc.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${v}/shellcheck-v${v}.linux.x86_64.tar.xz"
+          echo "${sha}  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp "shellcheck-v${v}/shellcheck"
+          sudo install -m 0755 "/tmp/shellcheck-v${v}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | head -2
+      - name: YAML (중복 키·들여쓰기)
+        run: bash scripts/gates/check-yaml.sh
+      - name: 대시보드 JSON (uid 유일성)
+        run: bash scripts/gates/check-json.sh
+      - name: 셸 (shellcheck -S warning)
+        run: bash scripts/gates/check-shell.sh
+      - name: 파이썬 (py_compile + import 스모크)
+        run: bash scripts/gates/check-python.sh
+      - name: compose 스키마
+        run: bash scripts/gates/check-compose.sh
+      - name: Grafana 프로비저닝 (uid·name·임계 드리프트)
+        run: python3 scripts/gates/check-grafana-provisioning.py
+      - name: 런북 무결성 (runbook_url ↔ 파일)
+        run: bash scripts/gates/check-runbooks.sh
+      # 콘솔 잡과 달리 빌드 산출물이 없다 → S1(자격증명)·S4(.env 추적)만 돈다.
+      # S2 는 콘솔 잡이, S3 는 build 뒤에 콘솔 잡이 판정한다(중복 실행 금지, §0.2).
+      - name: 자격증명·.env 게이트 (레포 전역 S1·S4)
+        run: bash apps/console/scripts/check-no-secrets.sh --rules S1,S4
+      - name: 게이트 자기검증 (패턴이 죽지 않았는가)
+        run: bash apps/console/scripts/check-no-secrets.sh --self-test
+      # 새 게이트를 scripts/gates/ 에 떨어뜨리고 CI 배선을 잊는 드리프트를 잡는다.
+      - name: CI 커버리지 (모든 게이트가 어느 잡에선가 돈다)
+        run: bash scripts/gates/check-ci-coverage.sh
+
+  # ── IaC: promtool·ansible 체인. 검증 강도의 정본이 여기다 ────────────────
+  infra-iac:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # console·repo-gates 와 같은 이유로 venv (PEP 668). ansible-lint 가 ansible-core 를
+      # 끌고 오므로 ansible-playbook(--syntax-check)도 여기서 함께 확보된다.
+      # jinja2 는 render-templates.py 가, pyyaml 은 모든 파이썬 게이트가 쓴다.
+      - name: 게이트 도구 설치 (venv)
+        run: |
+          set -euo pipefail
+          python3 -m venv "$HOME/.venv-gates"
+          "$HOME/.venv-gates/bin/pip" install --quiet --upgrade pip
+          # 버전 핀 이유는 repo-gates 잡과 같다(로컬 설치본과 동일 버전).
+          "$HOME/.venv-gates/bin/pip" install --quiet "ansible-lint==26.6.0" "yamllint==1.38.0" "PyYAML==6.0.1" "Jinja2==3.1.2"
+          echo "$HOME/.venv-gates/bin" >> "$GITHUB_PATH"
+      # 마켓플레이스 액션을 쓰지 않고 run 스텝 하나로 끝낸다(서드파티 액션 0).
+      # 버전은 라이브 실측(3.11.3)과 동일 핀 — 파서 차이로 CI와 라이브 판정이 갈리는 것을 막는다.
+      # sha256 은 릴리스의 sha256sums.txt 를 실제로 받아 확인한 값이다(추측 금지).
+      - name: promtool 설치
+        run: |
+          set -euo pipefail
+          v=3.11.3
+          sha=9479af67673316278958cda1f39b88a09f8921084e039c65acca060d0447bb38
+          curl -sSLo /tmp/p.tgz "https://github.com/prometheus/prometheus/releases/download/v${v}/prometheus-${v}.linux-amd64.tar.gz"
+          echo "${sha}  /tmp/p.tgz" | sha256sum -c -
+          tar -xzf /tmp/p.tgz -C /tmp --strip-components=1 "prometheus-${v}.linux-amd64/promtool"
+          sudo install -m 0755 /tmp/promtool /usr/local/bin/promtool
+          promtool --version
+      # shellcheck 도 핀한다. 러너 프리인스톨 버전(0.9.x)은 로컬(0.10.0)과 규칙 집합이 달라
+      # **같은 코드가 로컬에서 초록, CI에서 빨강**이 될 수 있다 — 그 red는 우리 결함이 아니라서
+      # 무시하는 습관을 만든다. sha256 은 promtool 과 달리 상류가 sums 파일을 배포하지 않아
+      # **2026-08-03 내려받은 산출물에서 직접 계산한 값**이다(이후 변조 감지용 핀).
+      - name: shellcheck 설치 (버전 핀)
+        run: |
+          set -euo pipefail
+          v=0.10.0
+          sha=6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
+          curl -sSLo /tmp/sc.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${v}/shellcheck-v${v}.linux.x86_64.tar.xz"
+          echo "${sha}  /tmp/sc.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/sc.tar.xz -C /tmp "shellcheck-v${v}/shellcheck"
+          sudo install -m 0755 "/tmp/shellcheck-v${v}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | head -2
+      - name: Ansible (lint + syntax-check + j2 렌더)
+        run: bash scripts/gates/check-ansible.sh
+      # 러너에는 docker 가 살아 있으므로 **라이브 동형 마운트** 경로로 돈다.
+      # 로컬(data05)은 docker 그룹 미가입이라 여기서만 rule_files 글롭 해석까지 검증된다.
+      - name: Prometheus 설정 (라이브 동형 마운트 check config)
+        run: bash scripts/gates/check-prometheus.sh
+      # promtool 이 있어야 --test(평가 엔진)가 실제로 판정된다 — 로컬은 구조 폴백까지가 한계다.
+      # 이 스텝이 AC-4-3·AC-4-4 의 정본이다.
+      - name: 규칙 문법 (promtool check rules)
+        run: bash scripts/gates/check-rules.sh --check
+      - name: 규칙 단위 테스트 (promtool test rules)
+        run: bash scripts/gates/check-rules.sh --test
+      - name: PromQL 메트릭명 가드
+        run: bash scripts/gates/check-promql-metrics.sh
+      - name: SMART 메트릭 허용 목록
+        run: bash scripts/gates/check-smart-metric-allowlist.sh

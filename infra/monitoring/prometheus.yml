@@ -116,15 +116,15 @@ scrape_configs:
         labels:
           instance: "192.168.1.103:9633"
           node: "data03"
-      # data04 — 직접 도달 불가 → SSH 터널 필요(아직 미추가라 주석). 활성화 순서:
-      #   1) keiwi-tunnel-data04.service에 `-L 172.18.0.1:9634:localhost:9633` 추가
-      #      (※ 172.18.0.1:9633은 data05 호스트 익스포터가 점유 → data04는 9634로 분리)
-      #   2) systemctl restart keiwi-tunnel-data04 (active 확인)
-      #   3) 아래 3줄 주석 해제
-      # - targets: ["172.18.0.1:9634"]
-      #   labels:
-      #     instance: "192.168.1.104:9633"
-      #     node: "data04"
+      # data04 — 이 job에는 **추가하지 않는다.** :9633은 논리 볼륨(HPE LOGICAL VOLUME)만
+      #   보는 익스포터이고, data04에서 정작 봐야 할 것은 그 뒤 물리 디스크 12본이다
+      #   (ZC1AE78X grown defect 773 · ZC1968JB 미교정 read 8 — LV은 셋 다 OK로 가린다).
+      #   물리 디스크는 **node-exporter textfile 경로로 수집한다**(specs/fleet-hardening §2,
+      #   roles/disk-smart-textfile). 이미 스크랩 중인 node-exporter가 .prom을 읽으므로
+      #   신규 포트·터널 항목·ufw 규칙·job이 **0개**다 — 여기 있던 별도 터널 포트 활성화
+      #   안내 블록은 그래서 삭제했다(2026-08-03, ADR-0024).
+      #   ⚠️ 그 포트 번호를 이 파일에 다시 적지 말 것 — AC-2-8이 파일 전체에 그 문자열이
+      #      없는 것으로 "터널 항목 0개"를 판정한다.
 
   # GlitchTip(에러 트래킹, specs/error-tracking ADR-0022) — 자기 자신도 관측한다.
   # ⚠️ /metrics는 기본 비활성이다 — compose에 ENABLE_OBSERVABILITY_API=True가 있어야

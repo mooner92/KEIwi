@@ -542,7 +542,7 @@ textfile은 node-exporter가 읽는다. data04 node-exporter는 이미 `172.18.0
 | `node_smart_disk_health_passed{controller,disk_index,serial}` | gauge 1/0 | `smart_status.passed` | 전체 |
 | `node_smart_disk_temperature_celsius` | gauge | `temperature.current` | 전체 |
 | `node_smart_disk_temperature_trip_celsius` | gauge | `temperature.drive_trip` | 존재 시 |
-| `node_smart_disk_power_on_hours` | gauge | `power_on_time.hours` | 전체 |
+| `node_smart_disk_power_on_seconds` | gauge | `power_on_time.hours` | 전체 |
 | `node_smart_disk_capacity_bytes` | gauge | `user_capacity.bytes` | 전체 |
 | **`node_smart_disk_grown_defect_list`** | gauge | `scsi_grown_defect_list` | SAS |
 | **`node_smart_disk_uncorrected_errors_total{op="read"\|"write"}`** | counter | `scsi_error_counter_log.<op>.total_uncorrected_errors` | SAS |
@@ -550,10 +550,20 @@ textfile은 node-exporter가 읽는다. data04 node-exporter는 이미 `172.18.0
 | `node_smart_disk_processed_bytes_total{op=…}` | counter | `…gigabytes_processed` × 1e9 | SAS |
 | `node_smart_disk_ata_attribute_raw{attr_id,attr_name}` | gauge | `ata_smart_attributes.table[]` **화이트리스트 5·187·188·197·198·199·231·233만** | SATA |
 | `node_smart_disk_ata_attribute_normalized{attr_id,attr_name}` | gauge | 동상 `.value` | SATA |
-| **`node_smart_disks_total{controller,ctrl_dev}`** | gauge | 발견된 물리 디스크 수 | 전체 |
-| `node_smart_collector_last_run_timestamp_seconds` / `_duration_seconds` / `_probe_errors` | gauge | 자체 | 전체 |
+| **`node_smart_disks{controller,ctrl_dev}`** | gauge | 발견된 물리 디스크 수 | 전체 |
+| `node_smart_collector_last_run_timestamp_seconds` · `node_smart_collector_duration_seconds` · `node_smart_collector_probe_errors` | gauge | 자체 | 전체 |
 
-`node_smart_disks_total`이 이 축의 조용한 핵심이다. **LV은 멤버 디스크가 빠져도 끝까지 `OK`를 말한다** — 대수가 12→11로 떨어지는 것만이 "디스크가 사라졌다"를 말해준다.
+> **이 표가 곧 승인 목록이다** — `scripts/gates/check-smart-metric-allowlist.sh`(T2-10)가 이 표에서 백틱 안의 `node_smart_*` 토큰을 뽑아 수집기 템플릿이 방출하는 이름과 **양방향** 대조한다(승인 외 0건 + 미구현 0건). 그래서 이름을 축약해 적으면 안 된다 — 초안의 `` / `_duration_seconds` / `_probe_errors` `` 축약형은 게이트가 파싱할 수 없어 "미구현 2건"을 영구적으로 냈다(2026-08-03 교정).
+
+> [!WARNING]
+> **이름 2건 정정 (2026-08-03) — 초안은 AC-2-6과 자기모순이었다.** T5-26(W0)이 promtool을 설치한 뒤 AC-2-6의 엔진이 `structural`에서 `promtool`로 올라갔고, `promtool check metrics`가 초안 이름 2건을 **lint 위반으로 거부**했다(rc=1). 즉 D2-3이 요구하는 이름으로는 AC-2-6이 영원히 red다.
+> | 초안 | 확정 | promtool 지적 · 근거 |
+> |---|---|---|
+> | `node_smart_disk_power_on_hours` | **`node_smart_disk_power_on_seconds`** | `use base unit "seconds" instead of "hours"`. 수집기가 JSON의 `power_on_time.hours`에 ×3600 한다. 형제 메트릭 `smartctl_device_power_on_seconds`(§2.1에 이미 등장)와 이름이 맞는다 |
+> | `node_smart_disks_total` | **`node_smart_disks`** | `non-counter metrics should not have "_total" suffix`. 이 값은 gauge(대수)다. 형제 `smartctl_devices`(라이브 스냅샷에 실재, gauge)와 같은 형태 |
+> AC-2-1·AC-2-11·D2-5·D2-6·§7.4의 식도 함께 갱신했다. 대안(`promtool check metrics --lint=none`으로 게이트를 무르게 하기)은 기각했다 — 그러면 이 파일에 대해 promtool의 값이 0이 된다.
+
+`node_smart_disks`이 이 축의 조용한 핵심이다. **LV은 멤버 디스크가 빠져도 끝까지 `OK`를 말한다** — 대수가 12→11로 떨어지는 것만이 "디스크가 사라졌다"를 말해준다.
 
 **만들지 않는다 (HPE/smartctl이 주지 않는 값을 지어내지 않는다)**
 
@@ -575,12 +585,25 @@ set -euo pipefail
 #    timeout {{ disk_smart_probe_timeout }}(기본 15) \
 #      smartctl --json --info --health --attributes --log=error -d cciss,$N /dev/sgX
 #    · 파싱은 python3 json.load (정규식/jq 금지 — jq는 노드에 없다)
-#    · device_type.name != "disk"        → 어댑터(data03 cciss,12) → 스킵, 오류 아님
-#    · exit_status bit1(=2, open failed) → 부재 → miss_streak++
+#    · 판정은 **serial_number 유무**로 한다(아래 정정):
+#        serial 있고 device_type 없거나 =="disk"  → 디스크
+#        serial 없고 model 계열 있음              → 어댑터·인클로저 → 스킵, 오류 아님
+#        serial 없고 model 도 없음                → 부재 → miss_streak++
+#        timeout(1) 이 죽임(rc 124/137)           → 조회 실패 → probe_errors++
 #    · miss_streak >= {{ disk_smart_miss_streak }}(기본 4) → 조기 종료
 # 3) TMP=$(mktemp "$TEXTFILE_DIR/.keiwi_disk_smart.XXXXXX"); … ; mv -f "$TMP" \
 #      "$TEXTFILE_DIR/keiwi_disk_smart.prom"       # node-hygiene과 동일한 원자적 교체
 ```
+
+> [!WARNING]
+> **판정 규칙 정정 (2026-08-03 구현 중 실측)** — 초안의 두 규칙은 둘 다 틀렸다.
+> ① `device_type.name != "disk"` → 어댑터: **SATA 디스크 응답에는 `device_type` 키가 아예 없다**
+>    (data04 `cciss,0`·`cciss,4`는 `device.type="sat"`, `protocol="ATA"`이고 `device_type` 부재).
+>    그대로 쓰면 **정상 SSD 2본을 어댑터로 버린다.**
+> ② `exit_status bit1(=2)` → 부재: **`HPE Smart Adapter` 응답(data03 `cciss,12`)의 exit_status도 2다.**
+>    그대로 쓰면 어댑터가 "부재"로 세어져 `miss_streak`가 한 칸 앞당겨진다.
+> 실제로 갈라지는 것은 **`serial_number`의 유무**다 — 디스크에는 있고 어댑터·부재에는 없다.
+> 종료코드는 `timeout` 강제종료(124/137) 판별에만 쓴다.
 
 node-hygiene의 원자적 쓰기·trap·`chmod 0644`·`mv -f` 패턴을 그대로 따른다(`templates/keiwi-node-hygiene.sh.j2:16,62-65`).
 
@@ -597,7 +620,7 @@ role 가드는 node-hygiene과 **다르게** 잡는다: `disk_smart_textfile_dir
 
 ```yaml
 - record: instance:node_smart_disks:count
-  expr: sum by (instance) (node_smart_disks_total)
+  expr: sum by (instance) (node_smart_disks)
 - record: instance:node_smart_defects:max
   expr: max by (instance) (node_smart_disk_grown_defect_list)
 - record: serial:node_smart_defects:increase7d
@@ -606,7 +629,7 @@ role 가드는 node-hygiene과 **다르게** 잡는다: `disk_smart_textfile_dir
   expr: sum by (instance, serial) (increase(node_smart_disk_uncorrected_errors_total[24h]))
 ```
 
-`dashboards/syshealth.json` row `id=200`을 **"디스크 건강 (물리 디스크 · 논리 볼륨)"**으로 바꾸고: stat `물리 디스크 수`(`sum(node_smart_disks_total)`) · table `물리 디스크 목록`(`node_smart_disk_info` + GDL join) · table `결함 섹터 상위`(`topk(10, …)`) · timeseries `결함 섹터 증가(7d)`. 패널 1·5 제목에 "논리 볼륨" 명시.
+`dashboards/syshealth.json` row `id=200`을 **"디스크 건강 (물리 디스크 · 논리 볼륨)"**으로 바꾸고: stat `물리 디스크 수`(`sum(node_smart_disks)`) · table `물리 디스크 목록`(`node_smart_disk_info` + GDL join) · table `결함 섹터 상위`(`topk(10, …)`) · timeseries `결함 섹터 증가(7d)`. 패널 1·5 제목에 "논리 볼륨" 명시.
 
 > [!NOTE]
 > **죽은 패널 6·7·8 제거는 이 축이 하지 않는다 — 축4 T4-6(W2)으로 이관했다.** 세 패널이 참조하는 `smartctl_device_percentage_used`·`_attribute`·`_available_spare`가 라이브 918개 스냅샷에 없어서, 축4의 메트릭명 가드가 W2에 켜지는 순간 CI가 W4까지 red로 남기 때문이다(§0.3). 축2는 **추가**만 하고 정리는 이미 같은 파일을 여는 T4-6이 한다.
@@ -619,10 +642,29 @@ role 가드는 node-hygiene과 **다르게** 잡는다: `disk_smart_textfile_dir
 |---|---|---|---|
 | `DiskGrownDefectsGrowing` | `increase(node_smart_disk_grown_defect_list[24h]) > 0` | 0s | 오늘 새 불량섹터 = 열화 진행 중 |
 | `DiskUncorrectedErrorsGrowing` | `increase(node_smart_disk_uncorrected_errors_total[24h]) > 0` | 0s | 미교정 I/O = 데이터 손실 실현 |
-| `PhysicalDiskDisappeared` | `node_smart_disks_total < node_smart_disks_total offset 1h` | 10m | LV이 절대 말해주지 않는 사실 |
-| `SmartHealthFailed` **확장** | 기존 refId A(`smartctl_device_smart_status`)에 refId B(`node_smart_disk_health_passed`) 추가, OR 결합 | 0s | `alert-rules.yaml:318-346` 규칙의 무력화 해소. alerting §10-3 열린 질문 종결 |
+| `PhysicalDiskDisappeared` | `node_smart_disks - (node_smart_disks offset 1h or node_smart_disks) < 0` | 10m | LV이 절대 말해주지 않는 사실 |
+| `SmartHealthFailed` **확장** | refId A의 expr을 `smartctl_device_smart_status or node_smart_disk_health_passed`로 (PromQL 합집합) | 0s | `alert-rules.yaml:318-346` 규칙의 무력화 해소. alerting §10-3 열린 질문 종결 |
 
 전부 `specs/alerting`의 2주 섀도 절차를 거쳐 승격한다 — 이 축은 **규칙 파일 생성까지**다.
+섀도 기간에는 셋 다 `severity: warning`으로 둔다(이 파일의 어휘는 `critical|warning` 둘뿐이고
+`notification-policies.yaml`의 object_matchers도 그 둘만 매칭한다). 승격 1순위는
+`DiskUncorrectedErrorsGrowing`(데이터 손실이 이미 실현된 신호)이고 판단은 T2-19가 한다.
+
+> [!WARNING]
+> **식 2건 정정 (2026-08-03 구현 중)** — 초안 그대로 쓰면 **정상 상태가 알림이 된다.**
+> ① `PhysicalDiskDisappeared`: `A < A offset 1h`는 **정상일 때 빈 벡터**를 돌려주고,
+>    `noDataState: NoData`라 "전 디스크 정상"이 NoData 알림으로 둔갑한다. 뺄셈으로 항상 값을
+>    만들고 비교는 threshold에 맡긴다. `or node_smart_disks`는 **배포 직후 1시간**(offset 데이터
+>    부재 구간)에 시리즈가 통째로 사라지는 것을 막는다. 같은 이유로 나머지 두 규칙도 식에
+>    `> 0` 비교를 넣지 않고 `increase(...)` 원값을 그대로 threshold에 넘긴다.
+> ② `SmartHealthFailed`: **별도 refId B + 조건 OR는 Grafana에서 성립하지 않는다.**
+>    서버사이드 표현식의 이항 연산은 라벨이 매칭되는 시리즈끼리만 계산하는데 두 메트릭은
+>    라벨 스키마도 job도 다르다(`:9633` device/serial_number vs `:9100` controller/serial) →
+>    매칭 0건. 유일한 대안인 `classic_conditions`는 **라벨을 접어버려** summary의
+>    `{{ $labels.instance }}`와 디스크별 중복제거가 함께 죽는다. PromQL의 `or`는 벡터 셀렉터의
+>    **합집합** 연산자라 두 계열을 라벨 그대로 한 프레임에 담는다 — 필요한 것이 정확히 그것이다.
+>    (AC-2-14는 `data[].model.expr` 중 하나에 `node_smart_disk_health_passed`가 있으면 통과하므로
+>    이 형태로도 그대로 성립한다.)
 
 #### D2-7. data01 분기
 
@@ -650,17 +692,17 @@ P840ar/hpsa + smartmontools **6.4**(`--json` 미지원). `infra/logging/filebeat
 
 | ID | 수용기준 | 검증 |
 |---|---|---|
-| **AC-2-1** | 물리 디스크가 노드별로 발견된다 — data03 12본, data04 12본(SAS 10 + SATA SSD 2) | `q 'sum(node_smart_disks_total)'` → **≥ 24** (data05·data01 배포 후 상향하고 spec에 실측치 기록) |
+| **AC-2-1** | 물리 디스크가 노드별로 발견된다 — data03 12본, data04 12본(SAS 10 + SATA SSD 2) | `q 'sum(node_smart_disks)'` → **≥ 24** (data05·data01 배포 후 상향하고 spec에 실측치 기록) |
 | **AC-2-2** | 열화 디스크 결함 수가 라이브 smartctl 값과 일치(마스킹 해소의 직접 증명) | 아래 스니펫 → `MATCH:773` |
 | **AC-2-3** | LV 계열과 물리 디스크 계열이 이름공간으로 분리 | `q 'count(smartctl_device_smart_status)'` → `3`(불변) · `q 'count(node_smart_disk_health_passed)'` → `≥24` |
 | **AC-2-4** | 수집기 신선도 — stale `.prom`을 살아있는 값으로 오인하지 않는다 | `q 'max(time() - node_smart_collector_last_run_timestamp_seconds)'` → `< 1800` |
 | **AC-2-5** | textfile 파서 오류 0 | `q 'max(node_textfile_scrape_error)'` → `0` |
-| **AC-2-6** | 생성되는 `.prom`이 노출 형식 규약을 만족(CI, 라이브 불요) | `bash scripts/gates/check-smart-metric-allowlist.sh --render-check; echo rc=$?` → `EXPOSITION_OK engine=…` + `rc=0`. 내부적으로 `render-smart-fixture.sh`(헬퍼)로 4케이스를 렌더하고 `promtool check metrics`(있으면) 또는 `tools/promtool_fallback.py check-metrics`(§0.2.2)로 검사한다. ⚠️ **맨몸 `promtool`은 이 호스트에 없다**(실측) — 그래도 rc=0이어야 하며 `engine=structural`로 내려간다. 폴백은 노출 형식 lint까지만 하고 히스토그램/서머리의 의미적 정합은 보지 않는다 |
+| **AC-2-6** | 생성되는 `.prom`이 노출 형식 규약을 만족(CI, 라이브 불요) | `bash scripts/gates/check-smart-metric-allowlist.sh --render-check; echo rc=$?` → `EXPOSITION_OK engine=…` + `rc=0`. 내부적으로 `render-smart-fixture.sh`(헬퍼)가 **수집기 자체를** 픽스처로 돌려 `.prom`을 만들고 `promtool check metrics`(있으면) 또는 `tools/promtool_fallback.py check-metrics`(§0.2.2)로 검사한다. ⚠️ **T5-26(W0) 이후 이 호스트에는 promtool이 있다** — 기본 경로가 `engine=promtool`이고 폴백 경로는 `KEIWI_PROMTOOL_ENGINE=none`으로 강제해 검증한다(둘 다 rc=0 실측 2026-08-03). **엔진이 올라가면서 이름 lint가 실제로 걸렸고 그래서 D2-3의 이름 2건을 정정했다**(§D2-3 경고 상자). 폴백은 노출 형식 lint까지만 하고 히스토그램/서머리의 의미적 정합은 보지 않는다. **픽스처는 라이브 캡처 5건**(정상 SAS · SATA SSD · 열화 SAS GDL 773 · 어댑터 · 부재) — 손으로 지어낸 JSON은 실제 스키마와 갈라지므로 쓰지 않는다 |
 | **AC-2-7** | 연구자 워크로드 영향 상한 — 수집 1회 10초 미만 | `q 'max(node_smart_collector_duration_seconds)'` → `< 10` (기준선 data03 3.22s) |
 | **AC-2-8** | 신규 리스닝 포트·터널 항목 0 | `! grep -q '9634' infra/monitoring/prometheus.yml && echo REPO_CLEAN` + data04 `ss -ltn \| grep -cE ':963[0-9]'`가 배포 전후 동일 |
 | **AC-2-9** | 물리 디스크 패널이 실재하고 죽은 패널이 되살아나지 않았다 | 아래 스니펫 → `dead [] physical True`. **죽은 패널 제거 자체는 축4 AC-4-19(W2)가 판정**하고, 이 AC는 W4 최종 상태를 확인한다 |
 | **AC-2-10** | role 멱등 — 두 번째 `--check`에서 changed=0 | `cd infra/ansible && ansible-playbook playbooks/agents.yml --tags disk-smart --check --limit data03,data04 \| tail -5` → PLAY RECAP `changed=0` |
-| **AC-2-11** | **day-1 오발화 0** — 기존 GDL 66·773이 있어도 발화하지 않는다(증분 설계 검증) | `q 'count(increase(node_smart_disk_grown_defect_list[24h]) > 0)'` · `q 'count(increase(node_smart_disk_uncorrected_errors_total[24h]) > 0)'` · `q 'count(node_smart_disks_total < (node_smart_disks_total offset 1h))'` → **세 값 모두 0** (24h 관측 후 재확인) |
+| **AC-2-11** | **day-1 오발화 0** — 기존 GDL 66·773이 있어도 발화하지 않는다(증분 설계 검증) | `q 'count(increase(node_smart_disk_grown_defect_list[24h]) > 0)'` · `q 'count(increase(node_smart_disk_uncorrected_errors_total[24h]) > 0)'` · `q 'count(node_smart_disks < (node_smart_disks offset 1h))'` → **세 값 모두 0** (24h 관측 후 재확인) |
 | **AC-2-12** | 근거 없는 메트릭 금지 — 방출 메트릭 집합 == spec 승인 목록 | `bash scripts/gates/check-smart-metric-allowlist.sh` → `OK: 승인 목록 외 0건, 미구현 0건` (exit 0) |
 | **AC-2-13** | 안전 — textfile 밖에 쓰지 않고 실패 시 부분 출력을 남기지 않는다 | `grep -q 'set -euo pipefail' …/keiwi-disk-smart.sh.j2 && grep -q 'ReadWritePaths' …/keiwi-disk-smart.service.j2 && grep -q 'mv -f' …/keiwi-disk-smart.sh.j2 && ! grep -qE '(^\|[^a-z])eval ' …/keiwi-disk-smart.sh.j2 && echo SAFE_OK` |
 | **AC-2-14** | `SmartHealthFailed`가 물리 디스크를 실제로 감시한다 | `python3 -c "import yaml;d=yaml.safe_load(open('infra/monitoring/grafana/provisioning/alerting/alert-rules.yaml'));r=[x for g in d['groups'] for x in g['rules'] if x.get('uid')=='keiwi-smart-fail'][0];e=[m['model'].get('expr','') for m in r['data']];assert any('node_smart_disk_health_passed' in s for s in e);print('OK')"` |
@@ -695,7 +737,7 @@ d=json.load(open('infra/monitoring/dashboards/syshealth.json'))
 ps=d['panels']+[q for p in d['panels'] for q in (p.get('panels') or [])]
 dead=[(p.get('id'),t.get('expr')) for p in ps for t in (p.get('targets') or [])
       if any(k in t.get('expr','') for k in ['percentage_used','available_spare','smartctl_device_attribute'])]
-phys=any('node_smart_disks_total' in t.get('expr','') for p in ps for t in (p.get('targets') or []))
+phys=any('node_smart_disks' in t.get('expr','') for p in ps for t in (p.get('targets') or []))
 print('dead',dead,'physical',phys); assert not dead and phys"
 ```
 
@@ -1409,7 +1451,14 @@ curl -s 'localhost:9090/api/v1/rules?type=record' \
 **게이트가 red인 채 릴리스됐다** `bash apps/console/scripts/check-no-secrets.sh` → **rc=1**, 히트 16행. `git tag` → v0.1.0·v0.2.0.
 
 히트 16건 분류 — **오탐 14건**: XML 네임스페이스 URI 2(`icon.svg:1`, `opengraph-image.tsx:9` — `xmlns="http://www.w3.org/2000/svg"`는 식별자이지 엔드포인트가 아니다) · 테스트 픽스처 9(`grafana-host.test.ts:4,19,22,32,36` · `sentry-scrub.test.ts:17,29,38,123`) · JSDoc 예시 1(`grafana-host.ts:45`) · **호스트 리터럴이 존재하지 않는 템플릿 리터럴** 1(`grafana-host.ts:64` `` return `http://${h}:${LAN_GRAFANA_PORT}`; `` — 정규식이 `http://` 뒤 `$`를 외부 호스트로 오인) · 배포 무관 공개 링크 1(`about/page.tsx:261`).
-**진짜 2건**: `layout.tsx:9` `metadataBase: new URL("https://keiwi.excusa.uk")`, `layout.tsx:24` `url: "https://keiwi.excusa.uk"`.
+**진짜 2건**: `layout.tsx:9`(`metadataBase`)·`layout.tsx:24`(`openGraph.url`)에 실도메인 리터럴.
+
+> **[교정 2026-08-03 — 구현 중 실측]** S2를 실제로 돌리니 위 2건 외에 **3건이 더** 나왔다:
+> `grafana-host.ts:9`(사고 이력 주석의 실도메인) · `grafana-host.ts:46`(JSDoc `@param` 예시의 실도메인 + 사설 IP) ·
+> `sentry-options.ts:16`(실측 페이로드 인용 안의 사설 IP). 원안은 `grafana-host.ts:45` JSDoc 1건만 셌다.
+> 셋 다 **주석**이지만 S2는 주석과 코드를 구분하지 않는다 — 구분하려면 주석 파서를 넣어야 하고,
+> 그 파서가 문자열 안의 `//`를 주석 시작으로 오인하면 **조용한 미탐**이 된다(게이트가 가장 피해야 할 실패).
+> 그래서 규칙을 약화시키지 않고 **문서 예시를 RFC 2606·RFC 5737로 교정**했다(T5-2·T5-4 범위에 포함).
 
 **스캔 사각지대** 스크립트는 `apps/console/src`만 본다. 같은 성격의 리터럴이 밖에 있다 — `apps/console/next.config.ts:31` `allowedDevOrigins: ["127.0.0.1","localhost","192.168.1.105","*.excusa.uk"]`. `infra/`·`docs/`·`.github/`는 전혀 검사되지 않는다.
 
@@ -1477,7 +1526,7 @@ const SECRET_TOKEN = ["xoxb", "PROBE", "SECRET", "TOKEN"].join("-");
 | `ghp_[A-Za-z0-9]{36}` · `github_pat_[A-Za-z0-9_]{22,}` | GitHub 토큰 |
 | `https?://[0-9a-f]{32}@` | Sentry/GlitchTip DSN |
 | `eyJ[A-Za-z0-9_-]{100,}` | Cloudflare 터널 토큰(JWT) |
-| `(?i)(password\|passwd\|secret\|token\|api[-_]?key)\s*[:=]\s*['"][^'"${<][^'"]{7,}['"]` | 값이 `${`(보간)·`<`(자리표시자)로 시작하지 **않는** 하드코딩 |
+| `(?i)(password\|passwd\|secret\|token\|api[-_]?key)\s*[:=][^\S\n]*['"][^'"${<\n][^'"\n]{7,}['"]` | 값이 `${`(보간)·`<`(자리표시자)로 시작하지 **않는** 하드코딩. **[교정 2026-08-03]** 값 부분에서 **개행을 제외**한다 — python `re`의 부정 문자 클래스는 `\n`도 매칭하므로 원안 `[^'"]{7,}`는 여러 줄을 건너뛰어 다음 따옴표까지 삼킨다(실측 오탐 1건: 문서 한 줄이 `…password:"` 로 끝나고 40줄 뒤의 따옴표와 한 건으로 잡혔다). 하드코딩된 값은 정의상 한 줄 안에 있다 |
 
 > 이 엄격한 형식 덕분에 hardware-ops `spec.md:390`의 `services/T00000000/…`, `tasks.md:86`의 `services/TEST`는 **예외 없이 자연 통과**한다(`/B…/…` 세그먼트가 없다). 허용리스트가 필요 없는 이유가 여기 있다.
 
@@ -1621,6 +1670,17 @@ docker run --rm \
 
 이 스텝이 있어야 `promtool.sh --which`가 CI에서 `path`를 반환하고, **로컬에서 `SKIP(env)`이던 `check-rules.sh --test`(AC-4-3·AC-4-4)가 CI에서 실제로 판정된다.** 로컬은 `engine=structural`까지, CI는 promtool 전강도 — 이 비대칭이 §0.2.2에 표로 명시돼 있고 의도된 것이다. 러너에 docker가 프리인스톨돼 있으므로 `check-prometheus.sh`도 동형 마운트 경로로 돈다.
 
+> **[교정 2026-08-03 — 구현]** 도구 설치를 `pip install`이 아니라 **venv + 버전 핀**으로 한다.
+> ① ubuntu-24.04 의 시스템 python 은 PEP 668 `externally-managed` 라 `pip install --user` 가 거부될 수 있다 —
+> 첫 실행에서 깨지는 종류의 함정이다. `python3 -m venv ~/.venv-gates` 를 만들고 그 `bin` 을 `GITHUB_PATH` 에
+> 넣으면 `python3` 도 그 인터프리터로 해석되어 게이트가 쓰는 PyYAML·Jinja2 까지 한 번에 해결된다.
+> ② **yamllint·ansible-lint·shellcheck 를 로컬 설치본과 같은 버전으로 핀한다**(1.38.0 · 26.6.0 · 0.10.0).
+> 린터가 새 규칙을 들고 올라오면 **코드가 그대로인데 어느 날 갑자기 CI가 red** 가 되고, 그 red 는 우리가
+> 만든 결함이 아니라서 정확히 "무시하는 습관"을 만든다 — 이 축이 막으려는 실패 그 자체다. 러너 프리인스톨
+> shellcheck(0.9.x)를 그냥 쓰면 로컬(0.10.0)과 규칙 집합이 달라 같은 코드가 로컬 초록·CI 빨강이 될 수 있다.
+> shellcheck 의 sha256 은 상류가 sums 파일을 배포하지 않아 **내려받은 산출물에서 직접 계산한 값**이다
+> (promtool 은 릴리스의 `sha256sums.txt` 로 대조 — 근거의 강도가 다르므로 구분해 적는다).
+
 설계 고정점:
 - **`paths:` 필터를 쓰지 않는다.** required status check가 skip되면 브랜치 보호가 영구 pending으로 머지를 막는다. 총 소요 ~2분이고 퍼블릭이라 과금 0 — 절약할 것이 없는 곳에서 알려진 함정을 밟을 이유가 없다.
 - **서드파티 액션 0.** `actions/checkout`·`actions/setup-node`만. 나머지는 러너 프리인스톨(shellcheck·jq·docker·python3) + `pip install`. 액션 major는 도입 시 `gh api repos/actions/checkout/releases/latest --jq .tag_name`으로 **실제 확인 후 핀**(추측 금지).
@@ -1659,17 +1719,17 @@ docker run --rm \
 | **AC-5-6** | S2 스코프가 `next.config.ts`를 포함(사각지대 해소) | `next.config.ts`에 사설 IP 1줄 임시 추가 → 게이트 `rc=1` → `git checkout --` 원복 |
 | **AC-5-7** | S3가 빌드 산출물 부재 시 조용히 skip하지 않는다 | `git worktree add --detach /tmp/keiwi-ac57 HEAD` 후 그 안에서 게이트 실행 → `FAIL(S3)` 출력·rc=1. **정리 필수**: `git worktree remove /tmp/keiwi-ac57 --force`(`docs/testing.md` 격리 빌드 절차와 동일 — 빼먹으면 worktree 등록이 남는다). ⚠️ **라이브 `apps/console/.next`를 삭제하지 말 것 — 반드시 격리 worktree에서(§12)** |
 | **AC-5-8** `[CI 정본]` | promtool이 라이브 동형 경로에서 config + rules 글롭을 검증 | `bash scripts/gates/check-prometheus.sh; echo rc=$?` → **CI(docker 있음)**: `rc=0` + `SUCCESS` + rules 로드 표시. **로컬 T5-26 후**: `rc=0` + `WARN: 글롭 동형성 미검증`. **로컬 T5-26 전**: `SKIP(env: docker)` + `rc=2`가 **정답**이다 — `docker` 그룹 미가입은 게이트가 고칠 수 있는 문제가 아니고 `check config`에는 폴백을 두지 않는다(D5-4) |
-| **AC-5-9** | Ansible lint + syntax-check가 오프라인 통과 | `bash scripts/gates/check-ansible.sh; echo rc=$?` → `rc=0` (lint 0 violations, 플레이북 2개 rc=0) |
-| **AC-5-10** | j2 7개가 오프라인 렌더되고 렌더된 셸·YAML이 각각 통과 | `python3 scripts/gates/render-templates.py --out /tmp/j2 && ls /tmp/j2 \| wc -l && shellcheck -S warning /tmp/j2/*.sh && yamllint -c .yamllint.yml /tmp/j2/*.yml` → 7개, rc=0 |
+| **AC-5-9** | Ansible lint + syntax-check가 오프라인 통과 | `bash scripts/gates/check-ansible.sh; echo rc=$?` → `rc=0` (플레이북 2개 syntax-check rc=0). **[교정 2026-08-03 — 실측]** 원안의 "lint 0 violations"는 profile `moderate`에서 성립하지 않는다: 실행 결과 **37건**이었고 그중 `name[template]` 1건만 실제 결함이라 고쳤다. 나머지 36건은 규칙 단위로 `.ansible-lint`의 `warn_list`에 근거와 함께 내렸다 — `name[casing]`(28건: 태스크 이름이 **한국어**라 '대문자로 시작'을 만족시킬 방법이 원리적으로 없다) · `role-name`(5건: 하이픈 role 디렉터리명. 바꾸면 playbook·문서·라이브 배포 절차·spec이 동시에 깨지는데 안전 이득이 0이다) · `var-naming[no-role-prefix]`(3건: **인벤토리 host_vars로 override하는 계약**이라 이름 규칙보다 계약이 우선). 끄지(`skip_list`) 않고 경고로 내린 이유는 다음 사람이 규칙의 존재 자체를 모르게 되는 것을 막기 위함이다. 따라서 기대값은 **fatal 0 · warning 36**이다 |
+| **AC-5-10** | j2 템플릿이 전수 오프라인 렌더되고 렌더된 셸·YAML이 각각 통과 | `python3 scripts/gates/render-templates.py --out /tmp/j2 && ls /tmp/j2 | wc -l && shellcheck -S warning /tmp/j2/*.sh && yamllint -c .yamllint.yml /tmp/j2/*.yml` → `RENDER OK … fail=0`, rc=0. **[교정 2026-08-03]** 원안은 `7개`를 판정에 박았는데, 축2가 `disk-smart-textfile` role(템플릿 3개)을 더하는 순간 **10개**가 된다 [실측]. 새 role이 늘면 red가 되는 AC는 게이트를 무시하게 만든다 — **개수는 참고 출력이고 판정은 `fail=0`과 두 린터의 rc**다(check-json.sh의 파일 수를 하드코딩하지 않는 것과 같은 이유) |
 | **AC-5-11** | 데이터소스 uid·name 유일성 — 도입 전엔 실제 결함을 잡고 조치 후 통과 | `python3 scripts/gates/check-grafana-provisioning.py; echo rc=$?` → 조치 후 `rc=0`. **조치 전엔 rc=1 + `DUP uid keiwi-logs-es: elasticsearch.yaml, opensearch.yaml`** — 이 red→green 전환이 게이트 동작의 증거 |
 | **AC-5-12** | 알림 임계값↔summary 문구 정합(드리프트 탐지) | `python3 scripts/gates/check-grafana-provisioning.py --check threshold-drift; echo rc=$?` → 교정 후 `rc=0`. 교정 전엔 rc=1 + `keiwi-gpu-temp-high: params[0]=92, summary에 92 없음(85 발견)` |
 | **AC-5-13** | YAML 게이트가 중복 키를 잡는다(PyYAML `safe_load`는 조용히 마지막 값을 취해 못 잡는 결함) | `printf 'a: 1\na: 2\n' > /tmp/dup.yml; yamllint -c .yamllint.yml -f parsable /tmp/dup.yml; echo rc=$?` → `rc=1`, `duplication of key`. ⚠️ `.yamllint.yml`의 규칙 이름은 **`key-duplicates`**다 — `duplicate-key`라는 규칙은 yamllint에 **존재하지 않으며** 그렇게 쓰면 `invalid config: no such rule`로 게이트가 exit 2가 된다(메시지 `duplication of key`는 `key-duplicates`가 낸다) |
 | **AC-5-14** | 대시보드 JSON 전수 파싱 + uid 유일 — **T5-8의 정본 결정(logs.import.json 삭제) 완료 후에만 통과한다** | `bash scripts/gates/check-json.sh; echo rc=$?` → `rc=0`, `uid dup: 0`(T5-8 후 `dashboards: 9` — 파일 수는 참고 출력이다: hardware-ops T2-4의 `-v3` 정본 결정으로 더 줄 수 있어 **개수를 게이트 판정에 하드코딩하지 않는다**). **도입 전 실측: `uid dup: 1`(`keiwi-logs` — `logs.json`·`logs.import.json`) → rc=1**이 정답이고, 이 red→green 전환이 게이트 동작의 증거다(§7.2 표 9번) |
-| **AC-5-15** | **러너에 시크릿 0** — 워크플로에 secrets 참조가 0건이고 그 상태로 build 성공 | `grep -c 'secrets\.' .github/workflows/ci.yml` → `0` · `gh run list --workflow=ci.yml --limit 1 --json conclusion -q '.[0].conclusion'` → `success` |
+| **AC-5-15** | **러너에 시크릿 0** — 워크플로에 secrets 참조가 0건이고 그 상태로 build 성공 | `grep -cE '\$\{\{ *secrets\.' .github/workflows/ci.yml` → `0` · `gh run list --workflow=ci.yml --limit 1 --json conclusion -q '.[0].conclusion'` → `success`. **[교정 2026-08-03]** 원안 `grep -c 'secrets\.'`는 **게이트 자신의 파일명**(`check-no-secrets.sh`)에 걸려 항상 3을 낸다 [실측]. 판정 대상은 GitHub 표현식 `${{ secrets.* }}`이므로 그 형태로 좁힌다 — 워크플로가 자기 게이트를 이름으로 부르지 못하게 비트는 것은 본말전도다. 교정 후에도 자기참조 함정은 남는다 — **금지 표현식을 워크플로 주석에 그대로 적으면 그 주석이 히트**가 된다(실측 1건, 문구를 바꿔 해소). §5.2가 자격증명 리터럴에 건 규약과 같은 종류다 |
 | **AC-5-16** | `verify-all.sh`가 기본으로 build를 돌리지 않는다(§12 라이브 `.next` 보호) | `bash scripts/verify-all.sh --dry-run \| grep -c 'next build'` → `0` · `--with-build --dry-run` → `1` |
 | **AC-5-17** | 태그 워크플로가 `v*`에서 발동 | `python3 -c "import yaml;d=yaml.safe_load(open('.github/workflows/release.yml'));print(d[True]['push']['tags'])"` → `['v*']` (PyYAML은 `on:`을 `True`로 파싱) |
 | **AC-5-18** | `[server]` main·dev 브랜치 보호에 3개 status check가 required로 등록 | `gh api repos/mooner92/KEIwi/branches/{main,dev}/protection --jq '.required_status_checks.contexts'` → `["console","repo-gates","infra-iac"]` 포함. ⚠️ 협업자 토큰은 403 — **소유자 계정에서 실행** |
-| **AC-5-19** | 실재하지 않는 게이트를 **참조하는 쪽 문장**이 전부 표기를 갖는다(§7 드리프트 해소) | `grep -rn 'check-error-tracking\.sh\|check-sentry-egress\.sh\|check-runbooks\.sh' specs/ docs/ --exclude-dir=fleet-hardening \| grep -vcE '미구현\|이관'` → `0` (현재 **8**). ⚠️ **코퍼스에서 이 스펙 자신을 뺀다** — AC-4-13과 같은 이유이되 방향이 반대다. 넣으면 §5.1·D5-0·T5-22·이 AC 행이 전부 `미구현`을 포함하므로 **T5-22를 하지 않아도 통과하는 자기충족 AC**가 된다(실측: 원안 `… specs/ docs/ \| grep -c '미구현'` → 히트 3건이 **전부 fleet-hardening 자기 파일**, 그중 하나가 이 AC 행 자신이다). 표기를 달아야 하는 것은 **참조하는 쪽 문서**이지 그 사실을 적은 문서가 아니다. 파일이 실제로 생기면 표기를 제거하는 것이 해당 축의 완료 조건 |
+| **AC-5-19** | 실재하지 않는 게이트를 **참조하는 쪽 문장**이 전부 표기를 갖는다(§7 드리프트 해소) | `grep -rn 'check-error-tracking\.sh\|check-sentry-egress\.sh\|scripts/check-runbooks\.sh' specs/ docs/ --exclude-dir=fleet-hardening | grep -vcE '미구현\|이관'` → `0`. ⚠️ **코퍼스에서 이 스펙 자신을 뺀다** — 넣으면 §5.1·D5-0·T5-22·이 AC 행이 전부 `미구현`을 포함해 **T5-22를 하지 않아도 통과하는 자기충족 AC**가 된다. **[교정 2026-08-03]** `check-runbooks.sh`는 축3 T3-5가 **실제로 구현**해 `scripts/gates/check-runbooks.sh`로 존재한다 [실측]. 원안 패턴은 그 **정상 경로 참조 3건**(`docs/runbook-template.md:7·76`, `docs/README.md:55`)까지 세어, 통과하려면 실재하는 게이트에 `미구현` 표기를 다는 **거짓말**을 요구했다. 드리프트인 것은 **없는 경로 선언**(`scripts/check-runbooks.sh`)이므로 그 형태만 센다. 실측: 교정 전 9건 → 표기 부여 후 `0` |
 
 ---
 
@@ -1753,6 +1813,13 @@ docker run --rm \
 | 8 | **게이트 도구 부재** | yamllint·shellcheck·ansible-lint·promtool 전부 MISSING → rc=2 | T5-26(설치) + T1-12(`promtool.sh` 해석기 **+ 폴백 엔진**). promtool 몫은 폴백이 대부분 흡수해 **verify-all 안에서는 `check-prometheus.sh`(check config)만 SKIP으로 남는다**(글롭의 인자 없는 `check-rules.sh`는 `--test --schema-only` 자동 강등 `NOTE` — D4-4). 명시적 `check-rules.sh --test` 단독 호출만 추가로 SKIP rc=2 | W0/W1 |
 | 9 | **대시보드 uid 중복** | `check-json.sh` 도입 즉시 red — `logs.json`·`logs.import.json`이 **둘 다 `uid: keiwi-logs`**(10파일 중 unique 9 [실측]). `logs.import.json`은 이 항목 전까지 스펙 어디에도 언급이 없던 파일이고, hardware-ops T2-4의 `keiwi-*` vs `keiwi-*-v3` 정본 결정 범위(-v3 계열)에 **들지 않는다** | **T5-8**(정본 `logs.json` 확정 + `logs.import.json` 삭제 — 게이트를 만드는 같은 태스크가 자기 red를 해소한다) | W3 |
 
+| 10 | **S2 배포 결합 리터럴 3건 추가** | 원안이 센 `layout.tsx` 2건 외에 `grafana-host.ts:9·46`·`sentry-options.ts:16`이 더 걸렸다(주석의 실도메인·사설 IP) [실측] | T5-2·T5-4 범위에서 RFC 2606·RFC 5737로 교정 — 규칙을 약화시키지 않는다 | **W0(해소 완료)** |
+| 11 | **S1 generic 패턴의 다중행 오탐** | 값 부분 `[^'\"]{7,}`가 `\n`을 삼켜 문서 한 줄과 40줄 뒤 따옴표를 한 건으로 잡았다(`agents.yml`) [실측] | T5-1에서 패턴에 개행 제외 — §5.2 표 교정 | **W0(해소 완료)** |
+| 12 | **shellcheck SC1090** | `keiwi-log-heartbeat.sh:28` — 런타임에 정해지는 경로를 source. `check-shell.sh` 도입 즉시 red | T5-9에서 `# shellcheck source=/dev/null` 지시어 + 근거 주석(억제가 아니라 '정적으로 알 수 없다'의 명시) | **W3(해소 완료)** |
+| 13 | **yamllint braces 44건** | `alert-rules.yaml`의 `{ from: 600, to: 0 }` 표기가 기본 설정에서 error [실측] | T5-7에서 `braces/brackets: max-spaces-inside 1` — 실패 모드가 없는 스타일 규칙 때문에 라이브 프로비저닝 파일을 44곳 건드리지 않는다 | **W3(해소 완료)** |
+| 14 | **ansible-lint 37건** | profile `moderate` 기준 [실측]. 원안의 "0 violations"가 성립하지 않았다 | T5-16에서 `name[template]` 1건 교정 + 나머지 36건은 `.ansible-lint` `warn_list`에 근거 기록(AC-5-9 교정 참조) | **W3(해소 완료)** |
+
+10~14는 **구현 중 실측으로 발견**해 같은 파동에서 해소했다(2026-08-03). 이 표의 목적이 '도입 첫날 red를 0으로'이므로, 발견 즉시 등재하고 담당 태스크를 붙이는 것이 표를 살려 두는 방법이다.
 4~9는 최초 스펙에 누락돼 있었다. **required 등록(T5-24~25) 전에 전부 해소되도록 배치**한 것이 이 표의 목적이다 — 1~8은 W3 이전 파동에서, 9는 게이트를 만드는 T5-8 자신이 같은 커밋에서 해소한다(W3, T5-23 PR보다 앞).
 | **오탐이 우회 문화를 만들어 게이트가 장식이 된다**(지금 check:secrets에 일어난 일) | 오탐을 허용리스트가 아니라 **규칙 재정의**로 없앤다. `--self-test`로 "조용한 것"과 "죽은 것"을 구분한다. 이후 오탐이 나오면 예외를 붙이지 않고 규칙 문서를 고치는 것을 ADR-0023 원칙으로 못 박는다 |
 | **게이트가 응급 알림 추가를 막는다** | escape hatch는 만들지 않는다. 대신 최소 골격 30초 템플릿(T3-3 산출물)을 제공하고, `alerts:`가 빈 런북은 **WARN으로 통과**시켜 "런북 먼저·알림 나중"도 허용 |
@@ -1781,7 +1848,7 @@ docker run --rm \
 | 열화 디스크(GDL 773)에 주기 질의가 상태를 악화 | `--info --health --attributes --log=error`는 전부 **읽기 전용 로그페이지 조회**이고 미디어 접근이 아니다. `-t short` 같은 self-test는 role defaults에 플래그 자체를 두지 않는다. 조사 과정에서 여러 번 질의했으나 카운터 변동 없음 |
 | `nvidia-smi` 주기 호출이 GPU 워크로드 방해 | `nvidia-smi -L`은 디바이스 열거만 — CUDA 컨텍스트·커널 launch 없음. 주기 30분, `timeout 20`으로 행 방지. 실측 정상 3노드 1초 미만. 워크로드가 실제로 도는 data04 배포 후 `DCGM_FI_DEV_GPU_UTIL` 변화 확인 |
 | `cciss,N` 인덱스가 불안정 — 교체·재부팅 후 번호가 밀리면 시계열이 끊기거나 **다른 디스크에 연결** | 물리 식별을 `serial` 라벨로 고정하고 `disk_index`는 정보성. 알림·recording rule 전부 `by (instance, serial)` |
-| **대수가 줄었을 때 counter가 그냥 사라져 아무도 모른다** — LV이 저지르는 실패를 새 메트릭이 반복 | `node_smart_disks_total`을 1급 메트릭으로 두고 `PhysicalDiskDisappeared`(`< offset 1h`)를 함께 정의. `node_smart_collector_probe_errors`로 "조회 실패"와 "디스크 부재"를 구분 |
+| **대수가 줄었을 때 counter가 그냥 사라져 아무도 모른다** — LV이 저지르는 실패를 새 메트릭이 반복 | `node_smart_disks`을 1급 메트릭으로 두고 `PhysicalDiskDisappeared`(`< offset 1h`)를 함께 정의. `node_smart_collector_probe_errors`로 "조회 실패"와 "디스크 부재"를 구분 |
 | textfile `.prom`이 stale인 채 남으면 죽은 값을 살아있는 값으로 읽는다 | `_last_run_timestamp_seconds`를 항상 방출하고 AC-2-4가 30분 신선도를 기계 검증. `set -euo pipefail` + `mktemp`+`mv -f`라 부분 출력이 남지 않고, 실패 시 이전 파일이 유지되되 타임스탬프가 안 갱신돼 stale이 드러난다 |
 | 가드 제거로 **소비처 없는 생산자**만 깔리는 새 실패모드(지금 고치는 것과 같은 종류의 재발) | `node_hygiene_consumer` 미선언 시 assert 실패(AC-1-14가 회귀 테스트) + `NodeHygieneCoverageGap`이 런타임에서 30분 내 같은 상황을 잡는다 |
 | **버전 문자열 파싱이 미래 릴리스에서 깨져 조용히 오탐/미탐** (레이아웃이 노드마다 이미 다르다) | 필드 위치가 아닌 '첫 버전꼴 토큰' 스캔으로 4노드 검증 완료. 버전꼴이 아니면 폐기하고 `node_nvidia_probe_ok=0`으로 떨어뜨려 **오탐 대신 판정불능**을 노출. `fleet:gpu_driver_probe_failed:count`가 이 상태 자체를 관측 |

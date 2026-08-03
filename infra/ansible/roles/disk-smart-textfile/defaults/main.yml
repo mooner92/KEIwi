@@ -1,0 +1,60 @@
+---
+# roles/disk-smart-textfile/defaults/main.yml — RAID 컨트롤러 뒤 물리 디스크 SMART 수집기 기본값
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
+# 목적: HPE Smart Array 뒤에 숨은 **물리 디스크**의 SMART를 node-exporter textfile로 노출.
+#       기성 smartctl_exporter(:9633)는 논리 볼륨(LOGICAL VOLUME) 3개만 본다 —
+#       그 뒤의 물리 디스크 12본(data03·04 각)은 관측 사각지대다(spec §2.1).
+#
+# ⚠️ 이 role은 **신규 포트를 열지 않는다.** node-exporter가 이미 읽고 있는 textfile
+#    디렉터리에 .prom을 쓴다 → 신규 터널·ufw 규칙·Prometheus job이 0개다(spec §2.2 D2-2).
+
+# .prom을 쓸 디렉터리. node-exporter가 --collector.textfile.directory 로 읽는 그곳이다.
+# node-hygiene과 **같은 디렉터리를 공유**한다(파일명이 다르므로 충돌 없음).
+disk_smart_textfile_dir: /var/lib/node_exporter/textfile
+
+# 수집 스크립트 설치 경로.
+disk_smart_script_path: /usr/local/bin/keiwi-disk-smart.sh
+
+# smartctl 실행 경로. data01(Ubuntu 16.04)은 apt 후보가 6.4(--json 미지원)라
+#   infra/monitoring/disk-smart/smartmontools-xenial/ 의 정적 7.x를 배포하고 이 값을
+#   /opt/keiwi/bin/smartctl 로 override 한다(spec §2.2 D2-7, T2-11).
+disk_smart_smartctl_path: smartctl
+
+# --json 이 나온 버전. 6.4에는 없다 → 이 미만이면 role이 스킵한다(파서 2벌 금지).
+disk_smart_min_version: "7.0"
+
+# `-d cciss,N` 의 N 을 어디까지 훑을지. 실측: data03·04 컨트롤러는 0..11이 디스크,
+#   12가 `HPE Smart Adapter`, 13+ 가 `No such device or address`.
+#   24는 12베이 섀시가 2배로 늘어도 덮는 값이고, miss_streak 조기 종료가 있으므로
+#   실제 프로브 수는 "디스크 수 + 어댑터 1 + miss_streak" 로 수렴한다(실측 17회).
+disk_smart_max_index: 24
+
+# 연속 "부재" 응답 몇 개를 보면 그만둘지. 4 = 중간에 최대 3본이 빠져 있어도 그 뒤를 계속 찾는다.
+#   1이면 디스크 한 본을 뽑은 순간 뒤쪽 디스크가 통째로 사라져 보이고, 그건 정확히
+#   이 축이 잡으려는 신호(node_smart_disks 하락)를 **오탐으로 만든다**.
+disk_smart_miss_streak: 4
+
+# 프로브 1회 타임아웃(초). 정상 응답은 0.2초 수준이고(17회 3.6초 실측),
+#   15초는 컨트롤러가 리빌드 중이라 느려진 경우까지 봐준 값이다.
+#   ⚠️ 이 값 × (max_index+1) 이 최악 소요시간의 상한이고, 유닛 TimeoutStartSec 보다 작아야 한다.
+disk_smart_probe_timeout: 15
+
+# 타이머 주기. 왜 15분인가 (연구 노드에서 새로 도는 주기 작업이므로 근거를 남긴다):
+#   · 부하: smartctl -i/-H/-A/-l error 는 INQUIRY·LOG SENSE·MODE SENSE — 컨트롤러 펌웨어가
+#     답하는 **메타데이터 조회**이지 플래터 탐색이 아니다. 12본 × 4회/시 = 48 커맨드/시 ≒
+#     0.013 cmd/s. 연구 잡의 수천 IOPS 옆에서 측정 불가한 수준이다.
+#   · 상한: AC-2-4가 `time() - last_run < 1800`(30분)을 요구한다 → 주기는 30분보다 확실히
+#     작아야 하고, 15분이면 1회 실패를 흘려도 신선도가 유지된다(2배 여유).
+#   · 하한: 이 축의 신호(grown defect·미교정 오류)는 **일 단위**로 변한다. 5분 주기는
+#     프로브를 3배로 늘리고 얻는 정보는 0이다.
+#   · PhysicalDiskDisappeared 가 `offset 1h` 로 비교하므로 1시간 안에 4번은 찍혀야 한다.
+disk_smart_interval: "15min"
+
+# 부팅 후 최초 실행 지연. node-hygiene(3min)보다 뒤에 둬서 부팅 직후 두 수집기가
+#   동시에 돌지 않게 한다.
+disk_smart_boot_delay: "5min"
+
+# 유닛 시작 타임아웃. probe_timeout × (max_index+1) = 375초를 넘지 않게 잡는다.
+#   ⚠️ 이 값보다 먼저 타이머 주기가 오면 systemd가 중복 실행을 막아준다(oneshot).
+disk_smart_start_timeout: 420

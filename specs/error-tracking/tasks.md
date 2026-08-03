@@ -69,7 +69,7 @@
 - [x] **E3-6** `[server]` (S) **AC-E-5 ingest 도달** — `curl -X POST "$GT/api/$PID/envelope/?sentry_key=$KEY"` → 200 + 잘못된 key → 4xx. **둘 다** 확인. **선행: E2-2, E3-5**
 - [x] **E3-7** `[server]` (S) **서버 왕복** — 동일 init 모듈을 import하는 **일회성 스크립트**에서 `captureException` → 60초 내 GlitchTip 이슈 1건 + **`#keiwi-web` 알림 1건**(= US-1 달성). **프로덕션에 셀프테스트 라우트를 남기지 않는다.** **선행: E3-6**
 - [ ] **E3-8** (M) `instrumentation-client.ts` + `src/app/global-error.tsx`(신규) + `/monitoring` tunnel route handler(서버측 2차 화이트리스트·body 상한·자기 계측 제외·middleware negative matcher). `denyUrls`는 **브라우저 확장 패턴만**(Grafana 금지). 검증: **AC-E-7**(POST 대상 = 우리 오리진). **선행: E3-7**
-- [ ] **E3-9** (S) `apps/console/scripts/check-error-tracking.sh` + `package.json`의 `verify`에 편입. 검증: **AC-E-12** · **AC-E-13** · **AC-E-20**. **선행: E3-8**
+- [ ] **E3-9** (S) `apps/console/scripts/check-error-tracking.sh` **[미구현 — 이 태스크가 만든다]** + `package.json`의 `verify`에 편입(레포 전역 게이트라면 `scripts/gates/check-*`가 정본 경로, fleet-hardening §0.2). 검증: **AC-E-12** · **AC-E-13** · **AC-E-20**. **선행: E3-8**
 - [ ] **E3-10** `[server]` (S) **AC-E-4 격리 검증** — `docker stop glitchtip-web` 상태에서 콘솔 `/overview` 200 + p95 +100 ms 이내. **선행: E3-8**
 - [ ] **E3-11** `[server]` (S) **AC-E-17 폭주 방어** — `ignoreErrors` 대상 100회 → 이벤트 증가 0 / throttle 초과 시 **429**. **선행: E3-7**
 

@@ -22,6 +22,22 @@
 > ```
 > 풀 빌드/시각·기능 검증은 아래 **격리 빌드**로.
 
+> [!IMPORTANT] PR 전 표준은 `bash scripts/verify-all.sh` (레포 루트, build 제외가 기본)
+> `npm run verify`는 **콘솔 스코프뿐**입니다. 레포 전역 게이트(YAML·JSON·셸·파이썬·compose·
+> Grafana 프로비저닝·런북·규칙·메트릭명·ansible·자격증명)는 `scripts/gates/check-*`에 있고
+> `scripts/verify-all.sh`가 글롭으로 전수 실행합니다 — CI(`console`·`repo-gates`·`infra-iac` 3잡)가
+> 도는 것과 같은 게이트입니다.
+> ```bash
+> cd "$(git rev-parse --show-toplevel)"
+> bash scripts/verify-all.sh            # rc=0 통과 / 1 위반 / 2 SKIP(도구 부재)
+> bash scripts/verify-all.sh --dry-run  # 실행 계획만
+> ```
+> **rc=2를 초록으로 읽지 마십시오** — 도구가 없어 검사가 사라진 상태와 검사가 통과한 상태는
+> 다릅니다. 도구 설치는 `bash scripts/gates/install-gate-tools.sh`(사용자 레벨).
+> `--with-build`는 라이브 `.next`를 덮어쓰므로 **격리 worktree에서만** 쓰고 `/KEIwi`에서는
+> 실행기가 거부합니다(§12). 시각 QA(Playwright)는 살아 있는 콘솔·Grafana가 필요해 **CI 비대상**이며
+> 아래 격리 빌드 절차가 계속 담당합니다(ADR-0023).
+
 ## 격리 빌드 검증 (라이브 .next 미접촉, §12)
 
 라이브를 건드리지 않고 프로덕션 빌드를 검증하려면 **git worktree + 하드링크 node_modules**로 격리 인스턴스를 띄웁니다(헤드리스 Playwright는 dev HMR과 충돌하므로 **프로덕션 빌드** 권장):

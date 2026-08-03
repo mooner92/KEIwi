@@ -54,3 +54,19 @@
   tags: [node-hygiene]
   roles:
     - node-hygiene
+
+# RAID 컨트롤러 뒤 **물리 디스크** SMART 수집기(textfile). specs/fleet-hardening §2 / ADR-0024.
+# ⚠️ 위 [smartctl] play(:9633 익스포터)는 **건드리지 않는다.** 둘은 서로 다른 사실을 준다:
+#     :9633 = 논리 볼륨(HPE LOGICAL VOLUME 3개, 라이브 green) · 이 role = 그 뒤 물리 디스크 12본.
+#     같은 이름공간으로 합치면 "몇 본인가"를 묻는 모든 쿼리가 조용히 틀린 답을 한다.
+# 신규 포트·터널·ufw 규칙·Prometheus job **0개** — node-exporter가 이미 읽는 textfile에 쓴다.
+#     그래서 data04 `:9634` 터널 블로커가 이 축에서 **소멸한다**(spec §2.2 D2-2).
+# 가드(textfile 디렉터리 존재 + smartctl >= 7.0)는 role 안에 있고, 못 넘는 노드는 사유를 찍고
+#     스킵한다 — data01(Ubuntu 16.04)은 apt 후보가 6.4(--json 미지원)라 여기서 걸린다(T2-11·T2-17).
+- name: 물리 디스크 SMART 수집기 (RAID 컨트롤러 뒤, 전 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [disk-smart]
+  roles:
+    - disk-smart-textfile

@@ -17,6 +17,20 @@ const urlString = z
     }
   }, "유효한 URL이 아님");
 
+/**
+ * NEXT_PUBLIC_SITE_URL — 이 콘솔이 서빙되는 공개 베이스 URL(메타데이터 전용).
+ *
+ * 왜 env인가: metadataBase·openGraph.url에 실도메인을 박으면 배포처가 바뀔 때마다
+ * 소스를 고쳐야 하고, 레포가 PUBLIC이라 배포 위상이 코드에 남는다(check:secrets S2).
+ * 미설정 시 localhost 기본값 — dev·CI 빌드가 env 하나 없이 성공해야 하기 때문이다
+ * (러너에 시크릿 0 원칙, ADR-0023). 이 값은 브라우저에 노출되므로 비밀이 아니다.
+ * 다른 게터와 달리 throw하지 않는다: 메타데이터 하나 때문에 콘솔이 못 뜨면 주객전도다.
+ */
+export function getSiteUrl(): string {
+  const r = urlString.safeParse(process.env.NEXT_PUBLIC_SITE_URL);
+  return r.success ? r.data : "http://localhost:3105";
+}
+
 /** INVENTORY_PATH — 비밀 아님, 기본값 있음(없어도 동작). cwd = apps/console 기준 상대경로. */
 export function getInventoryPath(): string {
   return z

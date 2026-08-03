@@ -32,7 +32,7 @@ node_smart_disk_info                       # spec §2.2 controller/model/serial/
 node_smart_disk_health_passed              # spec §2.2 smart_status.passed (1/0)
 node_smart_disk_temperature_celsius        # spec §2.2 temperature.current
 node_smart_disk_temperature_trip_celsius   # spec §2.2 temperature.drive_trip (존재 시)
-node_smart_disk_power_on_hours             # spec §2.2 power_on_time.hours
+node_smart_disk_power_on_seconds             # spec §2.2 power_on_time.hours
 node_smart_disk_capacity_bytes             # spec §2.2 user_capacity.bytes
 node_smart_disk_grown_defect_list          # spec §2.2 scsi_grown_defect_list (SAS) — 패널 7 대체 신호
 node_smart_disk_uncorrected_errors_total   # spec §2.2 scsi_error_counter_log total_uncorrected_errors
@@ -40,7 +40,7 @@ node_smart_disk_rereads_rewrites_total     # spec §2.2 errors_corrected_by_rere
 node_smart_disk_processed_bytes_total      # spec §2.2 gigabytes_processed × 1e9
 node_smart_disk_ata_attribute_raw          # spec §2.2 ata_smart_attributes 화이트리스트 8종의 raw
 node_smart_disk_ata_attribute_normalized   # spec §2.2 동상 .value
-node_smart_disks_total                     # spec §2.2 발견된 물리 디스크 수 — LV이 절대 말하지 않는 사실
+node_smart_disks                     # spec §2.2 발견된 물리 디스크 수 — LV이 절대 말하지 않는 사실
 node_smart_collector_last_run_timestamp_seconds  # spec §2.2 신선도(AC-2-4가 < 1800 검사)
 node_smart_collector_duration_seconds       # spec §2.2 수집 1회 소요(AC-2-7이 < 10 검사)
 node_smart_collector_probe_errors           # spec §2.2 "조회 실패"와 "디스크 부재"를 구분

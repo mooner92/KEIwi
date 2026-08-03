@@ -97,8 +97,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "SMART 종합 상태 (최저)",
-      "description": "smartctl_device_smart_status: 1=정상(PASS), 0=실패(FAIL). 플릿 전 디스크 중 최저값 — 하나라도 실패면 FAIL.",
+      "title": "SMART 종합 상태 (논리 볼륨, 최저)",
+      "description": "smartctl_device_smart_status: 1=정상(PASS), 0=실패(FAIL). ⚠️ **논리 볼륨(HPE LOGICAL VOLUME) 3개의 최저값이다 — 물리 디스크가 아니다.** LV은 멤버 디스크에 grown defect 773개가 있어도 OK를 말한다(data04 실측). 물리 디스크 판정은 아래 「물리 디스크 목록」·「결함 섹터 상위」를 본다.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -370,7 +370,7 @@
     {
       "id": 200,
       "type": "row",
-      "title": "디스크 건강 (논리 볼륨)",
+      "title": "디스크 건강 (물리 디스크 · 논리 볼륨)",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -381,10 +381,366 @@
       "panels": []
     },
     {
+      "id": 201,
+      "type": "stat",
+      "title": "물리 디스크 수 (RAID 뒤)",
+      "description": "sum(node_smart_disks) — RAID 컨트롤러 뒤에서 실제로 응답한 물리 디스크 대수. 기대: data03 12 + data04 12. **LV은 멤버가 빠져도 끝까지 OK를 말하므로, 이 숫자의 하락만이 '디스크가 사라졌다'를 알려준다**(PhysicalDiskDisappeared가 감시). 빈 값은 0이 아니라 '미수집'이다 — 수집기 미배포 노드와 디스크 0본을 구분한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "미수집"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(node_smart_disks{instance=~\"$instance\"})"
+        }
+      ]
+    },
+    {
+      "id": 204,
+      "type": "timeseries",
+      "title": "결함 섹터 증가 (7일 창)",
+      "description": "serial:node_smart_defects:increase7d — 디스크별 grown defect **증가량**. 절대값이 아니라 증가량인 이유: data04에 이미 773·66이 있어서 절대 임계는 첫날부터 상주 발화가 된다(알림 무시 습관의 시작). 0선에서 떠오르는 순간이 열화 진행 중이라는 뜻이다. 규칙은 rules/keiwi-recording.yml 소유(미배포 시 빈 패널).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 18,
+        "x": 6,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "serial:node_smart_defects:increase7d{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}} {{serial}}"
+        }
+      ]
+    },
+    {
+      "id": 202,
+      "type": "table",
+      "title": "물리 디스크 목록 (모델 · 시리얼 · 결함 · 온도)",
+      "description": "node_smart_disk_info 에 grown defect·온도를 merge 한 인벤토리. ⚠️ **disk_index 는 베이 번호가 아니다** — 컨트롤러 내부 열거 순서이고 교체하면 밀린다. 물리 특정은 반드시 **시리얼**로 한다(런북 disk-grown-defects.md). SATA SSD 행의 결함 칸이 비는 것은 정상이다(grown defect는 SAS 개념).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "결함섹터"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 100
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_smart_disk_info{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_smart_disk_grown_defect_list{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_smart_disk_temperature_celsius{instance=~\"$instance\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "ctrl_dev": true,
+              "Value #A": true,
+              "form_factor": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "controller": 1,
+              "disk_index": 2,
+              "model": 3,
+              "serial": 4,
+              "firmware": 5,
+              "protocol": 6,
+              "rotation_rate": 7,
+              "Value #B": 8,
+              "Value #C": 9
+            },
+            "renameByName": {
+              "instance": "노드",
+              "controller": "컨트롤러",
+              "disk_index": "인덱스(베이 아님)",
+              "model": "모델",
+              "serial": "시리얼",
+              "firmware": "펌웨어",
+              "protocol": "프로토콜",
+              "rotation_rate": "회전수(0=SSD)",
+              "Value #B": "결함섹터",
+              "Value #C": "온도(℃)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 203,
+      "type": "table",
+      "title": "결함 섹터 상위 10 (교체 후보)",
+      "description": "topk(10, node_smart_disk_grown_defect_list). 절대값이라 **알림이 아니라 눈으로 보는 목록**이다 — HPE가 권고 임계를 주지 않으므로 숫자에 임계를 걸지 않는다(알림은 증가량 기준). 여기 상위에 오른 디스크는 교체 티켓 대상이다(T2-18: data04 ZC1AE78X 773 · ZC1968JB 66).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "noValue": "결함 0 (또는 미수집)"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(10, node_smart_disk_grown_defect_list{instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "controller": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "serial": 1,
+              "disk_index": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "instance": "노드",
+              "serial": "시리얼",
+              "disk_index": "인덱스(베이 아님)",
+              "Value": "결함섹터"
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": 5,
       "type": "table",
-      "title": "SMART 종합 상태 (디스크별)",
-      "description": "smartctl_device_smart_status. 1=정상, 0=실패. smartctl_exporter 미배포 시 빈 표.",
+      "title": "SMART 종합 상태 (논리 볼륨별)",
+      "description": "smartctl_device_smart_status. 1=정상, 0=실패. ⚠️ 여기 나오는 device는 **논리 볼륨**이고 serial_number는 컨트롤러 시리얼이다(data05 sda·sdb가 같은 PZXNL0ARHFU8J0인 이유). 물리 디스크는 옆 표를 본다.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -393,7 +749,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 7
+        "y": 20
       },
       "fieldConfig": {
         "defaults": {
@@ -497,7 +853,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 28
       },
       "collapsed": false,
       "panels": []
@@ -515,7 +871,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 16
+        "y": 29
       },
       "fieldConfig": {
         "defaults": {
@@ -615,7 +971,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 29
       },
       "fieldConfig": {
         "defaults": {
@@ -720,7 +1076,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 16
+        "y": 29
       },
       "fieldConfig": {
         "defaults": {
@@ -786,7 +1142,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 37
       },
       "collapsed": false,
       "panels": []
@@ -804,7 +1160,7 @@
         "h": 5,
         "w": 6,
         "x": 0,
-        "y": 25
+        "y": 38
       },
       "fieldConfig": {
         "defaults": {
@@ -879,7 +1235,7 @@
         "h": 5,
         "w": 6,
         "x": 6,
-        "y": 25
+        "y": 38
       },
       "fieldConfig": {
         "defaults": {
@@ -931,7 +1287,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 38
       },
       "fieldConfig": {
         "defaults": {
@@ -987,7 +1343,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 30
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1040,7 +1396,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 30
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1109,7 +1465,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 30
+        "y": 43
       },
       "fieldConfig": {
         "defaults": {
@@ -1165,7 +1521,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 50
       },
       "collapsed": false,
       "panels": []
@@ -1183,7 +1539,7 @@
         "h": 5,
         "w": 5,
         "x": 0,
-        "y": 38
+        "y": 51
       },
       "fieldConfig": {
         "defaults": {
@@ -1247,7 +1603,7 @@
         "h": 5,
         "w": 5,
         "x": 5,
-        "y": 38
+        "y": 51
       },
       "fieldConfig": {
         "defaults": {
@@ -1311,7 +1667,7 @@
         "h": 5,
         "w": 5,
         "x": 10,
-        "y": 38
+        "y": 51
       },
       "fieldConfig": {
         "defaults": {
@@ -1375,7 +1731,7 @@
         "h": 5,
         "w": 5,
         "x": 15,
-        "y": 38
+        "y": 51
       },
       "fieldConfig": {
         "defaults": {
@@ -1427,7 +1783,7 @@
         "h": 5,
         "w": 4,
         "x": 20,
-        "y": 38
+        "y": 51
       },
       "fieldConfig": {
         "defaults": {
@@ -1491,7 +1847,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 43
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -1578,7 +1934,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 43
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {

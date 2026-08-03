@@ -53,6 +53,11 @@ npm run dev                  # http://localhost:3105
 npm run typecheck && npm run lint && npm run test && npm run check:no-raw-hex && npm run check:secrets
 npm run screenshot           # Playwright 시각 QA (UI 변경 시 — docs/testing.md)
 
+# PR 전 표준 — 레포 전역 게이트 전수(기본 build 제외, §12). CI가 도는 것과 같은 게이트다.
+#   rc=0 통과 / 1 위반 / 2 SKIP(도구 부재 — "안 돌았는데 초록"을 만들지 않는다)
+cd "$(git rev-parse --show-toplevel)" && bash scripts/verify-all.sh
+#   rc=2면 도구가 없는 것: bash scripts/gates/install-gate-tools.sh (사용자 레벨 설치)
+
 # 격리 빌드(:3199) 위 기능 테스트 (절차·전제는 docs/testing.md):
 BASE=http://127.0.0.1:3199 node scripts/logs-workbench-test.mjs   # /logs 워크벤치 AC1~AC5
 BASE=http://127.0.0.1:3199 node scripts/embed-host-test.mjs       # 임베드 host 분기(로그인 루프 회귀 가드)

@@ -36,17 +36,31 @@ smartctl_device 시리즈 3개 — 전부 model_name="HPE LOGICAL VOLUME" (proto
 
 **커버리지 구멍도 있다** — `infra/monitoring/prometheus.yml`의 `smartctl-exporter` job:
 
-| 노드 | 수집 | 비고 |
-| --- | --- | --- |
-| data05 | ✅ | 호스트 systemd 익스포터(172.18.0.1:9633) |
-| data03 | ✅ | 직접 스크랩(ufw `.105→9633` 허용 전제) |
-| **data04** | ❌ | 터널 포트 미추가로 **주석 처리 상태**(9634 배선 대기) |
-| **data01** | ❌ | 미배포(16.04) |
+| 노드 | LV 수집(`:9633`) | 물리 디스크 수집(textfile) | 비고 |
+| --- | --- | --- | --- |
+| data05 | ✅ | 코드 완료 · 배포 대기 | 호스트 systemd 익스포터(172.18.0.1:9633) |
+| data03 | ✅ | 코드 완료 · 배포 대기 | 직접 스크랩(ufw `.105→9633` 허용 전제) |
+| **data04** | ❌ | 코드 완료 · 배포 대기 | LV 쪽은 **의도적으로 추가하지 않는다**(§1-b) |
+| **data01** | ❌ | **범위 밖** | smartmontools 6.4는 `--json` 미지원 — 27.3T LV이 사각지대로 남는다 |
 
-→ **data01·data04는 디스크가 죽어도 이 알림이 뜨지 않는다.** "알림이 없다 = 건강하다"가 아니다.
+→ **data01은 디스크가 죽어도 어느 알림도 뜨지 않는다.** "알림이 없다 = 건강하다"가 아니다.
 
-> 물리 디스크 가시화(RAID 뒤 `smartctl -d cciss,N` 수집)는 **[fleet-hardening 축2](../../specs/fleet-hardening/spec.md)**
-> 소관이다. 여기에 그 설계를 복사하지 않는다 — 축2가 배포되면 이 §1을 갱신한다(축2 T2-9).
+## 1-b. 물리 디스크 수집이 생겼다 — 이 알림의 의미가 바뀌었다 [2026-08-03, 축2]
+
+`roles/disk-smart-textfile`이 RAID 컨트롤러 뒤를 `-d cciss,N`으로 열거해
+**`node_smart_*` 이름공간**으로 노출한다(data03 12본 · data04 12본 실측). 그래서:
+
+- 이 규칙의 쿼리가 `smartctl_device_smart_status or node_smart_disk_health_passed`로 바뀌었다 —
+  **논리 볼륨과 물리 디스크 둘 다** 판정한다. `{{ $labels.serial }}`이 물리 디스크 시리얼이면 후자다.
+- data04에 `:9633`(LV) 터널을 뚫는 계획은 **폐기됐다.** LV 3개를 더 봐야 얻는 것이 없고,
+  정작 필요한 물리 디스크는 이미 스크랩 중인 node-exporter가 textfile로 나른다
+  (신규 포트·터널 항목·ufw 규칙 0개 — ADR-0024).
+- **열화 전조는 이 알림이 아니라** `DiskGrownDefectsGrowing`·`DiskUncorrectedErrorsGrowing`이
+  잡는다. LV은 멤버에 grown defect 773개가 있어도 `PASSED`를 말하기 때문이다(data04 `ZC1AE78X`).
+  → **[disk-grown-defects.md](./disk-grown-defects.md)** 가 그쪽 런북이다.
+
+**여전히 남는 한계**: 베이/슬롯 번호는 만들지 않는다(SES가 전 슬롯을 `not installed`로 보고).
+RAID 어레이 상태도 없다(`ssacli` 4노드 미설치). data01은 범위 밖이다.
 
 ## 2. 30초 판별
 

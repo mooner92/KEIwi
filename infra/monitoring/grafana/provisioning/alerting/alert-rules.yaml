@@ -1,4 +1,5 @@
-# Grafana 알림 규칙 — 11건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30 / 위생 커버리지 2건, 2026-08-03)
+# Grafana 알림 규칙 — 14건 (1차 5건 + A단계 결정적 실패 4건, 2026-07-30 / 위생 커버리지 2건 ·
+#                            물리 디스크 열화 3건, 2026-08-03)
 #
 # 적용: /data/monitoring/grafana/provisioning/alerting/ 로 복사(사람, §11).
 # 임계 결정 프레임워크·근거는 specs/alerting/spec.md — 이 파일이 정본이고 스펙이 따라온다.
@@ -322,6 +323,23 @@ groups:
       #    불가라 데이터 손실 위험이 최우선 신호다.
       #    noDataState=NoData 이유: data05 smartctl 스크랩이 ufw 규칙 적용 전까지
       #    down이라(T0-7), Alerting으로 두면 그 자체가 오발화가 된다.
+      #
+      #    ⚠️ 2026-08-03 확장(fleet-hardening T2-8): 이 규칙은 **논리 볼륨 3개만** 보고
+      #       있었다. LV은 멤버 디스크에 grown defect 773개가 있어도 passed=true 를 말한다
+      #       (data04 ZC1AE78X 실측) — 즉 이 규칙은 물리 디스크에 대해 **무력**했다.
+      #       그래서 물리 디스크 판정(node_smart_disk_health_passed)을 같은 쿼리에 합쳤다.
+      #
+      #       왜 별도 refId B + 조건 OR 가 아닌가 (spec §2.2 D2-6 정정):
+      #         Grafana 서버사이드 표현식의 이항 연산은 **라벨이 매칭되는 시리즈끼리만** 계산한다.
+      #         두 메트릭은 라벨 스키마도 job 도 달라(:9633 device/serial_number vs
+      #         :9100 controller/serial) 매칭이 0건이고, 유일한 대안인 classic_conditions 는
+      #         **라벨을 접어버려** summary 의 {{ $labels.instance }} 와 디스크별 중복제거가
+      #         함께 죽는다. PromQL 의 `or` 는 벡터 셀렉터의 **합집합** 연산자라 두 계열을
+      #         라벨 그대로 한 프레임에 담는다 — 여기서 필요한 것이 정확히 그것이다.
+      #
+      #       ⚠️ 비교(< 1)를 PromQL 쪽으로 옮기지 말 것. 옮기면 정상일 때 결과가 **빈 벡터**가
+      #          되고, noDataState=NoData 라 "전 디스크 정상"이 NoData 알림으로 둔갑한다.
+      #          bare 메트릭을 그대로 두고 threshold 가 거르는 현재 구조가 그것을 막는다.
       - uid: keiwi-smart-fail
         title: SmartHealthFailed
         condition: C
@@ -333,7 +351,7 @@ groups:
             model:
               refId: A
               instant: true
-              expr: 'smartctl_device_smart_status'
+              expr: 'smartctl_device_smart_status or node_smart_disk_health_passed'
           - refId: C
             datasourceUid: __expr__
             model:
@@ -349,7 +367,7 @@ groups:
           domain: infra
           node: '{{ $labels.instance }}'
         annotations:
-          summary: 'SMART 헬스 실패 — {{ $labels.instance }} {{ $labels.device }}. 디스크 교체 준비'
+          summary: 'SMART 헬스 실패 — {{ $labels.instance }} {{ $labels.device }}{{ $labels.serial }}. 디스크 교체 준비'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/smart-health-failed.md
 
       # 9. 디스크 소진 예측 — % 임계의 결함을 보완한다.
@@ -473,3 +491,139 @@ groups:
         annotations:
           summary: '{{ $labels.instance }} 위생 수집기 90분 이상 미실행 — 값은 남아 있지만 낡았다 (타이머 주기 30분)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-stale.md
+
+      # ═══════════════════════════════════════════════════════════════════
+      # 12~14. 물리 디스크 열화 — RAID 컨트롤러 뒤 (fleet-hardening §2.2 D2-6, T2-8)
+      #
+      # 왜 지금 생겼나: 지금까지 디스크 신호는 **논리 볼륨 3개**가 전부였고, LV은 멤버
+      #   디스크에 grown defect 773개(data04 ZC1AE78X, POH 63,777h)가 쌓여도 끝까지
+      #   `SMART Health Status: OK`를 말한다. 고장 전조가 관측 스택에 원리적으로 안 보였다.
+      #
+      # ⚠️ **절대값 임계를 쓰지 않는다.** data04에 이미 GDL 773·66이 있어서 `> 0`을 걸면
+      #    첫날부터 critical 2건이 상주 발화한다 — T0-7이 "알림 무시 습관의 시작"으로 지목한
+      #    바로 그 패턴이다. 기존 773은 **알림이 아니라** 대시보드(결함 섹터 상위 10)와
+      #    교체 티켓(T2-18)으로 처리하고, 알림은 전부 **증가량** 기준으로 간다.
+      #    HPE가 권고 수치를 주지 않으므로 "GDL > 50" 같은 임계는 근거가 없고,
+      #    노드·모델·가동시간마다 의미가 달라 서버별 임계 지옥이 된다.
+      #
+      # ⚠️ **섀도 기간**: 셋 다 `severity: warning`으로 시작한다. specs/alerting §1.5의
+      #    2주 리뷰(§10-3 체크리스트)에서 발화 수·조치율을 집계한 뒤 T2-19가 승격을 판단한다.
+      #    승격 1순위는 DiskUncorrectedErrorsGrowing(데이터 손실이 이미 실현된 신호)이다.
+      #
+      # ⚠️ 세 규칙 모두 식이 **항상 값을 돌려주도록** 짜여 있다(비교를 threshold에 맡긴다).
+      #    비교를 PromQL로 옮기면 정상일 때 빈 벡터가 되고, noDataState=NoData라
+      #    "정상"이 NoData 알림으로 둔갑한다.
+      #
+      # ⚠️⚠️ **적용 순서 — 이걸 어기면 첫날부터 NoData 알림 3건이 상주한다.**
+      #    세 규칙은 `node_smart_*`가 라이브에 **존재한 뒤에만** 켠다.
+      #    수집기 배포 전에 이 파일을 반영하면 세 쿼리가 전부 빈 결과가 되고,
+      #    noDataState=NoData라 Grafana가 `DatasourceNoData` 인스턴스 3건을 만들어
+      #    기본 라우트(slack-infra)로 내보낸다 — T0-7이 지목한 "알림 무시 습관의 시작"이다.
+      #    올바른 순서: T2-13(data03 적용) → T2-14(data04 적용) → **스크랩 1주기 확인** →
+      #                 T2-16(이 파일 반영). 위생 커버리지 2건이 T1-4 뒤에 켜지는 것과 같은 규약.
+      #    확인 명령: q 'count(node_smart_disks)' 가 0이 아니어야 한다.
+      # ═══════════════════════════════════════════════════════════════════
+      - uid: keiwi-disk-defects-growing
+        title: DiskGrownDefectsGrowing
+        condition: C
+        for: 0s          # 증가는 되돌아오지 않는다 — 지속 시간을 기다릴 이유가 없다
+        data:
+          - refId: A
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 24h 창의 증가량. grown defect는 단조 증가 게이지라 increase()의 카운터
+              # 의미론이 그대로 맞는다(감소가 없으므로 리셋 보정이 개입하지 않는다).
+              # 디스크가 교체되면 serial이 바뀌어 **새 시리즈**가 되므로 옛 값 773이
+              # 새 디스크의 증가로 보이지 않는다.
+              expr: 'increase(node_smart_disk_grown_defect_list[24h])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        # 수집기가 죽으면 NodeHygieneStale과 같은 층에서 잡힌다(중복 발화 금지).
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '오늘 새 불량섹터 — {{ $labels.instance }} 시리얼 {{ $labels.serial }}. 열화 진행 중이므로 교체 계획을 세운다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md
+
+      - uid: keiwi-disk-uncorrected-growing
+        title: DiskUncorrectedErrorsGrowing
+        condition: C
+        for: 0s
+        data:
+          - refId: A
+            relativeTimeRange: { from: 86400, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 미교정 오류 = 컨트롤러가 재시도로도 못 살린 I/O. **데이터 손실이 실현된 횟수**다.
+              # data04 ZC1968JB에 read 8·write 1이 이미 있지만, 그건 과거 누적이라
+              # 증가량 기준에서는 0이다(day-1 오발화 0 — AC-2-11이 검증).
+              expr: 'increase(node_smart_disk_uncorrected_errors_total[24h])'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning     # 섀도 2주 후 critical 승격 1순위 (T2-19)
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '미교정 I/O 오류 증가 — {{ $labels.instance }} 시리얼 {{ $labels.serial }} ({{ $labels.op }}). 데이터 손실이 실현되고 있다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md
+
+      - uid: keiwi-physical-disk-disappeared
+        title: PhysicalDiskDisappeared
+        condition: C
+        for: 10m         # 수집 주기 15분 — 한 tick 놓친 것과 진짜 소실을 구분하는 최소 지속
+        data:
+          - refId: A
+            relativeTimeRange: { from: 7200, to: 0 }
+            datasourceUid: bflbhyfj7rzlsb
+            model:
+              refId: A
+              instant: true
+              # 1시간 전 대비 대수 변화. **LV이 절대 말해주지 않는 사실**이다 —
+              # 어레이는 멤버가 빠져도 degraded 상태로 계속 OK를 반환한다.
+              #
+              # ⚠️ `A < A offset 1h` 형태로 쓰지 않는다. 정상일 때 결과가 빈 벡터가 되어
+              #    noDataState=NoData가 "정상"을 알림으로 바꾼다. 뺄셈으로 항상 값을 만든다.
+              # ⚠️ `or node_smart_disks`는 **배포 직후 1시간** 동안 offset 데이터가 없어
+              #    시리즈가 통째로 사라지는 것을 막는다(그 구간의 값은 0 = 변화 없음).
+              expr: 'node_smart_disks - (node_smart_disks offset 1h or node_smart_disks)'
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [0] }
+        noDataState: NoData
+        execErrState: Alerting
+        labels:
+          severity: warning
+          domain: infra
+          node: '{{ $labels.instance }}'
+        annotations:
+          summary: '물리 디스크 대수 감소 — {{ $labels.instance }} 컨트롤러 {{ $labels.controller }}. 어레이는 degraded 상태에서도 OK를 말한다'
+          runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md

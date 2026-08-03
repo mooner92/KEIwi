@@ -25,6 +25,9 @@
 set -uo pipefail
 
 ENV_FILE="${ENV_FILE:-/data/glitchtip/heartbeat.env}"
+# shellcheck source=/dev/null
+#   경로가 런타임에 정해지고 대상이 레포 밖 0600 시크릿 파일이라(§13) shellcheck가 따라갈
+#   파일이 원리적으로 없다. SC1090 억제가 아니라 "정적으로 알 수 없다"를 밝히는 공식 지시어다.
 [ -r "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 
 OS_URL="${OPENSEARCH_URL:-http://127.0.0.1:9200}"

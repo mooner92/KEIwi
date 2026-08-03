@@ -241,7 +241,7 @@ GlitchTip에 **Slack 전용 통합은 없다.** 대신 `RecipientType.GENERAL_WE
 ### 5.1 이중 DSN + 수동 tunnel — `tunnelRoute`는 쓸 수 없다
 
 > [!CAUTION]
-> **`tunnelRoute` 금지.** 소스 확인 결과, DSN 호스트가 `o<digits>.ingest.sentry.io` 패턴이 아니면 **tunnel이 적용되지 않는데**(`debug.warn`만) `next.config`에는 **`*.ingest.sentry.io`로 가는 rewrite가 심긴다**[조사]. 공식 문서도 "unavailable for self-hosted instances". 즉 **egress 0을 깨는 방향의 무효 설정**이다. `check-error-tracking.sh`가 grep으로 차단한다(AC-E-12).
+> **`tunnelRoute` 금지.** 소스 확인 결과, DSN 호스트가 `o<digits>.ingest.sentry.io` 패턴이 아니면 **tunnel이 적용되지 않는데**(`debug.warn`만) `next.config`에는 **`*.ingest.sentry.io`로 가는 rewrite가 심긴다**[조사]. 공식 문서도 "unavailable for self-hosted instances". 즉 **egress 0을 깨는 방향의 무효 설정**이다. `check-error-tracking.sh`가 grep으로 차단한다(AC-E-12) — **[미구현]** 그 파일은 아직 없다(E3-9 소관).
 
 대신 **수동 `tunnel` + 이중 DSN**을 쓴다.
 
@@ -422,7 +422,7 @@ data05가 죽으면 Logstash·Prometheus·Grafana·**GlitchTip이 함께** 죽�
 | **AC-E-9** | **가입 차단**(F8) | 첫 사용자 생성 후 `ENABLE_USER_REGISTRATION=False` 재기동 → 가입 페이지 POST가 **거부**(4xx 또는 폼 미제공) |
 | **AC-E-10** | **부재 탐지 실증 — 도입의 유일한 목적**(F6) | `systemctl stop keiwi-heartbeat-log-ingest.timer` → **40분 대기** → GlitchTip UI monitor가 **down** + `#keiwi-web`에 uptime 알림 도착. 이어서 timer 재시작 → **복구 알림** 도착 |
 | **AC-E-11** | **워커 생존 의존성 문서화**(F7) | 워커 루프를 정지시킨 상태에서 AC-E-10 재실행 → **down 알림이 오지 않음을 확인하고 런북에 기록**. "안 온다"가 통과 조건이다 |
-| **AC-E-12** | **정적 금지 규칙**(CI) | `bash apps/console/scripts/check-error-tracking.sh` → `OK`. 실패 규칙: `tunnelRoute` · `captureCheckIn` · `Sentry.setUser(` · `enableLogs:\s*true` · `includeLocalVariables:\s*true` · `autoSessionTracking:\s*true` · DSN 리터럴(`@[0-9.]+:8090/`) · `sourcemaps` 블록에 `disable: true` **부재** · `telemetry: false` **부재** |
+| **AC-E-12** | **정적 금지 규칙**(CI) — **[미구현]** 스크립트가 아직 없어 이 AC는 실행 불가다(E3-9) | `bash apps/console/scripts/check-error-tracking.sh` → `OK`. 실패 규칙: `tunnelRoute` · `captureCheckIn` · `Sentry.setUser(` · `enableLogs:\s*true` · `includeLocalVariables:\s*true` · `autoSessionTracking:\s*true` · DSN 리터럴(`@[0-9.]+:8090/`) · `sourcemaps` 블록에 `disable: true` **부재** · `telemetry: false` **부재** |
 | **AC-E-13** | **클라이언트 번들·로그 누출 0** | `grep -rl -E 'glitchtip\|sentry_key\|8090' apps/console/.next/static` → **0건**. `journalctl -u keiwi-heartbeat-* \| grep -c heartbeat_check` → **0**(UUID가 로그에 없다) |
 | **AC-E-14** | **Turbopack 무크래시**(GV-8·F10) | `npm run build` 성공 + `npm run dev` 30초 후 전 라우트 200 + 로그에 `Maximum call stack size exceeded` **0건**. 실패 시 `@sentry/nextjs@10.8.0` 핀 + ADR-0022에 결과 기록 |
 | **AC-E-15** | **기존 config 보존**(F11) | 래핑 후 `turbopack.root`·`allowedDevOrigins`가 최종 config에 존재 + Playwright로 `/overview`에서 **클릭 1회가 상태를 바꾼다**(하이드레이션 생존) |
