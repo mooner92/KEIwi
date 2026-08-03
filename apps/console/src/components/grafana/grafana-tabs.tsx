@@ -1,7 +1,19 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTheme } from "@/lib/use-theme";
+
+// 하이드레이션 완료 감지 — 서버 스냅샷 false → 클라이언트 true. 구독할 외부 변화가
+// 없으므로 구독자는 빈 함수다(use-theme.ts와 같은 useSyncExternalStore 관용구 —
+// effect+setState는 react-hooks/set-state-in-effect가 계단식 렌더로 막는다).
+const emptySubscribe = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
 
 type Dashboard = { uid: string; label: string };
 type Tab = { key: string; label: string; kind: "service" | "grafana"; dash?: Dashboard };
@@ -99,6 +111,16 @@ export function GrafanaTabs({
   timeOverride?: EmbedTimeOverride | null;
 }) {
   const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
+  // ── 테마 불일치 버그의 근본 원인과 방어 ──────────────────────────────────
+  // 테마의 진실은 클라이언트에만 있다(localStorage → <html data-theme>, 페인트 전 인라인
+  // 스크립트). 서버는 그 값을 모르므로 useTheme의 서버 스냅샷("light")은 **추측**이다.
+  // 예전에는 그 추측으로 SSR HTML에 theme=light iframe이 실렸고,
+  //   · 하이드레이션이 늦거나 깨지면(브라우저 확장 주입·HMR — 이 레포에서 실제 전례)
+  //     콘솔 크롬은 다크(CSS 즉시 적용)인데 Grafana만 라이트로 **고정**됐다("종종" 재현 조건)
+  //   · 정상 경로여도 다크 사용자는 Grafana를 2번 로드했다(light 로드 → dark 재로드)
+  // → iframe은 **하이드레이션 후, 진짜 테마를 안 뒤에만** 만든다. 그 전에는
+  //   조용한 자리표시자를 그린다. 첫 로드부터 올바른 테마 하나로 간다.
+  const mounted = useHydrated();
   // 탭 순서: 시스템·GPU·모델(env 순서) → 서비스 마지막 (2026-07-02 사용자 지시 — v2.1 R01 개정).
   const tabs: Tab[] = [
     ...dashboards.map((d) => ({ key: d.uid, label: d.label, kind: "grafana" as const, dash: d })),
@@ -115,7 +137,7 @@ export function GrafanaTabs({
   const applyInstance = onSystem ? selectedInstance : onGpu ? selectedDcgm : undefined;
   const applyNodeName = onSystem ? selectedNodeName : undefined;
   const src =
-    onService || !cur?.dash
+    !mounted || onService || !cur?.dash
       ? ""
       : buildEmbedSrc(
           baseUrl,
@@ -189,19 +211,30 @@ export function GrafanaTabs({
         // 액자(frame): 1px 보더 + 8px 반경 + 그림자 0. iframe을 감싸 모서리를 확실히 깎는다
         // — 임베드 내부는 Grafana 소유라 콘솔이 할 수 있는 건 액자를 조용히 두르는 것뿐이다.
         <div className="min-h-[240px] flex-1 overflow-hidden rounded-lg border border-border bg-surface">
-          <iframe
-            key={src}
-            src={src}
-            title={`Grafana — ${cur?.label ?? ""}`}
-            loading="lazy"
-            className="h-full w-full"
-            // 브라우저 확장이 iframe에 속성을 주입해 생기는 하이드레이션 경고를 막는다.
-            // (실측: Ruffle 확장이 data-ruffle-polyfilled를 붙여 서버 HTML과 어긋남 —
-            //  확장 없는 브라우저에서는 재현되지 않는다.) iframe은 광고차단·플래시
-            //  에뮬레이터 등이 흔히 건드리는 대상이고, 여기 속성은 전부 위 props에서
-            //  파생돼 클라이언트 전용 상태가 없으므로 억제해도 잃는 정보가 없다.
-            suppressHydrationWarning
-          />
+          {src ? (
+            <iframe
+              key={src}
+              src={src}
+              title={`Grafana — ${cur?.label ?? ""}`}
+              loading="lazy"
+              className="h-full w-full"
+              // 브라우저 확장이 iframe에 속성을 주입해 생기는 하이드레이션 경고를 막는다.
+              // (실측: Ruffle 확장이 data-ruffle-polyfilled를 붙여 서버 HTML과 어긋남 —
+              //  확장 없는 브라우저에서는 재현되지 않는다.) iframe은 광고차단·플래시
+              //  에뮬레이터 등이 흔히 건드리는 대상이고, 여기 속성은 전부 위 props에서
+              //  파생돼 클라이언트 전용 상태가 없으므로 억제해도 잃는 정보가 없다.
+              suppressHydrationWarning
+            />
+          ) : (
+            // 마운트 전(SSR·하이드레이션 사이) 자리표시자 — 테마를 모르는 채 iframe을
+            // 만들면 틀린 테마로 로드된다(위 mounted 주석). 스켈레톤은 콘솔 토큰만 쓰므로
+            // 어느 테마에서든 자연스럽고, Grafana 로드 1회보다 훨씬 싸다.
+            <div
+              aria-hidden
+              className="h-full w-full animate-pulse bg-surface-2"
+              data-testid="grafana-embed-placeholder"
+            />
+          )}
         </div>
       )}
     </div>
