@@ -10,10 +10,11 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 // 내비에는 없지만 breadcrumb 라벨이 필요한 라우트.
-// /about(소개)은 사이드바 푸터에서 진입한다 — 주 내비는 관제 작업 흐름만 담는다.
+// /about(소개)·/changelog(패치노트)는 사이드바 푸터에서 진입한다 — 주 내비는 관제 작업 흐름만 담는다.
 const HIDDEN_ROUTES: NavItem[] = [
   { href: "/incidents", label: "어시스턴트" },
   { href: "/about", label: "소개" },
+  { href: "/changelog", label: "패치노트" },
 ];
 
 export function isActive(pathname: string, href: string): boolean {
