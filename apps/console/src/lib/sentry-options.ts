@@ -12,8 +12,9 @@ import { scrubEvent } from "./sentry-scrub.ts";
  * 세션 추적을 끄는 이유 — 실측으로 발견한 구멍(E3-4).
  *
  * session envelope는 **`beforeSend`를 거치지 않는다.** 그래서 스크러버가 완벽해도
- * 아래가 그대로 나갔다:
- *   {"type":"session"} {"did":"u-1","attrs":{"ip_address":"192.168.1.101", ...}}
+ * 아래가 그대로 나갔다(실측 페이로드. IP는 문서용 대역 RFC 5737로 치환 — 실제로 나간 값은
+ * 플릿 노드의 사설 IP였다. 배포 위상을 공개 레포 소스에 남기지 않는다 — check:secrets S2):
+ *   {"type":"session"} {"did":"u-1","attrs":{"ip_address":"192.0.2.101", ...}}
  * 우리는 릴리스 헬스(세션 기반 지표)를 쓰지 않으므로 끄는 것이 손실 없는 해법이다.
  *
  * ※ `Sentry.setUser()`도 호출하지 않는다 — 사용자 식별이 필요 없고, did의 출처다.

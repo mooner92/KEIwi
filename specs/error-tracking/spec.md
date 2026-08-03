@@ -112,14 +112,14 @@
 | 콘솔(호스트 프로세스) → ingest | `127.0.0.1:8090` | **HTTP** | 망을 타지 않는다. **자체 서명 CA를 도입하지 않는다**(`transportOptions.caCerts` 불필요 — 관리 부담만 늘고 얻는 것이 없다) |
 | Prometheus(컨테이너) → `/metrics` | `172.18.0.1:8090` | HTTP | 기존 관례와 동일 — vLLM `172.18.0.1:8003`·gpu-model `172.18.0.1:9836`[실측]. 6.0에서 `/metrics` 경로가 고정됐다[조사] |
 | 브라우저 → 이벤트 전송 | **콘솔 자신의 오리진** `/monitoring` (tunnel route) | HTTPS(CF 엣지 종단) | §5.1 |
-| 사람 → UI | `https://glitchtip.excusa.uk` + Cloudflare Access | HTTPS | 기존 `grafana.excusa.uk` 패턴(§14) |
+| 사람 → UI | 외부 도메인 + Cloudflare Access — **주소는 레포에 적지 않는다**(§13, env 주입) | HTTPS | 기존 Grafana 터널과 동일 패턴(§14) |
 
 **바인드 결정**: `web`의 ports를 **두 줄**로 쓴다 — `"127.0.0.1:8090:8000"` + `"172.18.0.1:8090:8000"`.
 - `0.0.0.0` 바인드를 피하는 이유: LAN 전체에 로그인 화면을 노출할 이유가 없다.
 - 두 줄이 필요한 이유: Prometheus는 컨테이너라 `127.0.0.1`에 닿지 못한다.
 - **[미확인 → GV-6]** cloudflared가 컨테이너라면 `172.18.0.1` 쪽으로 향해야 한다. 판정 후 확정한다.
 
-`GLITCHTIP_DOMAIN=https://glitchtip.excusa.uk` — 이 값이 **Slack 메시지의 링크를 만든다**(`issue.get_detail_url()`)[조사]. 잘못 넣으면 알림은 오는데 링크가 죽는다.
+`GLITCHTIP_DOMAIN`(값은 `/data/glitchtip/.env` — 레포에 없다) — 이 값이 **Slack 메시지의 링크를 만든다**(`issue.get_detail_url()`)[조사]. 잘못 넣으면 알림은 오는데 링크가 죽는다.
 `ALLOWED_HOSTS`·`CSRF_TRUSTED_ORIGINS`는 **GV-2에서 키 존재를 확인한 뒤에만** 쓴다(기본 `["*"]` + 경고).
 
 ### 2.4 볼륨
@@ -241,7 +241,7 @@ GlitchTip에 **Slack 전용 통합은 없다.** 대신 `RecipientType.GENERAL_WE
 ### 5.1 이중 DSN + 수동 tunnel — `tunnelRoute`는 쓸 수 없다
 
 > [!CAUTION]
-> **`tunnelRoute` 금지.** 소스 확인 결과, DSN 호스트가 `o<digits>.ingest.sentry.io` 패턴이 아니면 **tunnel이 적용되지 않는데**(`debug.warn`만) `next.config`에는 **`*.ingest.sentry.io`로 가는 rewrite가 심긴다**[조사]. 공식 문서도 "unavailable for self-hosted instances". 즉 **egress 0을 깨는 방향의 무효 설정**이다. `check-error-tracking.sh`가 grep으로 차단한다(AC-E-12).
+> **`tunnelRoute` 금지.** 소스 확인 결과, DSN 호스트가 `o<digits>.ingest.sentry.io` 패턴이 아니면 **tunnel이 적용되지 않는데**(`debug.warn`만) `next.config`에는 **`*.ingest.sentry.io`로 가는 rewrite가 심긴다**[조사]. 공식 문서도 "unavailable for self-hosted instances". 즉 **egress 0을 깨는 방향의 무효 설정**이다. `check-error-tracking.sh`가 grep으로 차단한다(AC-E-12) — **[미구현]** 그 파일은 아직 없다(E3-9 소관).
 
 대신 **수동 `tunnel` + 이중 DSN**을 쓴다.
 
@@ -422,7 +422,7 @@ data05가 죽으면 Logstash·Prometheus·Grafana·**GlitchTip이 함께** 죽�
 | **AC-E-9** | **가입 차단**(F8) | 첫 사용자 생성 후 `ENABLE_USER_REGISTRATION=False` 재기동 → 가입 페이지 POST가 **거부**(4xx 또는 폼 미제공) |
 | **AC-E-10** | **부재 탐지 실증 — 도입의 유일한 목적**(F6) | `systemctl stop keiwi-heartbeat-log-ingest.timer` → **40분 대기** → GlitchTip UI monitor가 **down** + `#keiwi-web`에 uptime 알림 도착. 이어서 timer 재시작 → **복구 알림** 도착 |
 | **AC-E-11** | **워커 생존 의존성 문서화**(F7) | 워커 루프를 정지시킨 상태에서 AC-E-10 재실행 → **down 알림이 오지 않음을 확인하고 런북에 기록**. "안 온다"가 통과 조건이다 |
-| **AC-E-12** | **정적 금지 규칙**(CI) | `bash apps/console/scripts/check-error-tracking.sh` → `OK`. 실패 규칙: `tunnelRoute` · `captureCheckIn` · `Sentry.setUser(` · `enableLogs:\s*true` · `includeLocalVariables:\s*true` · `autoSessionTracking:\s*true` · DSN 리터럴(`@[0-9.]+:8090/`) · `sourcemaps` 블록에 `disable: true` **부재** · `telemetry: false` **부재** |
+| **AC-E-12** | **정적 금지 규칙**(CI) — **[미구현]** 스크립트가 아직 없어 이 AC는 실행 불가다(E3-9) | `bash apps/console/scripts/check-error-tracking.sh` → `OK`. 실패 규칙: `tunnelRoute` · `captureCheckIn` · `Sentry.setUser(` · `enableLogs:\s*true` · `includeLocalVariables:\s*true` · `autoSessionTracking:\s*true` · DSN 리터럴(`@[0-9.]+:8090/`) · `sourcemaps` 블록에 `disable: true` **부재** · `telemetry: false` **부재** |
 | **AC-E-13** | **클라이언트 번들·로그 누출 0** | `grep -rl -E 'glitchtip\|sentry_key\|8090' apps/console/.next/static` → **0건**. `journalctl -u keiwi-heartbeat-* \| grep -c heartbeat_check` → **0**(UUID가 로그에 없다) |
 | **AC-E-14** | **Turbopack 무크래시**(GV-8·F10) | `npm run build` 성공 + `npm run dev` 30초 후 전 라우트 200 + 로그에 `Maximum call stack size exceeded` **0건**. 실패 시 `@sentry/nextjs@10.8.0` 핀 + ADR-0022에 결과 기록 |
 | **AC-E-15** | **기존 config 보존**(F11) | 래핑 후 `turbopack.root`·`allowedDevOrigins`가 최종 config에 존재 + Playwright로 `/overview`에서 **클릭 1회가 상태를 바꾼다**(하이드레이션 생존) |

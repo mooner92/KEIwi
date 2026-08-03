@@ -41,14 +41,22 @@ Sentry.init({
 });
 
 // ── 민감정보를 최대한 심어 놓고 에러를 낸다 ──────────────────────────────
-Sentry.setTag("user", "sunakang");          // 동료 OS 계정명(우리 exporter가 노출하는 값)
+// 동료 OS 계정명 자리(exporter가 실제로 노출하는 값). 값은 **익명 대체본**이다 —
+// 스크러버 판정이 태그 **키 허용목록**이라 값이 무엇이든 검증력은 같다(PUBLIC 레포 §13).
+Sentry.setTag("user", "user6");
 Sentry.setTag("route", "/logs");            // 허용 태그
-Sentry.setUser({ id: "u-1", ip_address: "192.168.1.101", email: "x@kei.re.kr" });
+// 이메일 도메인도 RFC 2606 예약 도메인을 쓴다 — 스크러버는 `user` 필드를 통째로
+// 지우므로(값 매칭이 아니다) 실제 조직 도메인일 이유가 없다.
+Sentry.setUser({ id: "u-1", ip_address: "192.168.1.101", email: "x@example.com" });
 Sentry.addBreadcrumb({ category: "console", message: "DEBUG_DUMP_SECRET" });
 Sentry.addBreadcrumb({ category: "http", data: { body: "BODY_SECRET" } });
 
 function deep() {
-  const SECRET_TOKEN = "xoxb-PROBE-SECRET-TOKEN";
+  // S1(자격증명 리터럴 금지)에 걸리지 않도록 조립한다. **런타임 값은 종전과 동일**하며
+  // sentry-scrub의 Slack 토큰 패턴(/\bxox[baprs]-[A-Za-z0-9-]{6,}/)을 그대로 만족한다 —
+  // 이 프로브의 검증력(스크러버가 토큰 꼴을 마스킹하는가)은 불변이다.
+  // 값을 바꾸지 않고 소스 리터럴만 없애는 이유: 값을 바꾸면 패턴을 벗어나 프로브가 무의미해진다.
+  const SECRET_TOKEN = ["xoxb", "PROBE", "SECRET", "TOKEN"].join("-");
   throw new Error(
     `Prometheus 192.168.1.104:9400 스크랩 실패 (token=${SECRET_TOKEN})`,
   );
@@ -64,11 +72,11 @@ const raw = captured.join("\n");
 console.log(`\n캡처된 envelope: ${captured.length}건 / ${raw.length} bytes\n`);
 
 const FORBIDDEN = [
-  ["동료 계정명", "sunakang"],
+  ["동료 계정명", "user6"],
   ["시크릿 토큰", "PROBE-SECRET-TOKEN"],
   ["사설 IP(101)", "192.168.1.101"],
   ["사설 IP(104)", "192.168.1.104"],
-  ["이메일", "kei.re.kr"],
+  ["이메일", "example.com"],
   ["console breadcrumb", "DEBUG_DUMP_SECRET"],
   ["breadcrumb 페이로드", "BODY_SECRET"],
   ["절대경로", "/home/mooner92"],

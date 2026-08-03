@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+# KEIwi 물리 디스크 SMART textfile 수집기 (Ansible 관리 — 대상에서 직접 편집 금지)
+#
+# 무엇을 하나
+#   HPE Smart Array(smartpqi/hpsa) 컨트롤러의 `-d cciss,N` 패스스루로 **RAID 뒤 물리 디스크**를
+#   열거해 node-exporter textfile .prom 을 원자적으로 생성한다.
+#   기성 smartctl_exporter(:9633)는 `HPE LOGICAL VOLUME` 3개만 본다 — 그 뒤 12본은 사각지대다.
+#
+# 왜 기성 exporter가 아닌가 (spec §2.1 B1·B2, ADR-0024)
+#   B1 `smartctl.go:45` — device 라벨이 `sg2` 하나로 겹쳐 12본이 중복 계열이 된다.
+#   B2 `smartctl.go:116` — `interface_ == "scsi"` 게이트에 `"cciss"`가 걸려 SCSI miner가
+#      아예 실행되지 않는다 = grown defect·미교정 오류(이 축의 핵심 신호)가 통째로 유실.
+#   B2는 코드 분기라 우회 불가다. textfile 경로는 4노드에 이미 살아 있다.
+#
+# 읽기 전용이다 — smartctl -i/-H/-A/-l error 는 INQUIRY·LOG SENSE·MODE SENSE 이고
+#   디스크에 쓰지 않으며 셀프테스트를 시작하지도 않는다(`-t` 를 절대 쓰지 않는 이유).
+#
+# 이 스크립트가 **하지 않는 것** (정직하게)
+#   · 베이/슬롯 번호를 만들지 않는다. SES가 전 슬롯을 `not installed`로 보고하고,
+#     `cciss,N`의 N은 컨트롤러 내부 열거 순서지 베이가 아니다 — 물리 식별은 serial 이다.
+#   · RAID 어레이/논리 볼륨 상태를 만들지 않는다(ssacli이 4노드 어디에도 없다).
+#   · 컨트롤러가 아예 안 보이면 `node_smart_disks`을 **0으로 내보내지 않는다** —
+#     "측정 안 함"이 "디스크 0본(정상)"으로 읽히면 이 축이 고치려는 실패모드의 재생산이다.
+#     그 경우 수집기 하트비트 3종만 남고 대수 시리즈 자체가 존재하지 않는다.
+#
+# 호환: bash 4.3(data01 Ubuntu 16.04) 기준. python3 는 JSON 파싱에만 쓴다
+#       — jq 는 4노드 어디에도 없고, 정규식 파싱은 smartmontools 버전마다 깨진다.
+set -euo pipefail
+
+# ── 테스트 이음매 (production 에서는 셋 다 미설정 → Ansible 이 박은 값이 그대로 쓰인다) ──
+# systemd 유닛은 이 변수들을 설정하지 않는다. scripts/gates/render-smart-fixture.sh 가
+# **이 스크립트 자체를** 고정 픽스처로 돌려 .prom 을 만들기 위한 이음매다 —
+# 이음매가 없으면 게이트가 조립 로직을 한 벌 더 구현하게 되고, 두 벌은 반드시 갈라진다.
+TEXTFILE_DIR="${KEIWI_SMART_TEXTFILE_DIR:-{{ disk_smart_textfile_dir }}}"
+SMARTCTL="${KEIWI_SMART_SMARTCTL:-{{ disk_smart_smartctl_path }}}"
+SYSFS_DIR="${KEIWI_SMART_SYSFS_DIR:-/sys/class/scsi_generic}"
+
+MAX_INDEX="{{ disk_smart_max_index }}"
+MISS_STREAK="{{ disk_smart_miss_streak }}"
+PROBE_TIMEOUT="{{ disk_smart_probe_timeout }}"
+
+OUT="${TEXTFILE_DIR}/keiwi_disk_smart.prom"
+# 임시파일은 같은 디렉터리에 만들어 원자적 mv 를 보장한다.
+# 확장자가 .prom 이 아니므로 node-exporter가 반쯤 쓰인 파일을 읽지 않는다(node-hygiene 동일 패턴).
+TMP="$(mktemp "${TEXTFILE_DIR}/.keiwi_disk_smart.XXXXXX")"
+BODY="$(mktemp "${TEXTFILE_DIR}/.keiwi_disk_smart_body.XXXXXX")"
+trap 'rm -f "${TMP}" "${BODY}"' EXIT
+
+started="$(date +%s)"
+
+# ── JSON 파서 (python3 json.load — 정규식·jq 금지) ────────────────────────────
+# stdin = smartctl --json 응답 1건. argv = 컨트롤러 모델 · sg 디바이스 · cciss 인덱스.
+# stdout = 샘플 행들(HELP/TYPE 은 아래 카탈로그가 한 번만 낸다 — 중복 HELP/TYPE 은
+#          노출 형식 위반이고 promtool check metrics 가 FAIL 로 잡는다).
+# exit  = 0 디스크 · 10 디스크 아님(어댑터·인클로저) · 11 부재 · 12 응답 파손
+read -r -d '' KEIWI_SMART_PY <<'PYEOF' || true
+import json
+import sys
+
+# ATA 속성 화이트리스트 (spec §2.2 D2-3). 벤더마다 의미가 갈리는 속성을 전부 내보내면
+# 정상 디스크가 대시보드에서 빨개진다 — 고장 신호로 합의된 8종만 낸다.
+#   5 재할당 섹터 · 187 보고된 미교정 · 188 명령 타임아웃 · 197 대기 중 섹터
+#   198 오프라인 미교정 · 199 UDMA CRC · 231 SSD 수명 · 233 미디어 마모
+ATA_WHITELIST = (5, 187, 188, 197, 198, 199, 231, 233)
+
+ctrl_model = sys.argv[1]
+ctrl_dev = sys.argv[2]
+index = sys.argv[3]
+
+
+def esc(v):
+    """라벨 값 이스케이프 — 노출 형식은 \\ 와 " 와 개행을 반드시 이스케이프한다."""
+    s = str(v)
+    s = s.replace("\\", "\\\\")
+    s = s.replace('"', '\\"')
+    s = s.replace("\n", " ")
+    return s.strip()
+
+
+def num(v):
+    """숫자 렌더. bool 을 int 보다 먼저 봐야 한다(파이썬에서 bool 은 int 다)."""
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return repr(v)
+    return None
+
+
+raw = sys.stdin.read()
+if not raw.strip():
+    sys.exit(12)
+try:
+    doc = json.loads(raw)
+except ValueError:
+    sys.exit(12)
+if not isinstance(doc, dict):
+    sys.exit(12)
+
+serial = doc.get("serial_number")
+device_type = (doc.get("device_type") or {}).get("name")
+model = doc.get("model_name") or doc.get("scsi_model_name") or doc.get("scsi_product")
+
+# ── 판정 (spec §2.2 D2-4 의 두 규칙을 실측으로 정정한 형태) ────────────────────
+# 스펙 초안은 ① device_type.name != "disk" → 어댑터 ② exit_status bit1 → 부재 였다.
+# 실측 2026-08-03이 둘 다 틀렸음을 보였다:
+#   · SATA 디스크 응답(-d cciss,N 이 SAT 로 잡히는 data04 SSD 2본)에는 `device_type` 키가
+#     **아예 없다** → ①을 그대로 쓰면 정상 SSD 2본을 어댑터로 버린다.
+#   · `HPE Smart Adapter` 응답(data03 cciss,12)의 exit_status 도 **2** 다
+#     → ②를 그대로 쓰면 어댑터가 "부재"로 세어져 miss_streak 이 조기 종료를 당긴다.
+# 실제로 갈라지는 것은 **serial_number 의 유무**다: 디스크에는 있고, 어댑터·부재에는 없다.
+if not serial or (device_type is not None and device_type != "disk"):
+    if model:
+        sys.exit(10)   # 어댑터·인클로저 — 오류도 부재도 아니다
+    sys.exit(11)       # 부재(No such device or address)
+
+out = []
+ident = 'controller="%s",disk_index="%s",serial="%s"' % (
+    esc(ctrl_model), esc(index), esc(serial))
+
+
+def emit(name, labels, value):
+    rendered = num(value)
+    if rendered is None:
+        return
+    # ⚠️ 문자열 연결로 조립한다. "%s" 와 중괄호를 붙여 쓰면 Jinja2 가 그것을 구문 구분자로
+    #    읽어 이 템플릿이 렌더 단계에서 통째로 깨진다(이 파일은 .j2 다).
+    out.append(name + "{" + labels + "} " + rendered)
+
+
+# 인벤토리 — 값은 1, 사실은 전부 라벨에 있다(라벨=사실 관용구).
+emit("node_smart_disk_info", 'controller="%s",ctrl_dev="%s",disk_index="%s",protocol="%s",'
+     'model="%s",serial="%s",firmware="%s",form_factor="%s",rotation_rate="%s"' % (
+         esc(ctrl_model), esc(ctrl_dev), esc(index),
+         esc((doc.get("device") or {}).get("protocol") or ""),
+         esc(model or ""), esc(serial),
+         esc(doc.get("firmware_version") or doc.get("scsi_revision") or ""),
+         esc((doc.get("form_factor") or {}).get("name") or ""),
+         esc(doc.get("rotation_rate") if doc.get("rotation_rate") is not None else "")), 1)
+
+# 없으면 **내보내지 않는다** — smart_status 를 못 읽은 것과 실패(0)를 같은 값으로 만들지 않는다.
+emit("node_smart_disk_health_passed", ident, (doc.get("smart_status") or {}).get("passed"))
+emit("node_smart_disk_temperature_celsius", ident, (doc.get("temperature") or {}).get("current"))
+emit("node_smart_disk_temperature_trip_celsius", ident,
+     (doc.get("temperature") or {}).get("drive_trip"))
+# JSON 은 시간 단위로 준다. Prometheus 관례는 **기본 단위(초)** 이고
+# `promtool check metrics` 가 `_hours` 접미사를 lint 위반으로 잡는다(실측 2026-08-03).
+# 형제 메트릭 `smartctl_device_power_on_seconds` 와도 이름이 맞는다.
+_poh = (doc.get("power_on_time") or {}).get("hours")
+emit("node_smart_disk_power_on_seconds", ident, _poh * 3600 if isinstance(_poh, (int, float)) else None)
+emit("node_smart_disk_capacity_bytes", ident, (doc.get("user_capacity") or {}).get("bytes"))
+
+# ── SAS 전용 (SCSI 로그 페이지) ───────────────────────────────────────────────
+emit("node_smart_disk_grown_defect_list", ident, doc.get("scsi_grown_defect_list"))
+for op in ("read", "write"):
+    log = (doc.get("scsi_error_counter_log") or {}).get(op) or {}
+    op_ident = '%s,op="%s"' % (ident, op)
+    emit("node_smart_disk_uncorrected_errors_total", op_ident,
+         log.get("total_uncorrected_errors"))
+    emit("node_smart_disk_rereads_rewrites_total", op_ident,
+         log.get("errors_corrected_by_rereads_rewrites"))
+    # gigabytes_processed 는 문자열("721728.173")로 온다. GB→bytes 는 1e9(SI) — 이 값의
+    # 단위는 smartmontools 문서상 10^9 바이트이지 GiB 가 아니다.
+    gb = log.get("gigabytes_processed")
+    if gb is not None:
+        try:
+            emit("node_smart_disk_processed_bytes_total", op_ident, float(gb) * 1e9)
+        except (TypeError, ValueError):
+            pass
+
+# ── SATA 전용 (ATA 속성 화이트리스트) ────────────────────────────────────────
+for attr in ((doc.get("ata_smart_attributes") or {}).get("table") or []):
+    if not isinstance(attr, dict) or attr.get("id") not in ATA_WHITELIST:
+        continue
+    attr_ident = '%s,attr_id="%s",attr_name="%s"' % (
+        ident, esc(attr.get("id")), esc(attr.get("name") or ""))
+    emit("node_smart_disk_ata_attribute_raw", attr_ident, (attr.get("raw") or {}).get("value"))
+    emit("node_smart_disk_ata_attribute_normalized", attr_ident, attr.get("value"))
+
+sys.stdout.write("\n".join(out))
+if out:
+    sys.stdout.write("\n")
+sys.exit(0)
+PYEOF
+
+# ── 1) RAID 컨트롤러 sg 노드 탐색 ─────────────────────────────────────────────
+# SCSI peripheral device type 12 = RAID controller. 실측: data03=sg2 · data04=sg3 ·
+#   data05=sg4 · data01=sg0(P840ar). type 13(Enclosure=Smart Adapter)·0(LOGICAL VOLUME)은
+#   대상이 아니다 — 후자를 잡으면 다시 논리 볼륨만 보게 된다.
+# 폴백은 모델명 `^P<숫자>i` 패턴(P408i-a·P816i-a). data01 `P840ar` 은 이 패턴에 안 맞지만
+#   type 12 로 잡히므로 문제 없다.
+# ⚠️ 개수를 별도 변수로 센다. bash 4.3(data01)은 `set -u` 아래에서 **빈 배열의 확장을
+#    unbound variable 로 취급**한다 — `${CTRL_DEVS[@]}` 를 그냥 쓰면 컨트롤러가 없는 노드에서
+#    수집기가 죽고, 그러면 하트비트조차 안 나가 "조용한 실패"가 된다.
+CTRL_DEVS=()
+CTRL_MODELS=()
+ctrl_count=0
+for dev_path in "${SYSFS_DIR}"/*; do
+  [ -e "${dev_path}/device/type" ] || continue
+  dev_name="$(basename "${dev_path}")"
+  dev_type="$(cat "${dev_path}/device/type" 2>/dev/null || echo "")"
+  dev_model="$(cat "${dev_path}/device/model" 2>/dev/null || echo "")"
+  # sysfs model 은 8/16자 고정폭이라 뒤가 공백으로 채워져 온다.
+  dev_model="${dev_model%"${dev_model##*[![:space:]]}"}"
+  if [ "${dev_type}" = "12" ]; then
+    CTRL_DEVS+=("${dev_name}")
+    CTRL_MODELS+=("${dev_model}")
+    ctrl_count=$((ctrl_count + 1))
+  elif [[ "${dev_model}" =~ ^P[0-9]+i ]]; then
+    CTRL_DEVS+=("${dev_name}")
+    CTRL_MODELS+=("${dev_model}")
+    ctrl_count=$((ctrl_count + 1))
+  fi
+done
+
+# ── 2) 컨트롤러별로 cciss,N 열거 ──────────────────────────────────────────────
+probe_errors=0
+: > "${BODY}"
+
+for ((ci = 0; ci < ctrl_count; ci++)); do
+  ctrl_dev="${CTRL_DEVS[$ci]}"
+  ctrl_model="${CTRL_MODELS[$ci]}"
+  disks=0
+  miss=0
+  for ((n = 0; n <= MAX_INDEX; n++)); do
+    probe_rc=0
+    # `|| probe_rc=$?` 가 없으면 smartctl 의 정상적인 비트마스크 종료코드(부재=2 등)에
+    # set -e 가 물어 수집기가 통째로 죽는다.
+    resp="$(timeout "${PROBE_TIMEOUT}" "${SMARTCTL}" --json --info --health --attributes \
+              --log=error -d "cciss,${n}" "/dev/${ctrl_dev}" 2>/dev/null)" || probe_rc=$?
+    if [ "${probe_rc}" -eq 124 ] || [ "${probe_rc}" -eq 137 ]; then
+      # timeout(1) 이 죽인 경우 — "조회 실패"이지 "디스크 부재"가 아니다. 둘을 섞지 않는다.
+      probe_errors=$((probe_errors + 1))
+      miss=$((miss + 1))
+      if [ "${miss}" -ge "${MISS_STREAK}" ]; then break; fi
+      continue
+    fi
+
+    parse_rc=0
+    parsed="$(printf '%s' "${resp}" \
+      | python3 -c "${KEIWI_SMART_PY}" "${ctrl_model}" "${ctrl_dev}" "${n}")" || parse_rc=$?
+    case "${parse_rc}" in
+      0)
+        disks=$((disks + 1))
+        miss=0
+        printf '%s\n' "${parsed}" >> "${BODY}"
+        ;;
+      10) : ;;                                   # 어댑터·인클로저 — 건너뛴다(오류 아님)
+      11) miss=$((miss + 1)) ;;                  # 부재
+      *)
+        probe_errors=$((probe_errors + 1))
+        miss=$((miss + 1))
+        ;;
+    esac
+    if [ "${miss}" -ge "${MISS_STREAK}" ]; then break; fi
+  done
+  printf 'node_smart_disks{controller="%s",ctrl_dev="%s"} %s\n' \
+    "${ctrl_model}" "${ctrl_dev}" "${disks}" >> "${BODY}"
+done
+
+finished="$(date +%s)"
+duration=$((finished - started))
+
+# ── 3) 노출 (HELP/TYPE 카탈로그 1회 + 샘플) ───────────────────────────────────
+# 카탈로그를 조건 없이 먼저 내는 이유: ⓐ 중복 HELP/TYPE 이 노출 형식 위반이라 한 곳에서만
+# 내야 하고 ⓑ 이 블록이 곧 "이 수집기가 방출하는 메트릭 전량"의 선언이라
+# scripts/gates/check-smart-metric-allowlist.sh 가 이것을 spec 승인 목록과 대조한다.
+# 샘플이 0개인 계열(SATA 없는 노드의 ata_attribute 등)은 시리즈를 만들지 않는다 —
+# promtool check metrics·구조 폴백 양쪽에서 유효함을 실증했다.
+{
+  echo '# HELP node_smart_disk_info RAID 컨트롤러 뒤 물리 디스크 인벤토리(값=1, 사실은 라벨). disk_index 는 컨트롤러 열거 순서지 베이 번호가 아니다.'
+  echo '# TYPE node_smart_disk_info gauge'
+  echo '# HELP node_smart_disk_health_passed 물리 디스크 SMART 종합 판정(1=passed, 0=failed). 논리 볼륨의 판정과 별개다.'
+  echo '# TYPE node_smart_disk_health_passed gauge'
+  echo '# HELP node_smart_disk_temperature_celsius 물리 디스크 현재 온도(℃).'
+  echo '# TYPE node_smart_disk_temperature_celsius gauge'
+  echo '# HELP node_smart_disk_temperature_trip_celsius 제조사 온도 트립 임계(℃).'
+  echo '# TYPE node_smart_disk_temperature_trip_celsius gauge'
+  echo '# HELP node_smart_disk_power_on_seconds 누적 전원 인가 시간(초). JSON 은 시간 단위로 주고 여기서 ×3600 한다.'
+  echo '# TYPE node_smart_disk_power_on_seconds gauge'
+  echo '# HELP node_smart_disk_capacity_bytes 물리 디스크 용량(바이트).'
+  echo '# TYPE node_smart_disk_capacity_bytes gauge'
+  echo '# HELP node_smart_disk_grown_defect_list SAS grown defect list 항목 수(재할당된 불량 섹터). 증가가 곧 열화다.'
+  echo '# TYPE node_smart_disk_grown_defect_list gauge'
+  echo '# HELP node_smart_disk_uncorrected_errors_total SAS 미교정 I/O 오류 누적(데이터 손실이 실현된 횟수).'
+  echo '# TYPE node_smart_disk_uncorrected_errors_total counter'
+  echo '# HELP node_smart_disk_rereads_rewrites_total 재읽기/재쓰기로 교정된 오류 누적.'
+  echo '# TYPE node_smart_disk_rereads_rewrites_total counter'
+  echo '# HELP node_smart_disk_processed_bytes_total SAS 오류 카운터 로그의 누적 처리 바이트(10^9 기준).'
+  echo '# TYPE node_smart_disk_processed_bytes_total counter'
+  echo '# HELP node_smart_disk_ata_attribute_raw SATA SMART 속성 raw 값(화이트리스트 8종). 통합 수명% 는 만들지 않는다 — 벤더마다 속성 id 가 다르다.'
+  echo '# TYPE node_smart_disk_ata_attribute_raw gauge'
+  echo '# HELP node_smart_disk_ata_attribute_normalized SATA SMART 속성 정규화 값(100 만점, 낮을수록 나쁨).'
+  echo '# TYPE node_smart_disk_ata_attribute_normalized gauge'
+  echo '# HELP node_smart_disks 컨트롤러별 발견된 물리 디스크 수. 논리 볼륨은 멤버가 빠져도 OK 를 말한다 — 이 값의 하락만이 디스크 소실을 알려준다.'
+  echo '# TYPE node_smart_disks gauge'
+  echo '# HELP node_smart_collector_last_run_timestamp_seconds 이 수집기의 마지막 실행 시각(unix epoch). 낡은 .prom 을 살아있는 값으로 오인하지 않기 위함.'
+  echo '# TYPE node_smart_collector_last_run_timestamp_seconds gauge'
+  echo '# HELP node_smart_collector_duration_seconds 수집 1회 소요(초). 연구 워크로드 영향 상한 감시용.'
+  echo '# TYPE node_smart_collector_duration_seconds gauge'
+  echo '# HELP node_smart_collector_probe_errors 조회 실패 건수(타임아웃·응답 파손). "디스크 부재"와 구분된다.'
+  echo '# TYPE node_smart_collector_probe_errors gauge'
+  cat "${BODY}"
+  echo "node_smart_collector_last_run_timestamp_seconds ${finished}"
+  echo "node_smart_collector_duration_seconds ${duration}"
+  echo "node_smart_collector_probe_errors ${probe_errors}"
+} > "${TMP}"
+
+# 원자적 교체 — node-exporter 가 반쯤 쓰인 파일을 읽지 않게 한다.
+chmod 0644 "${TMP}"
+mv -f "${TMP}" "${OUT}"
+rm -f "${BODY}"
+trap - EXIT

@@ -32,12 +32,14 @@ curl -fSLO https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-${V}-l
 tar xzf filebeat-${V}-linux-x86_64.tar.gz
 
 # ② data01로 홈 + 설정 전송(포트 764)
-scp -P 764 -r filebeat-${V}-linux-x86_64 mhchoi@192.168.1.101:/tmp/filebeat-home
-scp -P 764 /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.yml     mhchoi@192.168.1.101:/tmp/
-scp -P 764 /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.service mhchoi@192.168.1.101:/tmp/
+#    계정은 레포에 적지 않는다(§13) — infra/ansible/README.md «노드 계정 주입»
+N=$KEIWI_USER_DATA01@192.168.1.101
+scp -P 764 -r filebeat-${V}-linux-x86_64 "$N:/tmp/filebeat-home"
+scp -P 764 /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.yml     "$N:/tmp/"
+scp -P 764 /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.service "$N:/tmp/"
 
 # ③ data01에서 설치(사람, sudo)
-ssh -p 764 mhchoi@192.168.1.101 'sudo sh -s' <<'EOF'
+ssh -p 764 "$N" 'sudo sh -s' <<'EOF'
 mkdir -p /opt/keiwi
 rm -rf /opt/keiwi/filebeat && mv /tmp/filebeat-home /opt/keiwi/filebeat
 install -m 0644 -o root -g root /tmp/keiwi-filebeat.yml /opt/keiwi/filebeat/keiwi.yml
@@ -51,7 +53,7 @@ EOF
 
 ```bash
 # 설정·출력 헬스체크(data01)
-ssh -p 764 mhchoi@192.168.1.101 \
+ssh -p 764 "$KEIWI_USER_DATA01@192.168.1.101" \
   '/opt/keiwi/filebeat/filebeat test config -c /opt/keiwi/filebeat/keiwi.yml --path.home /opt/keiwi/filebeat; \
    /opt/keiwi/filebeat/filebeat test output -c /opt/keiwi/filebeat/keiwi.yml --path.home /opt/keiwi/filebeat'
 # → Config OK / dial up... OK / talk to server... OK

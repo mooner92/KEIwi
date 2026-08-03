@@ -87,6 +87,7 @@ export function GrafanaTabs({
   selectedDcgm,
   servicePanel,
   timeOverride,
+  initialTheme = "light",
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
@@ -97,8 +98,19 @@ export function GrafanaTabs({
   servicePanel?: ReactNode;
   /** 시간창/변수 강제(근거 로그 딥링크) — Grafana 탭 전체에 적용. */
   timeOverride?: EmbedTimeOverride | null;
+  /** SSR 시 쓸 테마 — 서버가 `keiwi-theme` 쿠키에서 읽어 준다(use-theme.ts 주석 참조). */
+  initialTheme?: "light" | "dark";
 }) {
-  const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
+  // ── 테마 동기화 ─────────────────────────────────────────────────────────
+  // 서버는 DOM이 없어 테마를 모르므로 **쿠키에서 읽은 값(initialTheme)을 주입**받는다
+  // (서버 컴포넌트 grafana-embed.tsx가 cookies()로 읽어 넘긴다).
+  // 그래야 SSR HTML이 처음부터 올바른 테마의 iframe을 담는다 —
+  //   · 다크 사용자의 Grafana 이중 로드(light→dark)가 사라지고
+  //   · 임베드가 **하이드레이션에 의존하지 않는다**(2026-08-04 회귀의 교훈:
+  //     iframe을 하이드레이션 뒤로 미뤘더니 dev 모드에서 Grafana가 아예 안 떴다.
+  //     잘못된 테마보다 부재가 더 나쁜 실패다.)
+  // 토글 시 반응은 useSyncExternalStore가 <html data-theme> 변화를 구독해 처리한다.
+  const theme = useTheme(initialTheme);
   // 탭 순서: 시스템·GPU·모델(env 순서) → 서비스 마지막 (2026-07-02 사용자 지시 — v2.1 R01 개정).
   const tabs: Tab[] = [
     ...dashboards.map((d) => ({ key: d.uid, label: d.label, kind: "grafana" as const, dash: d })),
@@ -189,19 +201,31 @@ export function GrafanaTabs({
         // 액자(frame): 1px 보더 + 8px 반경 + 그림자 0. iframe을 감싸 모서리를 확실히 깎는다
         // — 임베드 내부는 Grafana 소유라 콘솔이 할 수 있는 건 액자를 조용히 두르는 것뿐이다.
         <div className="min-h-[240px] flex-1 overflow-hidden rounded-lg border border-border bg-surface">
-          <iframe
-            key={src}
-            src={src}
-            title={`Grafana — ${cur?.label ?? ""}`}
-            loading="lazy"
-            className="h-full w-full"
-            // 브라우저 확장이 iframe에 속성을 주입해 생기는 하이드레이션 경고를 막는다.
-            // (실측: Ruffle 확장이 data-ruffle-polyfilled를 붙여 서버 HTML과 어긋남 —
-            //  확장 없는 브라우저에서는 재현되지 않는다.) iframe은 광고차단·플래시
-            //  에뮬레이터 등이 흔히 건드리는 대상이고, 여기 속성은 전부 위 props에서
-            //  파생돼 클라이언트 전용 상태가 없으므로 억제해도 잃는 정보가 없다.
-            suppressHydrationWarning
-          />
+          {src ? (
+            <iframe
+              key={src}
+              src={src}
+              title={`Grafana — ${cur?.label ?? ""}`}
+              loading="lazy"
+              className="h-full w-full"
+              // 브라우저 확장이 iframe에 속성을 주입해 생기는 하이드레이션 경고를 막는다.
+              // (실측: Ruffle 확장이 data-ruffle-polyfilled를 붙여 서버 HTML과 어긋남 —
+              //  확장 없는 브라우저에서는 재현되지 않는다.) iframe은 광고차단·플래시
+              //  에뮬레이터 등이 흔히 건드리는 대상이고, 여기 속성은 전부 위 props에서
+              //  파생돼 클라이언트 전용 상태가 없으므로 억제해도 잃는 정보가 없다.
+              suppressHydrationWarning
+            />
+          ) : (
+            // 대시보드 uid가 없을 때만 도달한다(정상 경로에서는 SSR부터 iframe이 있다).
+            // 자리표시자를 "로딩 중"으로 쓰지 않는다 — 임베드가 클라이언트 상태에 의존하면
+            // 하이드레이션이 실패한 브라우저에서 Grafana가 영영 안 뜬다(2026-08-04 회귀).
+            <div className="flex h-full w-full items-center justify-center p-6 text-center">
+              <p className="text-sm text-ink-subtle">
+                대시보드가 지정되지 않았습니다 —{" "}
+                <span className="tnum">GRAFANA_DASHBOARD_UID</span>를 확인하세요.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

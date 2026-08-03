@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getGrafana } from "@/config/env";
 import { resolveGrafanaBase } from "@/lib/grafana-host";
 import { GrafanaTabs } from "./grafana-tabs";
@@ -46,6 +46,10 @@ export async function GrafanaEmbed({
 
   // 접속 Host 기준 임베드 베이스(내부 IP 접속 → 같은 호스트 :3000, same-site 쿠키 보장).
   const host = (await headers()).get("host");
+  // 테마를 서버에서 안다 — 토글이 `keiwi-theme` 쿠키를 기록하므로(theme-toggle.tsx) SSR HTML이
+  // 처음부터 올바른 테마의 iframe을 담을 수 있다. 이러면 임베드가 하이드레이션에 의존하지 않고
+  // (2026-08-04 회귀 방지), 다크 사용자의 Grafana 이중 로드도 사라진다. use-theme.ts 주석 참조.
+  const initialTheme = (await cookies()).get("keiwi-theme")?.value === "dark" ? "dark" : "light";
 
   // selectedInstance 변경 시 remount → 활성 탭이 시스템 탭으로 재설정되어 드릴다운이 즉시 반영.
   return (
@@ -57,6 +61,7 @@ export async function GrafanaEmbed({
       selectedNodeName={selectedNodeName}
       selectedDcgm={selectedDcgm}
       servicePanel={servicePanel}
+      initialTheme={initialTheme}
     />
   );
 }

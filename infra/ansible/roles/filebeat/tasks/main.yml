@@ -33,7 +33,9 @@
     group: root
     mode: "0644"
 
-- name: "Elastic {{ filebeat_es_major }}.x APT 저장소 등록"
+# 이름 끝에 템플릿을 둔다(ansible-lint name[template]) — 변수 값에 따라 태스크 이름의
+# 앞부분이 밀리면 실행 로그의 grep·정렬이 깨진다.
+- name: "APT 저장소 등록 — Elastic 메이저 {{ filebeat_es_major }}"
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/elastic.asc] https://artifacts.elastic.co/packages/{{ filebeat_es_major }}.x/apt stable main"
     filename: "elastic-{{ filebeat_es_major }}.x"

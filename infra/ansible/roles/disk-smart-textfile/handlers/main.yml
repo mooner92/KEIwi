@@ -1,0 +1,17 @@
+---
+# roles/disk-smart-textfile/handlers/main.yml — 변경 시에만 반응(멱등).
+# 핸들러는 정의 순서대로 실행된다 → daemon-reload 를 1회 실행보다 먼저 둔다.
+
+- name: reload systemd (disk-smart)
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: run disk-smart once
+  # 배포 직후 .prom 을 즉시 1회 생성(타이머 첫 tick 을 기다리지 않는다).
+  # oneshot 이라 state: started 가 곧 "한 번 실행"이다.
+  ansible.builtin.systemd:
+    name: keiwi-disk-smart.service
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode

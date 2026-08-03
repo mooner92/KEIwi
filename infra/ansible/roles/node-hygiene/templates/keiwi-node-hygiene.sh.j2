@@ -3,10 +3,15 @@
 # node-exporter textfile 수집기가 읽는 *.prom을 "원자적으로" 생성한다.
 # 메트릭:
 #   (a) apt 대기/보안 업데이트 개수      node_apt_upgrades_pending / node_apt_security_upgrades_pending
+#                                        ※ node_hygiene_apt_enabled=false면 **아예 노출하지 않는다**
 #   (b) reboot-required 여부             node_reboot_required
 #   (c) 마지막 ansible 적용(변경) 시각    node_ansible_last_apply_timestamp_seconds
-# 읽기 전용 점검 — 시스템을 변경하지 않는다(apt-get -s 시뮬레이션·락 없음).
+#   (d) NVIDIA 커널모듈↔유저스페이스 정합성 node_nvidia_*  (6종, GPU 노드에서만)
+# 읽기 전용 점검 — 시스템을 변경하지 않는다(apt-get -s 시뮬레이션·락 없음, nvidia-smi -L은 열거만).
 # 참고: prometheus-community/node-exporter-textfile-collector-scripts (자체 경량 구현).
+#
+# 호환: data01은 Ubuntu 16.04(bash 4.3 / mawk / coreutils 8.25)다. 여기 쓰인 것은 전부 그 위에서 돈다
+#       — GNU 확장·bash 5 문법·python 의존을 넣지 말 것.
 set -euo pipefail
 
 TEXTFILE_DIR="{{ node_hygiene_textfile_dir }}"
@@ -16,6 +21,7 @@ OUT="${TEXTFILE_DIR}/keiwi_node_hygiene.prom"
 TMP="$(mktemp "${TEXTFILE_DIR}/.keiwi_node_hygiene.XXXXXX")"
 trap 'rm -f "${TMP}"' EXIT
 
+{% if node_hygiene_apt_enabled %}
 # (a) apt 대기 업데이트 — 락 없이 시뮬레이션(-s). 실패해도 0으로 안전 폴백.
 pending=0
 security=0
@@ -26,6 +32,11 @@ if command -v apt-get >/dev/null 2>&1; then
 fi
 pending="${pending:-0}"
 security="${security:-0}"
+{% else %}
+# (a) apt 카운터 — node_hygiene_apt_enabled=false 라 수집하지 않는다.
+#     0을 내보내지 않는 이유: "측정 안 함"이 "측정했더니 0(정상)"으로 보이면 안 된다.
+#     이 role이 고치고 있는 실패모드(측정되지 않은 것이 정상으로 보임)와 정확히 같은 종류다.
+{% endif %}
 
 # (b) reboot-required (경로 두 곳 모두 확인)
 reboot=0
@@ -39,15 +50,75 @@ if [ -e "${MARKER}" ]; then
   apply_ts="$(stat -c %Y "${MARKER}" 2>/dev/null || echo 0)"
 fi
 
+# ── (d) NVIDIA 커널모듈 ↔ 유저스페이스 정합성 (hardware-ops T0-1 구현) ──────────
+#
+# 왜 필요한가: 드라이버를 apt로 올려도 커널모듈은 재부팅 전까지 옛 버전이 적재돼 있다.
+#   그 상태에서 nvidia-smi는 exit 18("Driver/library version mismatch")로 죽지만
+#   DCGM은 온도·전력·FB를 정상 보고한다 — 관측 스택이 초록인데 GPU를 못 쓴다.
+#   DCGM_FI_DRIVER_VERSION 라벨은 **커널모듈** 값이라 이 드리프트를 원리적으로 볼 수 없고,
+#   node_reboot_required도 신호가 못 된다(실측: data05 reboot-required.pkgs에 nvidia 패키지 없음).
+#   → 두 버전을 **직접 대조**하는 것만이 신뢰 가능하다(spec §1.1).
+#
+# 변수는 set -u 때문에 블록 진입 전에 전부 초기화한다.
+NVIDIA_BLOCK=0
+nv_run=""
+nv_user=""
+nv_smi_rc=0
+nv_smi_ok=0
+nv_probe=0
+nv_mismatch=0
+{% if node_hygiene_nvidia_enabled %}
+if [ -r /proc/driver/nvidia/version ]; then
+  # running = 현재 적재된 커널모듈. 문자열 레이아웃이 노드마다 다르다 [실측 2026-08-03]:
+  #   .105 "NVIDIA UNIX x86_64 Kernel Module  595.71.05  Fri Apr 24 …"
+  #   .103 "Open Kernel Module for x86_64  595.71.05  Release Build"
+  #   → 필드 위치가 아니라 "첫 버전꼴 토큰"으로 스캔한다(x86_64는 숫자로 시작하지 않아 안 걸린다).
+  nv_run="$(awk '/NVRM version/{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+/){print $i; exit}}' \
+            /proc/driver/nvidia/version 2>/dev/null || true)"
+
+  # userspace = NVML 실제 파일. **경로 하드코딩 금지** — data01의 NVML은
+  #   /usr/lib/nvidia-418/libnvidia-ml.so.1 이고 /usr/lib/x86_64-linux-gnu/ 에는 0개다 [실측].
+  #   ldconfig -p → readlink -f 는 4노드(418.39 / 595.71.05 / 535.309.01 / 595.84) 전부에서 정확하다.
+  nv_link="$(ldconfig -p 2>/dev/null | awk '/libnvidia-ml\.so\.1 /{print $NF; exit}' || true)"
+  if [ -n "${nv_link}" ]; then
+    # `|| true` 필수 — pipefail이 켜져 있어 readlink 실패가 assignment 실패가 되고 set -e가 문다.
+    nv_user="$(readlink -f "${nv_link}" 2>/dev/null | sed -n 's/.*libnvidia-ml\.so\.//p' || true)"
+  fi
+  # readlink가 심볼릭이 아닌 .so.1 자체로 떨어지면 "1"이 나온다 → 버전꼴 아니면 폐기(오탐 방지).
+  case "${nv_user}" in
+    [0-9]*.[0-9]*) : ;;
+    *) nv_user="" ;;
+  esac
+
+  # nvidia-smi -L = 디바이스 열거만(CUDA 컨텍스트·커널 launch 없음 → 연구 잡에 무해).
+  #   행(hang) 방지 timeout + set -e 회피용 `|| rc=$?`.
+  timeout 20 nvidia-smi -L >/dev/null 2>&1 || nv_smi_rc=$?
+  if [ "${nv_smi_rc}" -eq 0 ]; then nv_smi_ok=1; else nv_smi_ok=0; fi
+
+  # 판정 불능(파싱 실패)을 정상과 구분한다.
+  #   1을 내보내면 legacy 노드가 영구 오탐하고, 0을 내보내면 "측정 안 한 것이 정상으로 보이는"
+  #   이 축 전체의 실패모드를 메트릭 레벨에서 재생산한다 → 세 번째 상태(probe_ok)가 필요하다.
+  if [ -n "${nv_run}" ] && [ -n "${nv_user}" ]; then
+    nv_probe=1
+    if [ "${nv_run}" != "${nv_user}" ]; then
+      nv_mismatch=1
+    fi
+  fi
+  NVIDIA_BLOCK=1
+fi
+{% endif %}
+
 now="$(date +%s)"
 
 {
+{% if node_hygiene_apt_enabled %}
   echo '# HELP node_apt_upgrades_pending apt로 설치 가능한 전체 업데이트 개수(시뮬레이션).'
   echo '# TYPE node_apt_upgrades_pending gauge'
   echo "node_apt_upgrades_pending ${pending}"
   echo '# HELP node_apt_security_upgrades_pending 보안 저장소발 대기 업데이트 개수(시뮬레이션).'
   echo '# TYPE node_apt_security_upgrades_pending gauge'
   echo "node_apt_security_upgrades_pending ${security}"
+{% endif %}
   echo '# HELP node_reboot_required 재부팅 필요 여부(1=필요, 0=아님).'
   echo '# TYPE node_reboot_required gauge'
   echo "node_reboot_required ${reboot}"
@@ -57,6 +128,34 @@ now="$(date +%s)"
   echo '# HELP node_hygiene_collector_last_run_timestamp_seconds 이 수집 스크립트의 마지막 실행 시각(unix epoch).'
   echo '# TYPE node_hygiene_collector_last_run_timestamp_seconds gauge'
   echo "node_hygiene_collector_last_run_timestamp_seconds ${now}"
+
+  # NVIDIA 6종은 /proc/driver/nvidia/version 이 있을 때만 노출한다.
+  # GPU 없는 노드에서 0을 내보내면 "GPU 없음"이 "GPU 고장"으로 보인다.
+  if [ "${NVIDIA_BLOCK}" = "1" ]; then
+    # 버전 라벨 2종은 값이 파싱됐을 때만 — version="" 시리즈는 라벨 없는 것과 같아 무의미하다.
+    if [ -n "${nv_run}" ]; then
+      echo '# HELP node_nvidia_kernel_module_version 적재된 NVIDIA 커널모듈 버전(라벨=버전, 값=1).'
+      echo '# TYPE node_nvidia_kernel_module_version gauge'
+      echo "node_nvidia_kernel_module_version{version=\"${nv_run}\"} 1"
+    fi
+    if [ -n "${nv_user}" ]; then
+      echo '# HELP node_nvidia_userspace_version 설치된 NVML(libnvidia-ml) 유저스페이스 버전(라벨=버전, 값=1).'
+      echo '# TYPE node_nvidia_userspace_version gauge'
+      echo "node_nvidia_userspace_version{version=\"${nv_user}\"} 1"
+    fi
+    echo '# HELP node_nvidia_version_mismatch 커널모듈↔유저스페이스 버전 불일치(1=불일치). probe_ok=0이면 판정 불능이라 0이다.'
+    echo '# TYPE node_nvidia_version_mismatch gauge'
+    echo "node_nvidia_version_mismatch ${nv_mismatch}"
+    echo '# HELP node_nvidia_probe_ok 두 버전을 모두 파싱했는가(1=판정 가능, 0=판정 불능). mismatch 해석의 전제.'
+    echo '# TYPE node_nvidia_probe_ok gauge'
+    echo "node_nvidia_probe_ok ${nv_probe}"
+    echo '# HELP node_nvidia_smi_ok nvidia-smi -L 성공 여부(1=성공).'
+    echo '# TYPE node_nvidia_smi_ok gauge'
+    echo "node_nvidia_smi_ok ${nv_smi_ok}"
+    echo '# HELP node_nvidia_smi_exit_code nvidia-smi -L 종료코드(18=Driver/library version mismatch).'
+    echo '# TYPE node_nvidia_smi_exit_code gauge'
+    echo "node_nvidia_smi_exit_code ${nv_smi_rc}"
+  fi
 } > "${TMP}"
 
 # 원자적 교체 — node-exporter가 반쯤 쓰인 파일을 읽지 않도록 mv로 갈아끼운다.

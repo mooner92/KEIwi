@@ -43,7 +43,7 @@ describe("scrubEvent — 화이트리스트 재조립", () => {
   });
 
   it("허용 태그만 남긴다 — user 같은 계정명 태그는 소멸", () => {
-    const e = scrubEvent(ev({ tags: { route: "/logs", runtime: "node", user: "sunakang", pid: "4916" } }))!;
+    const e = scrubEvent(ev({ tags: { route: "/logs", runtime: "node", user: "user6", pid: "4916" } }))!;
     expect((e as unknown as { tags: Record<string, string> }).tags).toEqual({
       route: "/logs",
       runtime: "node",

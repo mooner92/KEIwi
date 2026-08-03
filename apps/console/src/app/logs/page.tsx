@@ -5,6 +5,8 @@ import { resolveGrafanaBase } from "@/lib/grafana-host";
 import { LogsWorkbench } from "@/components/assistant/logs-workbench";
 
 // 로그·env·Host 의존 → 정적 프리렌더 금지
+import { cookies } from "next/headers";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -36,5 +38,7 @@ export default async function LogsPage() {
     grafana = null; // env 미설정 → 워크벤치가 안내 패널 표시
   }
 
-  return <LogsWorkbench signals={signals} grafana={grafana} />;
+  const initialTheme = (await cookies()).get("keiwi-theme")?.value === "dark" ? "dark" : "light";
+
+  return <LogsWorkbench signals={signals} grafana={grafana} initialTheme={initialTheme} />;
 }

@@ -13,6 +13,11 @@
 # ── 그룹핑이 스레딩을 대신한다 ────────────────────────────────────────────
 # Grafana Slack 알림기는 thread_ts를 지원하지 않는다(실측). 대신 group_by로 같은 종류를
 # 한 메시지에 묶고, repeat_interval을 길게 잡아 같은 알림이 반복 도배되지 않게 한다.
+#
+# ※ E3 예고(alert-enrichment §3 · ADR-0025): 웹훅 중계(alert-relay)가 원 메시지를 직접
+#   게시하면 응답으로 ts를 쥐므로 스레딩이 가능해진다. 아래 routes: 첫 항목에 섀도 미러
+#   라우트가 **주석 상태로** 준비돼 있다 — 섀도 2주(§3.5 S2) 전에는 켜지 않는다.
+#   컷오버 후에도 이 그룹핑 설정은 그대로 쓴다(relay는 그룹 payload를 그대로 받는다).
 apiVersion: 1
 
 policies:
@@ -31,6 +36,30 @@ policies:
     repeat_interval: 4h
 
     routes:
+      # ── [섀도 · 기본 비활성] alert-relay 미러 라우트 (E3 T-E3-3 · spec §3.5 S1) ──
+      #
+      # 왜 주석인가: 이 라우트를 켜면 Grafana가 `alert-relay` 수신처를 찾는데,
+      # 그 수신처는 contact-points.relay.yaml 을 복사해야 생긴다. 없는 수신처를 참조하면
+      # 프로비저닝이 실패하고 **Grafana가 뜨지 않는다**(하단 inhibitionRules 사고와 같은 유형).
+      # 그래서 순서를 강제한다: env 배선 → 수신처 파일 복사 → 이 블록 주석 해제 → 리로드.
+      #
+      # `continue: true` 가 핵심이다 — 매칭 후에도 **형제 라우트 평가를 계속**하므로
+      # 기존 직송(slack-infra/slack-web)이 그대로 살아 있다. 실채널 무영향이 섀도의 전제다.
+      # ⚠️ [검증 필요] 파일 프로비저닝에서 `continue` 가 실제로 먹는지 확인한다.
+      #    안 먹으면 섀도는 **테스트 전용 라벨**(예: 테스트 규칙에만 `shadow: "true"`)로 우회한다
+      #    — 그 경우 아래 object_matchers 를 `["shadow", "=", "true"]` 로 바꾼다(열린 질문 2).
+      #
+      # - receiver: alert-relay
+      #   continue: true
+      #   object_matchers:
+      #     - ["domain", "=", "infra"]
+      #   # 그룹핑은 기존 라우트와 같게 둔다 — relay가 받는 payload가 실채널과 동형이어야
+      #   # 섀도 관찰(유실·지연·품질)이 의미를 갖는다.
+      #   group_by: ["alertname", "node"]
+      #   group_wait: 30s
+      #   group_interval: 5m
+      #   repeat_interval: 4h
+
       # ── 앱 런타임(콘솔·API) → #keiwi-web ──────────────────────────────
       # 인프라 담당자와 앱 담당자가 볼 것이 다르므로 채널을 나눈다.
       # (현재는 1인이지만, 채널이 나뉘어야 음소거·검색·보존을 독립으로 관리할 수 있다)
@@ -57,7 +86,11 @@ policies:
         object_matchers:
           - ["domain", "=", "infra"]
           - ["severity", "=", "warning"]
-        group_by: ["alertname"]
+        # node 추가(E1 D1-5): [alertname]만으로는 두 노드가 같은 warning을 동시 발화하면
+        # 한 메시지로 묶여 제목에서 노드가 사라진다(CommonLabels는 공유 라벨만 남는다).
+        # 5노드 규모라 노드별 분리로 인한 도배 위험이 낮고, "어느 노드가 해결됐나"가 명확해진다.
+        # 2주 리뷰에서 메시지 수 증가가 거슬리면 이 줄만 되돌린다.
+        group_by: ["alertname", "node"]
         group_wait: 1m
         group_interval: 10m
         repeat_interval: 12h  # 경고는 하루 두 번이면 충분하다

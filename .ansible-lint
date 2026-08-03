@@ -1,0 +1,32 @@
+# ansible-lint 설정 — IaC 게이트 (spec fleet-hardening §5 D5-5 / T5-16)
+#
+# 기준: **고쳐야 할 것은 고치고, 구조적으로 성립하지 않거나 고치는 것이 더 위험한 규칙은
+# 끄지 않고 경고로 내린다.** 끄면 다음 사람이 그 규칙의 존재 자체를 모르게 되고,
+# 에러로 두면 첫날부터 red라 게이트 전체가 무시된다 — 둘 다 이 스펙이 막으려는 실패다.
+profile: moderate
+
+# 대상 밖: 벤더링 산출물·문서. 우리가 고치지 않는 파일을 게이트가 판정하면 상류 갱신이
+# 그대로 red가 된다.
+exclude_paths:
+  - infra/error-tracking/upstream/
+  - .github/
+
+# 오프라인 원칙 — 러너·노드에서 galaxy 를 조회하지 않는다(egress 0, 플레이키 제거).
+offline: true
+
+warn_list:
+  # name[casing] — "이름은 대문자로 시작해야 한다".
+  #   우리 태스크 이름은 **한국어**다. 한글에는 대소문자가 없어 이 규칙을 만족시킬 방법이
+  #   원리적으로 없다(28건). 영어로 바꾸는 것은 규칙을 위해 문서 언어를 바꾸는 본말전도다.
+  - name[casing]
+
+  # role-name — role 디렉터리명이 ^[a-z][a-z0-9_]*$ 여야 한다(우리는 하이픈: smartctl-exporter 등 5건).
+  #   고치려면 디렉터리명을 바꿔야 하고 그 이름은 playbook·문서·라이브 배포 절차·spec에
+  #   전부 적혀 있다. 안전 이득 0에 파급은 레포 전체 — **경고로 남기고 바꾸지 않는다.**
+  - role-name
+
+  # var-naming[no-role-prefix] — role 내부 변수는 role 접두사를 써야 한다
+  #   (filebeat role 의 logstash_host·logstash_port·fleet_node 3건).
+  #   이 셋은 **인벤토리 host_vars 로 override 하는 계약**이라(README 에 그렇게 적혀 있다)
+  #   이름을 바꾸면 인벤토리와 문서가 동시에 깨진다. 이름 규칙보다 계약이 우선이다.
+  - var-naming[no-role-prefix]

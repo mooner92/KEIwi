@@ -1,0 +1,23 @@
+# KEIwi 물리 디스크 SMART 수집기 — oneshot (Ansible 관리 — 대상에서 직접 편집 금지)
+# 타이머(keiwi-disk-smart.timer)가 {{ disk_smart_interval }}마다 트리거. textfile .prom 을 생성.
+[Unit]
+Description=KEIwi 물리 디스크 SMART 수집(RAID 뒤 -d cciss,N -> node-exporter textfile)
+# 로컬 디바이스만 만지므로 network-online 을 기다릴 이유가 없다.
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart={{ disk_smart_script_path }}
+# 연구 워크로드 옆에서 도는 백그라운드 점검 — CPU·I/O 둘 다 최하위로 양보한다.
+Nice=10
+IOSchedulingClass=idle
+# 최악의 경우 probe_timeout({{ disk_smart_probe_timeout }}s) × (max_index+1) 만큼 걸릴 수 있다.
+TimeoutStartSec={{ disk_smart_start_timeout }}
+# 하드닝. 쓰기는 textfile 디렉터리 한 곳으로 제한한다(AC-2-13).
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths={{ disk_smart_textfile_dir }}
+# ⚠️ PrivateDevices=true 를 절대 넣지 않는다 — /dev/sgN 이 숨겨져 수집이 통째로 불가능해진다
+#    (roles/smartctl-exporter 유닛 주석과 같은 이유). 여기서 "더 안전하게" 하려는 시도가
+#    조용한 no-data 를 만든다.

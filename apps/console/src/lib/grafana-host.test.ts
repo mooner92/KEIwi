@@ -1,17 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { resolveGrafanaBase, hostnameOf } from "@/lib/grafana-host";
 
-const CONF = "https://grafana.excusa.uk";
+// 픽스처 도메인은 RFC 2606(example.com) — 실도메인을 커밋하지 않는다(check:secrets S2 스코프
+// 밖이지만 문서·픽스처 규약은 같다). 순수 문자열 비교라 도메인이 바뀌어도 동작은 불변이다.
+const CONF = "https://grafana.example.com";
 
 describe("resolveGrafanaBase (임베드 same-site 보장 — 로그인 루프 방지)", () => {
   it("같은 사이트(도메인 접속) → 설정 URL 그대로", () => {
-    expect(resolveGrafanaBase(CONF, "keiwi.excusa.uk")).toBe(CONF);
-    expect(resolveGrafanaBase(CONF, "grafana.excusa.uk")).toBe(CONF);
-    expect(resolveGrafanaBase(CONF, "a.b.excusa.uk:443")).toBe(CONF);
+    expect(resolveGrafanaBase(CONF, "console.example.com")).toBe(CONF);
+    expect(resolveGrafanaBase(CONF, "grafana.example.com")).toBe(CONF);
+    expect(resolveGrafanaBase(CONF, "a.b.example.com:443")).toBe(CONF);
   });
 
   it("대소문자 무시", () => {
-    expect(resolveGrafanaBase(CONF, "KEIWI.EXCUSA.UK")).toBe(CONF);
+    expect(resolveGrafanaBase(CONF, "CONSOLE.EXAMPLE.COM")).toBe(CONF);
   });
 
   it("내부 IP 접속 → 같은 호스트 :3000 (크로스 사이트 회피)", () => {
@@ -48,7 +50,7 @@ describe("resolveGrafanaBase (임베드 same-site 보장 — 로그인 루프 �
 
 describe("hostnameOf", () => {
   it("포트 제거·소문자", () => {
-    expect(hostnameOf("KEIwi.Excusa.UK:3105")).toBe("keiwi.excusa.uk");
+    expect(hostnameOf("KEIwi.Example.COM:3105")).toBe("keiwi.example.com");
   });
   it("IPv6 브래킷 파싱", () => {
     expect(hostnameOf("[2001:db8::1]:3105")).toBe("2001:db8::1");

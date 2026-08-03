@@ -64,7 +64,7 @@ data04 `ZC1AE78X`가 grown defect **773개**(가동 63,777h), `ZC1968JB`가 defe
 > 다섯 결함의 공통 형태는 **"측정하지 않은 것이 정상으로 보인다"**다.
 > 그래서 이 스펙의 성공 조건은 "메트릭을 늘렸다"가 아니라
 > **"측정하지 않은 영역의 크기가 숫자로 대시보드에 뜨고, 0으로 수렴하는지 기계가 판정한다"**이다.
-> 그것이 `fleet:node_hygiene_coverage:gap`(현재 2) · `node_smart_disks_total` · `fleet:node_chassis_power:reporting_count`(현재 3/4) · `fleet:gpu_driver_unlabeled:count`(현재 4) · `fleet:node_reboot_required:count`(현재 2)가 존재하는 이유다.
+> 그것이 `fleet:node_hygiene_coverage:gap`(현재 2) · `node_smart_disks` · `fleet:node_chassis_power:reporting_count`(현재 3/4) · `fleet:gpu_driver_unlabeled:count`(현재 4) · `fleet:node_reboot_required:count`(현재 2)가 존재하는 이유다.
 >
 > **그리고 그 지표들은 알림이 아니다.** 알림으로 만드는 순간 "도입 첫날부터 상주 발화"가 되고, 그것이 hardware-ops T0-7이 「알림 무시 습관의 시작」으로 지목한 패턴이다. 이 스펙에서 **재부팅 부채(축1)·GDL(축2)·전력(축4)은 전부 패널 + 티켓**이고, 알림 승격은 부채가 0이 되거나 2주 섀도를 거친 뒤의 별도 태스크다.
 

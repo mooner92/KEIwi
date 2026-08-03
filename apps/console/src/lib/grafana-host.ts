@@ -6,7 +6,8 @@
  *
  * 왜: 크로스 사이트 iframe에서는 브라우저가 Grafana 세션 쿠키(SameSite=Lax 기본)를
  * 서드파티로 취급해 저장/전송을 거부한다 → 로그인해도 쿠키가 안 남아 로그인 화면 무한 루프.
- * (증상: keiwi.excusa.uk 접속은 정상, 192.168.x.x:3105 접속은 임베드 로그인 루프 — 2026-07-02)
+ * (증상: 도메인 접속(console.example.com)은 정상, LAN IP(192.168.x.x:3105) 접속은 임베드
+ * 로그인 루프 — 2026-07-02. 예시 도메인은 RFC 2606: 실도메인을 소스에 박지 않는다 — S2)
  */
 
 /** 내부(LAN) 접속 시 임베드할 Grafana 포트 — data05 docker-proxy(:3000, known-endpoints와 동일). */
@@ -25,7 +26,7 @@ export function hostnameOf(host: string | null | undefined): string {
 
 /**
  * 쿠키 관점의 "사이트" 근사값: IP·IPv6·localhost·단일 라벨은 그 자체,
- * 도메인은 마지막 두 라벨(registrable domain 근사 — excusa.uk 류에 충분).
+ * 도메인은 마지막 두 라벨(registrable domain 근사 — 우리가 쓰는 2라벨 도메인에 충분).
  */
 function siteOf(hostname: string): string {
   if (!hostname) return "";
@@ -42,8 +43,10 @@ function siteOf(hostname: string): string {
 
 /**
  * 임베드 베이스 결정 (순수 — 테스트 대상).
- * @param configuredUrl GRAFANA_URL (예: https://grafana.excusa.uk)
- * @param requestHost   요청 Host 헤더 (예: keiwi.excusa.uk · 192.168.1.105:3105)
+ * 예시 값은 RFC 2606(example.com)·RFC 5737(192.0.2.0/24) 문서용 대역을 쓴다 — 실도메인·실 LAN IP를
+ * 소스에 박으면 배포 위상이 공개 레포에 남는다(check:secrets S2).
+ * @param configuredUrl GRAFANA_URL (예: https://grafana.example.com)
+ * @param requestHost   요청 Host 헤더 (예: console.example.com · LAN IP 192.0.2.10:3105)
  */
 export function resolveGrafanaBase(
   configuredUrl: string,

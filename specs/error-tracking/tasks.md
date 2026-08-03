@@ -41,7 +41,7 @@
 - [x] **E1-4** `[server]` (S) **GV-5 빈 시크릿 거동 측정** — 격리 프로젝트에서 `SECRET_KEY=`로 `up -d` → `docker logs`. **기동 실패인지 경고만인지 기록.** 이 결과가 `check-env.sh`의 강도를 정한다. **선행: E1-3**
 - [x] **E1-5** `[server]` (S) **정상 기동** — `check-env.sh` 통과 후 `postgres` → 헬스 확인 → `web`·`valkey` 순서로. compose 1.29 recreate 시 `docker rm -f` 후 `up -d`. 검증: `curl -o /dev/null -w '%{http_code}' 127.0.0.1:8090` → 200 · **AC-E-16**(mem_limit 실효). **선행: E1-4**
 - [ ] **E1-6** `[server]` (S) **첫 사용자 생성 → 즉시 `ENABLE_USER_REGISTRATION=False` → 재기동.** 검증: **AC-E-9**. **선행: E1-5.** ⚠️ 이 항목을 미루면 가입이 열린 상태로 남는다(기본값이 안전하지 않다)
-- [ ] **E1-7** `[server]` (S) Cloudflare 터널 라우트 `glitchtip.excusa.uk` + Access 정책 — E0-1의 cloudflared 런타임 판정에 따라 대상 주소 결정. `grafana.excusa.uk`와 동일 패턴(§14). **선행: E1-5**
+- [ ] **E1-7** `[server]` (S) Cloudflare 터널 라우트(GlitchTip 서브도메인) + Access 정책 — E0-1의 cloudflared 런타임 판정에 따라 대상 주소 결정. Grafana 터널과 동일 패턴(§14). **주소는 레포에 적지 않는다**(§13). **선행: E1-5**
 - [x] **E1-8** (S) `infra/monitoring/prometheus.yml`에 `glitchtip` job 1개 추가(`172.18.0.1:8090`). **레포만.** 검증: **AC-E-19**. **선행: E1-5**
 - [ ] **E1-9** `[server]` (S) E1-8 라이브 반영 — 레포본을 `/data/monitoring/prometheus.yml`에 정렬 후 `docker compose restart prometheus`. **라이브 파일 직접 편집 금지(§12).** **선행: E1-8**
 
@@ -69,7 +69,7 @@
 - [x] **E3-6** `[server]` (S) **AC-E-5 ingest 도달** — `curl -X POST "$GT/api/$PID/envelope/?sentry_key=$KEY"` → 200 + 잘못된 key → 4xx. **둘 다** 확인. **선행: E2-2, E3-5**
 - [x] **E3-7** `[server]` (S) **서버 왕복** — 동일 init 모듈을 import하는 **일회성 스크립트**에서 `captureException` → 60초 내 GlitchTip 이슈 1건 + **`#keiwi-web` 알림 1건**(= US-1 달성). **프로덕션에 셀프테스트 라우트를 남기지 않는다.** **선행: E3-6**
 - [ ] **E3-8** (M) `instrumentation-client.ts` + `src/app/global-error.tsx`(신규) + `/monitoring` tunnel route handler(서버측 2차 화이트리스트·body 상한·자기 계측 제외·middleware negative matcher). `denyUrls`는 **브라우저 확장 패턴만**(Grafana 금지). 검증: **AC-E-7**(POST 대상 = 우리 오리진). **선행: E3-7**
-- [ ] **E3-9** (S) `apps/console/scripts/check-error-tracking.sh` + `package.json`의 `verify`에 편입. 검증: **AC-E-12** · **AC-E-13** · **AC-E-20**. **선행: E3-8**
+- [ ] **E3-9** (S) `apps/console/scripts/check-error-tracking.sh` **[미구현 — 이 태스크가 만든다]** + `package.json`의 `verify`에 편입(레포 전역 게이트라면 `scripts/gates/check-*`가 정본 경로, fleet-hardening §0.2). 검증: **AC-E-12** · **AC-E-13** · **AC-E-20**. **선행: E3-8**
 - [ ] **E3-10** `[server]` (S) **AC-E-4 격리 검증** — `docker stop glitchtip-web` 상태에서 콘솔 `/overview` 200 + p95 +100 ms 이내. **선행: E3-8**
 - [ ] **E3-11** `[server]` (S) **AC-E-17 폭주 방어** — `ignoreErrors` 대상 100회 → 이벤트 증가 0 / throttle 초과 시 **429**. **선행: E3-7**
 

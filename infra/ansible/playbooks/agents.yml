@@ -6,8 +6,14 @@
 #   cd infra/ansible
 #   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K --check --diff
 #   ansible-playbook -i inventory.ini playbooks/agents.yml --limit data04 -K
-#   ※ -K(--ask-become-pass): 대상의 sudo가 NOPASSWD가 아니면 필요(예 data04 mhchoi).
-#     "BECOME password:" 프롬프트에 그 노드 sudo 비번 입력(레포 저장 안 함 §13).
+#   ※ -K(--ask-become-pass): 대상의 sudo가 NOPASSWD가 아니면 필요 — **실측상 data05뿐이다**
+#     (2026-08-02 4노드 전수 `sudo -n true`: data01·03·04 rc=0, **data05 rc=1**.
+#      data05 sudoers의 `(ALL) NOPASSWD: ALL` 뒤에 `(ALL : ALL) ALL`이 와서 마지막 규칙이 이긴다).
+#     ansible.cfg가 become=True라 **--check(드라이런)에서도** data05는 -K가 필요하다.
+#     "BECOME password:" 프롬프트에 그 노드 sudo 비번 입력(레포 저장 안 함 §13 —
+#      -e ansible_become_password=로 넘기지 말 것. 프로세스 목록에 남는다).
+#     프롬프트를 1회로 줄이려면 `--limit data05 -K`로 분리 실행한다.
+#     hardware-ops T0-6(data05 sudoers 순서 교정)이 끝나면 -K 자체가 불필요해진다.
 #
 # 향후 node-exporter·dcgm-exporter role도 여기에 묶는다(ADR-0017 백로그).
 
@@ -35,13 +41,32 @@
   roles:
     - smartctl-exporter
 
-# node-exporter 미사용 수집기(systemd·textfile) 활성화 + OS 위생 메트릭.
-# apt node-exporter 노드(data03/04)만 실제 적용 — data05(컨테이너)는 role이 자동 스킵
-# (docker-compose.yml의 node-exporter command로 동일 플래그 부여). 알림 규칙은 만들지 않음.
-- name: OS 위생 수집기 (node-exporter textfile·systemd, apt 노드)
+# node-exporter 미사용 수집기(systemd·textfile) 활성화 + OS 위생/NVIDIA 정합성 메트릭.
+# **전 노드(data01·03·04·05)에 실제 적용된다.** 설치 방식이 가르는 것은 ARGS 주입 태스크
+# 하나뿐이고(apt 노드만), 수집 스크립트·유닛·타이머는 호스트 레벨이라 방식과 무관하다.
+# data05는 node-exporter가 컨테이너지만 .prom을 읽는 경로가 호스트 바인드마운트이므로
+# 수집 스크립트는 여기서 배포한다(inventory.ini의 node_hygiene_consumer=container).
+# 알림은 이 role이 만들지 않는다 — 커버리지 알림 2건은 Grafana 프로비저닝 소관(spec §1.2 D1-4).
+- name: OS 위생 수집기 (node-exporter textfile·systemd, 전 노드)
   hosts: nodes
   become: true
   gather_facts: true
   tags: [node-hygiene]
   roles:
     - node-hygiene
+
+# RAID 컨트롤러 뒤 **물리 디스크** SMART 수집기(textfile). specs/fleet-hardening §2 / ADR-0024.
+# ⚠️ 위 [smartctl] play(:9633 익스포터)는 **건드리지 않는다.** 둘은 서로 다른 사실을 준다:
+#     :9633 = 논리 볼륨(HPE LOGICAL VOLUME 3개, 라이브 green) · 이 role = 그 뒤 물리 디스크 12본.
+#     같은 이름공간으로 합치면 "몇 본인가"를 묻는 모든 쿼리가 조용히 틀린 답을 한다.
+# 신규 포트·터널·ufw 규칙·Prometheus job **0개** — node-exporter가 이미 읽는 textfile에 쓴다.
+#     그래서 data04 `:9634` 터널 블로커가 이 축에서 **소멸한다**(spec §2.2 D2-2).
+# 가드(textfile 디렉터리 존재 + smartctl >= 7.0)는 role 안에 있고, 못 넘는 노드는 사유를 찍고
+#     스킵한다 — data01(Ubuntu 16.04)은 apt 후보가 6.4(--json 미지원)라 여기서 걸린다(T2-11·T2-17).
+- name: 물리 디스크 SMART 수집기 (RAID 컨트롤러 뒤, 전 노드)
+  hosts: nodes
+  become: true
+  gather_facts: true
+  tags: [disk-smart]
+  roles:
+    - disk-smart-textfile

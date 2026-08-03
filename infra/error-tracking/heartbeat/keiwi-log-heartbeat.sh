@@ -20,11 +20,14 @@
 #
 # 설정: /data/glitchtip/heartbeat.env (root 0600, §13)
 #   GLITCHTIP_HEARTBEAT_URL=http://127.0.0.1:8090/api/0/organizations/<org>/heartbeat_check/<uuid>/
-#   ※ 반드시 로컬 주소. UI가 알려주는 glitchtip.excusa.uk는 터널(E1-7) 완료 전엔 도달 불가.
+#   ※ 반드시 로컬 주소. UI가 알려주는 외부 도메인은 터널(E1-7) 완료 전엔 도달 불가.
 #   ※ 반드시 POST. GET은 405를 준다[실측].
 set -uo pipefail
 
 ENV_FILE="${ENV_FILE:-/data/glitchtip/heartbeat.env}"
+# shellcheck source=/dev/null
+#   경로가 런타임에 정해지고 대상이 레포 밖 0600 시크릿 파일이라(§13) shellcheck가 따라갈
+#   파일이 원리적으로 없다. SC1090 억제가 아니라 "정적으로 알 수 없다"를 밝히는 공식 지시어다.
 [ -r "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 
 OS_URL="${OPENSEARCH_URL:-http://127.0.0.1:9200}"

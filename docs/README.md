@@ -48,14 +48,30 @@
 | [0007](./decisions/0007-brand-color-strategy.md) | 브랜드 컬러 | [0016](./decisions/0016-gpu-drilldown-dcgm.md) | GPU 드릴다운 DCGM |
 | [0008](./decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./decisions/0017-node-onboarding-standard.md) | 노드 온보딩 표준 |
 | [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip) |
+| [0023](./decisions/0023-ci-pipeline.md) | CI 파이프라인 | [0024](./decisions/0024-physical-disk-smart-collection.md) | 물리 디스크 SMART 수집(textfile) |
 
 ## 🛠️ 런북 (`./runbooks/`)
 
-| 런북 | 언제 |
-| --- | --- |
-| [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) |
-| [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 |
-| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — LogIngestStalled/하트비트 |
+> 형식 계약: 모든 런북은 frontmatter(`id`=파일 stem · `kind` · `category`, `kind: alert`는 `alerts`·`severity` 추가)를 갖고
+> **이 표에 한 줄로 링크된다.** 둘 다 `scripts/gates/check-runbooks.sh`가 기계 검증한다(R6·R9).
+> 골격은 [`runbook-template.md`](./runbook-template.md).
+
+| 런북 | 언제 | 담당 알림 |
+| --- | --- | --- |
+| [gpu-xid](./runbooks/gpu-xid.md) | GPU XID 에러 — latched 게이지 판별·코드 분기(앱 vs HW) | `GpuXidErrorNew` · `GpuXidCritical`(미배포) |
+| [gpu-thermal](./runbooks/gpu-thermal.md) | GPU 과열(92°C) — 스로틀 대체 판별, 현재 여유 2°C | `GpuTempHigh` |
+| [node-down](./runbooks/node-down.md) | 노드 무응답 — exporter down vs 노드 down 분기(data04 터널 오판) | `NodeDown` |
+| [disk-pressure](./runbooks/disk-pressure.md) | 디스크 사용률·소진 예측 | `DiskUsageHigh` · `DiskFillPredicted` |
+| [memory-pressure](./runbooks/memory-pressure.md) | 메모리 고갈·OOM kill (⚠️ data01은 `oom_kill` 미수집) | `MemoryLow` · `OomKillOccurred` |
+| [smart-health-failed](./runbooks/smart-health-failed.md) | SMART 헬스 실패 — 논리 볼륨 수준 판정(물리 디스크는 아래 런북) | `SmartHealthFailed` |
+| [disk-grown-defects](./runbooks/disk-grown-defects.md) | RAID 뒤 **물리 디스크** 열화 — 시리얼로 특정(인덱스는 베이가 아니다) | `DiskGrownDefectsGrowing` · `DiskUncorrectedErrorsGrowing` · `PhysicalDiskDisappeared` |
+| [node-hygiene-coverage-gap](./runbooks/node-hygiene-coverage-gap.md) | 위생 수집기가 없는 노드 존재 = 탐지 사각지대 | `NodeHygieneCoverageGap` |
+| [node-hygiene-stale](./runbooks/node-hygiene-stale.md) | 위생 수집기가 낡은 `.prom`을 계속 서빙 | `NodeHygieneStale` |
+| [reboot-required-stale](./runbooks/reboot-required-stale.md) | 재부팅 부채 청산 절차(알림은 T1-14에서 승격 — 현재 미배포) | `RebootRequiredStale`(미배포) |
+| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — 하트비트 | `LogIngestStalled` |
+| [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) | — (절차서) |
+| [alert-relay-rollback](./runbooks/alert-relay-rollback.md) | alert-relay 장애 시 알림 경로 복구 — 직송 복귀(파일 1개, <5분) | — (절차서) |
+| [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 | — (종결 인시던트) |
 
 ## 🏗️ 인프라 (`../infra/`)
 

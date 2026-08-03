@@ -1,3 +1,15 @@
+---
+id: log-ingestion-stopped
+kind: alert
+alerts: [LogIngestStalled]
+service: keiwi-logstash
+category: infra
+severity: critical
+signature: "No configuration found in the configured sources"
+affected_nodes: [data01, data03, data04, data05]
+last_verified: 2026-08-03
+---
+
 # 런북 · 통합 로그 인입 중단 (silent stop)
 
 > 로그가 **조용히** 멈추는 장애를 진단·복구한다. 이 장애의 무서운 점은 **아무것도 에러를 내지 않는다**는 것이다 — `systemctl`은 `active`, 포트는 열려 있고, 대시보드는 "에러 0건"을 초록으로 보여준다. 사람은 "플릿이 건강하다"고 읽는다.
@@ -63,7 +75,7 @@ sleep 30 && curl -s 'localhost:9200/keiwi-logs-*/_count'   # 증가하면 복구
 
 해당 노드에서(예 data01):
 ```bash
-ssh -p 764 <user>@<ip> 'sudo -n sh -c "
+ssh -p 764 "<user>@<ip>" 'sudo -n sh -c "
   systemctl is-active keiwi-filebeat
   tail -2 /var/log/keiwi-filebeat/filebeat | grep -o \"libbeat.*pipeline[^}]*}\"
   ls -l /var/lib/keiwi-filebeat/registry/filebeat/log.json

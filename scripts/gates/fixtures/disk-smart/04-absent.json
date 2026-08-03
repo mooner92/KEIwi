@@ -1,0 +1,38 @@
+{
+ "json_format_version": [
+  1,
+  0
+ ],
+ "smartctl": {
+  "version": [
+   7,
+   4
+  ],
+  "pre_release": false,
+  "svn_revision": "5530",
+  "platform_info": "x86_64-linux-6.8.0-134-generic",
+  "build_info": "(local build)",
+  "argv": [
+   "smartctl",
+   "--json",
+   "--info",
+   "--health",
+   "--attributes",
+   "--log=error",
+   "-d",
+   "cciss,13",
+   "/dev/sg2"
+  ],
+  "messages": [
+   {
+    "string": "Smartctl open device: /dev/sg2 [cciss_disk_13] [SCSI/SAT] failed: INQUIRY [SAT]: No such device or address",
+    "severity": "error"
+   }
+  ],
+  "exit_status": 2
+ },
+ "local_time": {
+  "time_t": 1785743634,
+  "asctime": "Mon Aug  3 07:53:54 2026 UTC"
+ }
+}

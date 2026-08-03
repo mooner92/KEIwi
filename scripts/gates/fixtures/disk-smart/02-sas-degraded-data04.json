@@ -1,0 +1,120 @@
+{
+ "json_format_version": [
+  1,
+  0
+ ],
+ "smartctl": {
+  "version": [
+   7,
+   4
+  ],
+  "pre_release": false,
+  "svn_revision": "5530",
+  "platform_info": "x86_64-linux-6.8.0-101-generic",
+  "build_info": "(local build)",
+  "argv": [
+   "smartctl",
+   "--json",
+   "--info",
+   "--health",
+   "--attributes",
+   "--log=error",
+   "-d",
+   "cciss,2",
+   "/dev/sg3"
+  ],
+  "exit_status": 0
+ },
+ "local_time": {
+  "time_t": 1785743634,
+  "asctime": "Mon Aug  3 07:53:54 2026 UTC"
+ },
+ "device": {
+  "name": "/dev/sg3",
+  "info_name": "/dev/sg3 [cciss_disk_02] [SCSI]",
+  "type": "cciss",
+  "protocol": "SCSI"
+ },
+ "scsi_vendor": "HP",
+ "scsi_product": "MB4000JVYZQ",
+ "scsi_model_name": "HP MB4000JVYZQ",
+ "scsi_revision": "HPD3",
+ "scsi_version": "SPC-4",
+ "user_capacity": {
+  "blocks": 7814037168,
+  "bytes": 4000787030016
+ },
+ "logical_block_size": 512,
+ "rotation_rate": 7200,
+ "form_factor": {
+  "scsi_value": 2,
+  "name": "3.5 inches"
+ },
+ "logical_unit_id": "0x5000c500a7e0da17",
+ "serial_number": "ZC1AE78X",
+ "device_type": {
+  "scsi_terminology": "Peripheral Device Type [PDT]",
+  "scsi_value": 0,
+  "name": "disk"
+ },
+ "scsi_transport_protocol": {
+  "name": "SAS (SPL-4)",
+  "value": 6
+ },
+ "smart_support": {
+  "available": true,
+  "enabled": true
+ },
+ "temperature_warning": {
+  "enabled": true
+ },
+ "smart_status": {
+  "passed": true
+ },
+ "temperature": {
+  "current": 34,
+  "drive_trip": 60
+ },
+ "power_on_time": {
+  "hours": 63802,
+  "minutes": 52
+ },
+ "scsi_start_stop_cycle_counter": {
+  "year_of_manufacture": "2019",
+  "week_of_manufacture": "05",
+  "specified_cycle_count_over_device_lifetime": 50000,
+  "accumulated_start_stop_cycles": 107,
+  "specified_load_unload_count_over_device_lifetime": 600000,
+  "accumulated_load_unload_cycles": 2713
+ },
+ "scsi_grown_defect_list": 773,
+ "scsi_error_counter_log": {
+  "read": {
+   "errors_corrected_by_eccfast": 0,
+   "errors_corrected_by_eccdelayed": 4,
+   "errors_corrected_by_rereads_rewrites": 0,
+   "total_errors_corrected": 4,
+   "correction_algorithm_invocations": 0,
+   "gigabytes_processed": "622892.297",
+   "total_uncorrected_errors": 0
+  },
+  "write": {
+   "errors_corrected_by_eccfast": 0,
+   "errors_corrected_by_eccdelayed": 0,
+   "errors_corrected_by_rereads_rewrites": 0,
+   "total_errors_corrected": 0,
+   "correction_algorithm_invocations": 0,
+   "gigabytes_processed": "1915.661",
+   "total_uncorrected_errors": 0
+  },
+  "verify": {
+   "errors_corrected_by_eccfast": 0,
+   "errors_corrected_by_eccdelayed": 0,
+   "errors_corrected_by_rereads_rewrites": 0,
+   "total_errors_corrected": 0,
+   "correction_algorithm_invocations": 0,
+   "gigabytes_processed": "12.882",
+   "total_uncorrected_errors": 0
+  }
+ }
+}

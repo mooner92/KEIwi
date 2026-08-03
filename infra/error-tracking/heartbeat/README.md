@@ -42,7 +42,7 @@ sudo mkdir -p /opt/keiwi/heartbeat
 sudo install -m 0755 -o root -g root keiwi-log-heartbeat.sh /opt/keiwi/heartbeat/
 
 # ② 시크릿 — 하트비트 URL(레포 밖, §13). 반드시 로컬 주소 + POST.
-#    UI가 알려주는 https://glitchtip.excusa.uk/... 는 터널(E1-7) 완료 전엔 도달 불가다.
+#    UI가 알려주는 외부 도메인 주소는 터널(E1-7) 완료 전엔 도달 불가다.
 sudo sh -c 'printf "하트비트 URL(로컬 형식): "; stty -echo; read -r U; stty echo; echo; printf "GLITCHTIP_HEARTBEAT_URL=%s\n" "$U" > /data/glitchtip/heartbeat.env; chmod 600 /data/glitchtip/heartbeat.env; printf "→ 저장 길이: %d자\n" "${#U}"'
 
 # ③ 유닛

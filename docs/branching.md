@@ -189,7 +189,15 @@ hotfix는 PATCH 태그(`v0.2.1`)를 동반한다.
 
 - [ ] **Require a pull request before merging** — 직접 push 차단.
   - [ ] `main`: Require approvals(1). 1인 운영이면 최소한 self-review 강제로 "본 것".
-- [ ] **Require status checks to pass** — CI(`npm run verify`) 초록일 때만 머지.
+- [ ] **Require status checks to pass** — 아래 **3개를 required 로 등록**한다
+      (`.github/workflows/ci.yml` 의 잡 이름이 곧 status check 이름이다):
+  - [ ] `console` — lint·typecheck·test·**build**·시크릿 게이트. build 는 여기서만 돈다(라이브 `.next` 보호, §12).
+  - [ ] `repo-gates` — YAML·JSON·셸·파이썬·compose·Grafana 프로비저닝·런북·자격증명.
+  - [ ] `infra-iac` — ansible·promtool(설정·규칙·**단위 테스트**)·메트릭명 가드.
+  - > `npm run verify` 는 **콘솔 스코프뿐**이라 status check 이름이 아니다. 레포 전역 로컬 실행은
+    > `bash scripts/verify-all.sh` 이고, CI는 그것을 3개 잡으로 나눠 돈다(도구 체인이 셋이라서).
+  - > **1주 정보성 관찰 뒤에 required 로 올린다**(fleet-hardening T5-24). red 인 채 required 로 올리면
+    > 1인 운영에서 머지가 전면 정지하고 우회할 사람도 없다.
 - [ ] **Require branches to be up to date before merging** — 뒤처진 브랜치 머지 방지.
 - [ ] **Require linear history**(선택) — `dev`는 끔(merge commit 유지), `main`은 취향껏.
 - [ ] **Do not allow bypassing the above settings** — 관리자도 우회 금지.

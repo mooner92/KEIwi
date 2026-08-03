@@ -1,0 +1,41 @@
+{
+  "_comment": "E4 수집기(scripts/collectors/disk-attribution.sh) 출력 계약 샘플 — spec §4.2 D4-1. 2026-08-03 사건(data04 /) 리플레이. raw는 로컬 전용 필드이고 Slack 반출 금지다(AC-E4-3·E4-6) — 이 픽스처가 그 경계를 테스트한다.",
+  "node": "data04",
+  "mount": "/",
+  "usage_pct": 95.2,
+  "collected_at": "2026-08-03T09:01:00Z",
+  "partial": false,
+  "top_dirs": [
+    { "path_category": "사용자 홈", "owner": "user2", "bytes": 143902441472, "delta_bytes": 0 },
+    { "path_category": "사용자 홈", "owner": "user5", "bytes": 81604378624, "delta_bytes": 0 },
+    { "path_category": "사용자 홈", "owner": "user6", "bytes": 32212254720, "delta_bytes": 2362232012 }
+  ],
+  "recent_files": [
+    {
+      "bytes": 1181116006,
+      "mtime": "2026-08-03T08:45:00Z",
+      "owner": "user6",
+      "category": "Python 환경"
+    },
+    {
+      "bytes": 1181116006,
+      "mtime": "2026-08-03T08:48:00Z",
+      "owner": "user6",
+      "category": "Python 환경"
+    }
+  ],
+  "sudo_commands": [
+    {
+      "ts": "2026-08-03T08:45:12Z",
+      "user": "user6",
+      "cwd_category": "사용자 홈",
+      "raw": "sudo: user6 : TTY=pts/3 ; PWD=/home/user6/work ; USER=root ; COMMAND=/usr/bin/python3 -m venv /home/user6/work/tf-venv"
+    },
+    {
+      "ts": "2026-08-03T08:47:41Z",
+      "user": "user6",
+      "cwd_category": "사용자 홈",
+      "raw": "sudo: user6 : TTY=pts/3 ; PWD=/home/user6/work ; USER=root ; COMMAND=/usr/bin/pip install tensorflow"
+    }
+  ]
+}

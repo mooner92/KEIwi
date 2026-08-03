@@ -1,0 +1,53 @@
+{
+  "receiver": "alert-relay",
+  "status": "firing",
+  "orgId": 1,
+  "version": "1",
+  "groupKey": "{}/{domain=\"infra\",severity=\"warning\"}:{alertname=\"DiskUsageHigh\", node=\"192.168.1.104:9100\"}",
+  "truncatedAlerts": 0,
+  "externalURL": "http://192.168.1.105:3000/",
+  "title": "🔴 [WARNING] DiskUsageHigh · 192.168.1.104:9100",
+  "state": "alerting",
+  "message": "*DiskUsageHigh* · 192.168.1.104:9100 — 192.168.1.104 / 사용률 95.2% (임계 90% · 15m 지속)\n시작 08-03 17:59 KST\n<http://192.168.1.105:3106/incidents?alert=DiskUsageHigh&node=192.168.1.104:9100&mount=/&from=now-6h|콘솔 분석> · <http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance=192.168.1.104:9100&from=now-6h&to=now|드릴다운>",
+  "groupLabels": {
+    "alertname": "DiskUsageHigh",
+    "node": "192.168.1.104:9100"
+  },
+  "commonLabels": {
+    "alertname": "DiskUsageHigh",
+    "domain": "infra",
+    "node": "192.168.1.104:9100",
+    "severity": "warning"
+  },
+  "commonAnnotations": {},
+  "alerts": [
+    {
+      "status": "firing",
+      "fingerprint": "a1b2c3d4e5f60001",
+      "startsAt": "2026-08-03T08:59:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://192.168.1.105:3000/alerting/grafana/keiwi-disk-usage/view",
+      "silenceURL": "http://192.168.1.105:3000/alerting/silence/new?alertmanager=grafana",
+      "dashboardURL": "",
+      "panelURL": "",
+      "values": {
+        "A": 95.2,
+        "C": 1
+      },
+      "labels": {
+        "alertname": "DiskUsageHigh",
+        "domain": "infra",
+        "instance": "192.168.1.104:9100",
+        "mountpoint": "/",
+        "node": "192.168.1.104:9100",
+        "severity": "warning"
+      },
+      "annotations": {
+        "summary": "192.168.1.104 / 사용률 95.2% (임계 90% · 15m 지속)",
+        "console_url": "http://192.168.1.105:3106/incidents?alert=DiskUsageHigh&node=192.168.1.104:9100&mount=/&from=now-6h",
+        "drilldown_url": "http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance=192.168.1.104:9100&var-node=192.168.1.104:9100&var-host=192.168.1.104:9100&from=now-6h&to=now",
+        "runbook_url": "https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md"
+      }
+    }
+  ]
+}
