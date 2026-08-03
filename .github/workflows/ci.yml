@@ -108,6 +108,8 @@ jobs:
         run: bash scripts/gates/check-compose.sh
       - name: Grafana 프로비저닝 (uid·name·임계 드리프트)
         run: python3 scripts/gates/check-grafana-provisioning.py
+      - name: 알림 템플릿 이스케이프 ($labels — env 보간 함정)
+        run: bash scripts/gates/check-alerting-escapes.sh
       - name: 런북 무결성 (runbook_url ↔ 파일)
         run: bash scripts/gates/check-runbooks.sh
       # 콘솔 잡과 달리 빌드 산출물이 없다 → S1(자격증명)·S4(.env 추적)만 돈다.

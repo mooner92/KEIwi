@@ -37,15 +37,12 @@ contactPoints:
           endpointUrl: https://api.slack.com/api/chat.postMessage
           username: KEIwi Alerts
           # 제목은 한 줄로 스캔되게 — 심각도·요약·노드만.
-          title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}{{ if .CommonLabels.node }} · {{ .CommonLabels.node }}{{ end }}'
-          # 본문에 원문 로그·계정명·전체 메트릭 덤프를 넣지 않는다.
-          # 상세는 Grafana 링크로 넘긴다 — 링크는 Zero Trust 뒤라 외부인에겐 무용지물이고,
-          # 알림 자체의 반출량이 줄어든다(개인 워크스페이스 사용 중, README 보안 절 참조).
-          text: |
-            {{ range .Alerts }}*{{ .Labels.alertname }}* — {{ .Annotations.summary }}
-            {{ if .Annotations.runbook_url }}런북: {{ .Annotations.runbook_url }}{{ end }}
-            {{ if .DashboardURL }}대시보드: {{ .DashboardURL }}{{ end }}
-            {{ end }}
+          # 조립 로직의 정본은 templates.yaml(keiwi-slack) — 2채널 중복을 없애고,
+          # env 보간이 `$`를 삼키는 함정을 한 파일에서만 관리한다(E1 D1-4).
+          # 본문에 원문 로그·계정명·전체 메트릭 덤프를 넣지 않는다는 원칙은 템플릿이 승계
+          # — 상세는 링크로 넘긴다(Zero Trust 뒤라 외부인에겐 무용지물, 반출량 최소).
+          title: '{{ template "keiwi.title" . }}'
+          text: '{{ template "keiwi.text" . }}'
         disableResolveMessage: false
 
   - orgId: 1
@@ -63,9 +60,6 @@ contactPoints:
           # (TCP 도달성만 보고 "Slack 안 막혔다"고 판단했다가 틀렸다 — TLS 레벨까지 확인해야 한다.)
           endpointUrl: https://api.slack.com/api/chat.postMessage
           username: KEIwi Alerts
-          title: '{{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} [{{ .CommonLabels.severity | toUpper }}] {{ .CommonLabels.alertname }}'
-          text: |
-            {{ range .Alerts }}*{{ .Labels.alertname }}* — {{ .Annotations.summary }}
-            {{ if .Annotations.runbook_url }}런북: {{ .Annotations.runbook_url }}{{ end }}
-            {{ end }}
+          title: '{{ template "keiwi.title" . }}'
+          text: '{{ template "keiwi.text" . }}'
         disableResolveMessage: false

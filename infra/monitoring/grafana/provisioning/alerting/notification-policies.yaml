@@ -57,7 +57,11 @@ policies:
         object_matchers:
           - ["domain", "=", "infra"]
           - ["severity", "=", "warning"]
-        group_by: ["alertname"]
+        # node 추가(E1 D1-5): [alertname]만으로는 두 노드가 같은 warning을 동시 발화하면
+        # 한 메시지로 묶여 제목에서 노드가 사라진다(CommonLabels는 공유 라벨만 남는다).
+        # 5노드 규모라 노드별 분리로 인한 도배 위험이 낮고, "어느 노드가 해결됐나"가 명확해진다.
+        # 2주 리뷰에서 메시지 수 증가가 거슬리면 이 줄만 되돌린다.
+        group_by: ["alertname", "node"]
         group_wait: 1m
         group_interval: 10m
         repeat_interval: 12h  # 경고는 하루 두 번이면 충분하다
