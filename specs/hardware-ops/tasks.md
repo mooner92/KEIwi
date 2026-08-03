@@ -42,11 +42,13 @@
 
 ## P1 — 설치 0으로 첫 성과 (반나절, 실패 위험 0)
 
-- [ ] **T1-1** (S) `rules/keiwi-hardware.yml` 생성 — `instance:node_chassis_power:watts` · `fleet:node_chassis_power:watts_sum`(0W 노드 제외) · `fleet:gpu_power:watts_sum` · `fleet:gpu_power_share:ratio` · `instance:node_chassis_energy:kwh1d` · `node:gpu_energy:kwh1d` · `product:node_bios_versions:count`. **`record:`만 — `alert:` 키 금지.** 검증: AC-1-1·AC-1-2. **선행: 없음**
-- [ ] **T1-2** (S) `rules/keiwi-standards.yml` 생성 — `fleet:gpu_driver_versions:count`(현재 2) · `fleet:kernel_releases:count`(현재 4). 검증: AC-3-1. **선행: 없음**
-- [ ] **T1-3** `[server]` (S) T1-1·T1-2를 라이브 `/data/monitoring/rules/`에 반영 + `docker compose restart prometheus`. **라이브 파일 직접 편집 금지(§12) — 레포본 복사.** 검증: AC-1-3·AC-1-4
-- [ ] **T1-4** (S) `syshealth.json`에 **row 「전력 · 냉각」 추가**(플릿 전력 stat / GPU 점유율 gauge / 노드별 추세 / 일일 kWh). BMC 메트릭 의존 패널은 P3 이후로 분리해 지금은 hwmon·DCGM만. 검증: AC-1-15. **선행: T1-1**
-- [ ] **T1-5** `[server]` (S) 대시보드 프로비저닝 반영. **`docker cp` 주입 금지**(README:100 — 2026-07-02 재생성으로 대시보드 소실 사고). 바인드 마운트 경로에 복사. **선행: T1-4**
+- [ ] **T1-1** (S) `rules/keiwi-hardware.yml` 생성 — **정본은 fleet-hardening 축4 T4-1이 공급했다**(레포에 이미 있다). 레코드 13종: `instance:node_chassis_power:watts` · `fleet:node_chassis_power:reporting_count`(정직성 분모) · `fleet:node_chassis_power:watts_sum`(0W 노드 제외) · `instance:gpu_power:watts` · `fleet:gpu_power:watts_sum` · `fleet:gpu_power_share:ratio` · `instance:gpu_power_share:ratio` · `instance:node_nongpu_power:watts` · `instance:node_chassis_energy:kwh1d`(원 메트릭 기반 + `> 0`) · `instance:gpu_energy:kwh1d` · `product:node_bios_revisions:count`(bios_release 포함) · `product:node_count:count` · `fleet:node_bios_drift:count`. **`record:`만 — `alert:` 키 금지**(`scripts/gates/check-rules.sh`가 강제). 검증: AC-1-1·AC-1-2 및 **축4 AC-4-1·AC-4-2·AC-4-3·AC-4-7~AC-4-10·AC-4-12**. **선행: 없음**
+- [ ] **T1-2** (S) `rules/keiwi-standards.yml` 생성 — **정본은 fleet-hardening 축4 T4-2가 공급했다**. `fleet:gpu_driver_versions:count`(라벨 필터 필수 — **현재 1**, 초안의 "2"는 라벨 부재 버킷을 센 거짓값) · `fleet:gpu_driver_unlabeled:count`(**현재 4** — 동반 필수) · `fleet:kernel_releases:count`(현재 4) · `fleet:gpu_driver_versions:count_hygiene`(`or vector(0)` 금지). 검증: AC-3-1 및 **축4 AC-4-1·AC-4-4·AC-4-11**. **선행: 없음**
+- [ ] **T1-3** `[server]` (S) T1-1·T1-2를 라이브 `/data/monitoring/rules/`에 반영 + **`sudo docker kill -s HUP prometheus`**. ⚠️ **`docker compose restart` 금지**(prometheus 서비스 포함 — 이 명령을 문자 그대로 남기지 않는 이유는 축4 AC-4-14가 그 문자열의 부재로 교정을 판정하기 때문이다) — 스크레이프·평가 공백에 더해 컨테이너 재생성 리스크가 있고, fleet-hardening spec §7.3이 이 명령을 2026-07-02 대시보드 소실 사고의 원인으로 지목한다. `--web.enable-lifecycle=false`라 HTTP reload(405)도 불가하다. 재적용 후 `prometheus_config_last_reload_successful`=1 **그리고** 신규 그룹 `health=ok`를 **둘 다** 확인한다(실패해도 Prometheus는 구 설정을 조용히 유지한다). **라이브 파일 직접 편집 금지(§12) — 레포본 복사.** 검증: AC-1-3·AC-1-4 및 축4 AC-4-17
+- [x] ~~**T1-4**~~ **[폐기 — 중복]** fleet-hardening **T4-6**이 row 400「전력 (섀시 · GPU)」로 완료했다. 아래 원문은 이력용:
+  -  (S) `syshealth.json`에 **row 「전력 · 냉각」 추가**(플릿 전력 stat / GPU 점유율 gauge / 노드별 추세 / 일일 kWh). BMC 메트릭 의존 패널은 P3 이후로 분리해 지금은 hwmon·DCGM만. 검증: AC-1-15. **선행: T1-1**
+- [x] ~~**T1-5**~~ **[폐기 — 중복]** fleet-hardening **T4-10**과 같은 일이다. 아래 원문은 이력용:
+  -  `[server]` (S) 대시보드 프로비저닝 반영. **`docker cp` 주입 금지**(README:100 — 2026-07-02 재생성으로 대시보드 소실 사고). 바인드 마운트 경로에 복사. **선행: T1-4**
 
 > [!NOTE]
 > P1이 끝나면 JD 관점 두 항목이 실물로 커버된다 — "사용률·용량 지표를 근거로 증설 시점 판단(전력)"과 "펌웨어·BIOS 드리프트". 신규 컴포넌트 0개다.
@@ -113,7 +115,7 @@
 
 - [ ] **T6-1** (M) `docs/decisions/0020-gpu-driver-firmware-standard.md` — 표준=595.x open / **NVIDIA를 `unattended-upgrades` 블랙리스트**(G0-1 직접 원인 차단) / data01 legacy 예외. **선행: T0-4**
 - [ ] **T6-2** (M) `roles/nvidia-driver` — 목표 버전·플레이버를 inventory 변수로 선언, 현재 상태와 대조해 **드리프트를 보고(check 모드)하고 적용은 사람**(§11). **선행: T6-1**
-- [ ] **T6-3** `[server]` (L) data04를 535.309.01 → 595.x로 표준화(다운타임 창). 검증: AC-3-4(`fleet:gpu_driver_versions:count` = 1). **선행: T6-2**
+- [ ] **T6-3** `[server]` (L) data04를 535.309.01 → 595.x로 표준화(다운타임 창). 검증: AC-3-4(**`count_hygiene`=1 AND `unlabeled`=0** — DCGM 라벨만으로는 도달 불가하다는 것이 AC 본문의 결론이다. 옛 표현 `fleet:gpu_driver_versions:count`=1은 폐기). **선행: T6-2**
 - [ ] **T6-4** (M) `infra/monitoring/dcgm/keiwi-counters.csv` — `DCGM_EXP_XID_ERRORS_COUNT`·`DCGM_EXP_CLOCK_EVENTS_COUNT`·ECC SBE/DBE(VOL·AGG)·THERMAL/POWER_VIOLATION·NVLink 에러 4종·`POWER_MGMT_LIMIT`·`SLOWDOWN_TEMPERATURE` 주석 해제 + compose `-f` 마운트 + `--xid-count-window-size`/`--clock-events-count-window-size`. **선행: 없음(T4-2의 XID·G4 규칙이 이걸 기다린다)**
 - [ ] **T6-5** `[server]` (S) T6-4 적용(data03/04/05 dcgm-exporter 재시작). 검증: AC-3-5·AC-3-6. **선행: T6-4**
 - [ ] **T6-6** (S) T4-2의 XID 규칙을 `DCGM_EXP_XID_ERRORS_COUNT` 기반으로 교체하고 임시 `GpuXidLatchChanged`를 제거. `specs/alerting/spec.md` §3.2 PromQL 교정. **선행: T6-5**
@@ -153,4 +155,4 @@
 - [ ] **B07** NVLink 브리지 장착 가능성 — **섀시를 열어 슬롯 간격 실측**(안 열어보고 구매 권고 금지)
 - [ ] **B08** `datacenter-gpu-manager-4-core` 호스트 설치 → `dcgmi diag -r 2 -j` → textfile 변환(r1이 G0-1을 바로 잡는 항목임을 런북에 명시). r3(stress)는 T6-5 이후에만
 - [ ] **B09** `rack`/`pdu_circuit` 실사 → `inventory.yaml` 수기 필드 채움 → 전력 헤드룸을 절대값이 아니라 비율로 말할 수 있게 됨
-- [ ] **B10** `instance:node_bios_age:days` 결론(exporter 쪽 `keiwi_bmc_bios_age_days`로 이동, spec §1.8 주석)
+- [x] **B10** BIOS 경과일 recording rule 결론 — **fleet-hardening T4-7에서 삭제로 종결.** PromQL은 `bios_date` 라벨을 시간으로 파싱하지 못해 초안 식이 릴리스 일자가 아니라 수집 시각을 재고 있었다. 경과일 신호가 다시 필요해지면 exporter 쪽 `keiwi_bmc_bios_age_days` 신설을 **BMC 축의 새 백로그 항목**으로 연다(레코드는 만들지 않는다).

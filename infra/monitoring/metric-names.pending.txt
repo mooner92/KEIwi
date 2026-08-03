@@ -1,0 +1,46 @@
+# infra/monitoring/metric-names.pending.txt — **아직 라이브에 없는데 이 스펙이 배포할 예정인** 메트릭
+#
+# 왜 이 파일이 따로 있나 (spec §0.3)
+#   check-promql-metrics.sh 는 metric-names.txt(라이브 스냅샷)와 대조해 오타를 잡는다.
+#   그런데 축1이 만드는 node_nvidia_* · 축2가 만드는 node_smart_* 는 **배포 전이라
+#   스냅샷에 없다** → 정상 규칙이 FAIL한다. 가드는 두 파일의 **합집합**을 허용집합으로 쓴다.
+#
+# 형식 계약: `<메트릭명>  # spec §N <근거>`
+#   근거 주석이 없는 줄은 게이트가 exit 1 로 떨어뜨린다 — "일단 넣고 보자"를 막기 위함이다.
+#
+# 청소 계약 (AC-4-6 ②): 라이브에 실제로 나타나면 이 파일에서 **제거해야 한다**.
+#   T4-12(배포 직후 스냅샷 재생성)가 metric-names.txt 를 갱신한 직후,
+#   `comm -12 <(sort metric-names.txt) <(cut -d'#' -f1 metric-names.pending.txt …)` 가
+#   비어야 한다. 남아 있으면 "예정"과 "실재"가 동시에 참인 모순 상태다.
+#
+# 갱신: 사람이 수기. 자동 생성하지 않는다(예정 메트릭은 라이브에 근거가 없으므로).
+
+# ── 축1 (T1-3 node-hygiene NVIDIA 블록) — spec §1.2 메트릭 표 6종 ──────────────
+# 축1은 정본 소유자가 T4-5(이 파일)라 자기 태스크에 등록하지 않았다. 여기서 빠지면
+# 어디에도 남지 않고, 축1 규칙(keiwi-hygiene-coverage.yml)이 가드에서 FAIL한다.
+node_nvidia_kernel_module_version   # spec §1.2 /proc/driver/nvidia/version NVRM 값
+node_nvidia_userspace_version       # spec §1.2 ldconfig -p → readlink -f 로 얻은 NVML 실파일 버전
+node_nvidia_version_mismatch        # spec §1.2 두 값 비교(1=불일치). AC-1-5가 data05에서 1을 요구
+node_nvidia_probe_ok                # spec §1.2 판정불능(0)과 정상(1)을 구분 — 미탐을 정상으로 렌더링하지 않기 위함
+node_nvidia_smi_ok                  # spec §1.2 nvidia-smi -L rc==0
+node_nvidia_smi_exit_code           # spec §1.2 rc 그대로(런북이 exit 18로 분기)
+
+# ── 축2 (T2-x disk-smart-textfile role) — spec §2.2 메트릭 계약 전량 ───────────
+# 접두사 node_smart_ 는 물리 디스크 사실, smartctl_device_* 는 논리 볼륨 사실이다.
+# 두 이름공간을 섞지 않는 것이 축2의 설계 전제다(spec §2.2).
+node_smart_disk_info                       # spec §2.2 controller/model/serial/firmware 인벤토리
+node_smart_disk_health_passed              # spec §2.2 smart_status.passed (1/0)
+node_smart_disk_temperature_celsius        # spec §2.2 temperature.current
+node_smart_disk_temperature_trip_celsius   # spec §2.2 temperature.drive_trip (존재 시)
+node_smart_disk_power_on_hours             # spec §2.2 power_on_time.hours
+node_smart_disk_capacity_bytes             # spec §2.2 user_capacity.bytes
+node_smart_disk_grown_defect_list          # spec §2.2 scsi_grown_defect_list (SAS) — 패널 7 대체 신호
+node_smart_disk_uncorrected_errors_total   # spec §2.2 scsi_error_counter_log total_uncorrected_errors
+node_smart_disk_rereads_rewrites_total     # spec §2.2 errors_corrected_by_rereads_rewrites
+node_smart_disk_processed_bytes_total      # spec §2.2 gigabytes_processed × 1e9
+node_smart_disk_ata_attribute_raw          # spec §2.2 ata_smart_attributes 화이트리스트 8종의 raw
+node_smart_disk_ata_attribute_normalized   # spec §2.2 동상 .value
+node_smart_disks_total                     # spec §2.2 발견된 물리 디스크 수 — LV이 절대 말하지 않는 사실
+node_smart_collector_last_run_timestamp_seconds  # spec §2.2 신선도(AC-2-4가 < 1800 검사)
+node_smart_collector_duration_seconds       # spec §2.2 수집 1회 소요(AC-2-7이 < 10 검사)
+node_smart_collector_probe_errors           # spec §2.2 "조회 실패"와 "디스크 부재"를 구분

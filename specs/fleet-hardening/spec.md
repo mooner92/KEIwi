@@ -1250,17 +1250,27 @@ tests:
 
 | 결과 | 건수 | 내용 |
 |---|---|---|
-| 진짜 미존재 메트릭 | **3** | `syshealth.json` 패널 6·7·8의 `smartctl_device_percentage_used`·`smartctl_device_attribute`·`smartctl_device_available_spare` — §0.3이 지목한 그것 |
-| **토크나이저 오탐** | **2** | `Reallocated_Sector_Ct`(라벨 **값**)·`apt_upgrades_pending`(`node_apt_upgrades_pending`의 부분 토큰) |
+| 진짜 미존재 메트릭 | **4** | `syshealth.json` 패널 6·7·8의 `smartctl_device_percentage_used`·`smartctl_device_attribute`·`smartctl_device_available_spare`(§0.3이 지목한 그것) **+ 패널 4·10의 `apt_upgrades_pending`** |
+| **토크나이저 오탐** | **1** | `Reallocated_Sector_Ct` — 라벨 매처의 **값**(문자열 리터럴 안) |
 
-오탐 2건은 설계 요구사항으로 승격한다 — **파서는 (a) 문자열 리터럴 안(라벨 매처의 값), (b) 라벨 매처의 키를 모두 제외해야 한다.** 단순 `\b[a-zA-Z_:][a-zA-Z0-9_:]*\b` 정규식으로는 부족하고, `promtool`이 없어도 도는 최소 PromQL 토크나이저(따옴표·중괄호 상태기계)가 필요하다. 이 두 케이스를 `--self-test` 픽스처로 못 박는다. **이 토크나이저는 §0.2.2 폴백 엔진의 괄호·따옴표 균형 검사와 같은 모듈을 쓴다**(`tools/promtool_fallback.py`가 노출) — 두 벌을 만들면 한쪽만 고쳐져 갈라진다.
+> [!WARNING]
+> **초안 정정 (T4-4 구현 중 실측 2026-08-03).** 이 표의 초안은 `apt_upgrades_pending`을 "`node_apt_upgrades_pending`의 **부분 토큰**"이라는 토크나이저 오탐으로 분류했다. **틀렸다 — 두 가지 이유로 성립하지 않는다.**
+> ① `_`는 단어 문자라 `\b…\b` 정규식으로도 `node_apt_upgrades_pending`에서 `apt_upgrades_pending`이 떨어져 나올 수 없다. 부분 토큰은 애초에 생기지 않는다.
+> ② 히트의 실제 출처는 `syshealth.json` **패널 4·10의 expr 그 자체**다(`sum(apt_upgrades_pending{origin=~".*[Ss]ecurity.*"})` · `apt_upgrades_pending{instance=~"$instance"}`). 이 이름은 라이브 918개 `__name__`에 없고 `max_over_time(apt_upgrades_pending[30d])`도 **빈 벡터**다 — 보존 전 구간 존재한 적이 없다. 이 플릿의 생산자는 `roles/node-hygiene`(`node_apt_upgrades_pending` · `node_apt_security_upgrades_pending`, `origin` 라벨 없음)이고, `apt_upgrades_pending{origin=…}`은 배포된 적 없는 업스트림 apt 컬렉터의 이름이다. 즉 **두 패널은 죽은 패널 6·7·8과 같은 성격의 4번째·5번째 죽은 참조**였다.
+> → 조치: 오탐 허용리스트를 파는 대신 **패널을 고친다**(T4-6). 패널 4는 `sum(node_apt_security_upgrades_pending)`, 패널 10은 `node_apt_upgrades_pending{instance=~"$instance"}` + `origin` 열 제거. 이 정정이 없으면 AC-4-16이 영구 rc=1이다.
+
+오탐 1건은 설계 요구사항으로 승격한다 — **파서는 (a) 문자열 리터럴 안(라벨 매처의 값), (b) 라벨 매처의 키, (c) `by`/`on`/`group_left` 등의 라벨 목록을 모두 제외해야 한다.** 단순 `\b[a-zA-Z_:][a-zA-Z0-9_:]*\b` 정규식으로는 부족하고, `promtool`이 없어도 도는 최소 PromQL 토크나이저(따옴표·중괄호 상태기계)가 필요하다. 오탐 케이스와 "부분 토큰을 만들지 않는다"는 성질을 **둘 다** `--self-test` 픽스처로 못 박는다(후자는 구현을 바꾸다 실수로 분해하는 회귀를 막기 위함이다). **이 토크나이저는 §0.2.2 폴백 엔진의 괄호·따옴표 균형 검사와 같은 모듈을 쓴다**(`tools/promtool_fallback.py`가 `tokenize_promql`·`extract_metric_names`로 노출) — 두 벌을 만들면 한쪽만 고쳐져 갈라진다.
+
+**구현 후 전수 실행 결과 [실측 2026-08-03]**: `expr 155 · 식별자 183 · 미확인 0` (대시보드 10개 + 규칙 4파일). 오탐 0건.
 오타 탐지 자체는 스냅샷 대조로 성립함을 확인했다(`node_hwmon_power_average_watt` ∈ 918 / `_watts` ∉ 918 / 자체 record `fleet:…` OK).
 
 #### D4-5. `dashboards/syshealth.json` — row 2개 추가
 
 기존 마지막 패널이 y=32에서 끝난다. **새 대시보드를 만들지 않는다(§I-2).** `${datasource}` + `$instance`(= `label_values(node_uname_info, instance)` → `<ip>:9100` 형식이라 전력 패널과 그대로 맞는다) 관용구를 따른다. uid `keiwi-syshealth` 불변, 기존 패널 id 1~11·100/200/300 불변, 신규 row id는 400/500대.
 
-**Row 「전력」**(id 400, y=32)
+**Row 「전력」**(id 400, y=**24**)
+
+> **정정 (T4-6 구현 시점).** 초안은 "기존 마지막 패널이 y=32에서 끝나므로 새 row를 y=32부터"라고 적었는데, **같은 태스크가 그 위의 죽은 패널 6·7·8(각 h=8, 두 줄)을 삭제**하므로 두 진술은 동시에 참일 수 없다. 삭제 후 재계산: row 200(y=6)·패널 5(y=7,h=8) → row 300 **y=15** · 패널 9·10·11 **y=16** → **row 400 y=24** · row 500 **y=37**. Grafana는 구멍이 있으면 로드 시 조용히 재배치하므로, 커밋된 JSON이 렌더 결과와 갈라지는 것을 막으려면 좌표를 맞춰 커밋해야 한다.
 
 | 패널 | 타입 | expr | 표시 |
 |---|---|---|---|
@@ -1271,7 +1281,7 @@ tests:
 | 전력 구성(GPU vs 비-GPU) | timeseries(stacked) | `instance:gpu_power:watts` + `instance:node_nongpu_power:watts` | W |
 | 일일 전력량 | bar | `instance:node_chassis_energy:kwh1d` + `instance:gpu_energy:kwh1d` | kWh |
 
-**Row 「표준 드리프트」**(id 500)
+**Row 「표준 드리프트」**(id 500, y=37)
 
 | 패널 | 타입 | expr | 표시 |
 |---|---|---|---|
@@ -1291,12 +1301,23 @@ tests:
 | 8 | `smartctl_device_available_spare * 100` | **삭제** | 동일 |
 | 7 | `smartctl_device_attribute{attribute_name="Reallocated_Sector_Ct"}` | **삭제** | RAID 뒤라 0계열. 대체 신호(`node_smart_disk_grown_defect_list`)는 축2 T2-6이 넣는다 |
 
+**Row 100·300의 죽은 참조 2개 — 같은 성격이라 같은 태스크가 처리한다** (초안 누락, T4-4 구현 중 발견)
+
+| 패널 | 현행 expr | 조치 | 근거 |
+|---|---|---|---|
+| 4 「미적용 보안 업데이트 (전체)」 | `sum(apt_upgrades_pending{origin=~".*[Ss]ecurity.*"})` | expr을 `sum(node_apt_security_upgrades_pending)`로 **교체** | `apt_upgrades_pending`은 918개 스냅샷에 없고 `[30d]` 조회도 빈 벡터다. 이 플릿의 생산자 `roles/node-hygiene`은 `node_apt_*` 이름을 쓰고 `origin` 라벨을 만들지 않는다 |
+| 10 「미적용 업데이트 (노드별)」 | `apt_upgrades_pending{instance=~"$instance"}` | 이름 교체 + `origin` 열 제거 | 동일. 존재하지 않는 라벨로 열을 만들면 표가 영구히 빈 칸을 하나 달고 있게 된다 |
+
 세 이름 모두 라이브 918개 스냅샷에 **없다**(실측). 축2(W4)까지 미루면 축4 가드·축5 CI가 두 파동 내내 red다(§0.3) → **W2인 이 태스크가 처리한다.** 삭제로 row 200이 일시적으로 비는 것은 사실을 드러내는 것이지 후퇴가 아니다 — 그 자리는 T2-6이 물리 디스크 패널로 채운다.
 
 > [!CAUTION]
 > **전력 알림은 만들지 않는다.** 820W→900W일 때 1인 운영자가 취할 조치가 정의되지 않는다(랙 전력 예산·PSU 정격 **미측정**). 조치가 불명확한 신호는 패널이지 알림이 아니다 — hardware-ops가 PSU 불균형을 같은 이유로 스코프 아웃한 것과 동일 판단. `fleet:node_bios_drift:count`·`fleet:gpu_driver_unlabeled:count`의 알림 승격도 알림 축(hardware-ops 축2)이 결정한다. **`rules/`에는 `record:`만 넣는다.**
 
 #### D4-6. hardware-ops 거짓 서술 교정 (T4-7) — **11곳**
+
+> **행번호는 2026-08-02 초안 작성 시점 기준이고 이미 드리프트했다** [실측 2026-08-03 교정 직전]: `spec.md:551`→**572** · `:676`→**697** · `:853`→**887** · `:856`→**890** · `:889`→**923** · `tasks.md:42·43·44`→**45·46·47** · `:151`→**156**. 행번호가 아니라 **인용 문자열**로 찾는다.
+>
+> **추가 제약(구현 중 발견)**: AC-4-13의 grep 스코프에 `specs/hardware-ops/`가 통째로 들어가므로, 교정문에 **폐기된 레코드명을 인용하면 그 문장 자체가 히트**가 되어 영구 rc=1이다(§5의 "자격증명 리터럴을 문서에 재현하지 않는다"와 같은 처리). 교정문은 이름 대신 **"BIOS 버전 카운트 레코드" 같은 지시어 + 이 스펙 §4.2 참조**로 쓴다. 같은 이유로 `tasks.md`의 재시작 금지 문구도 금지 명령 문자열을 통째로 재현하지 않는다(AC-4-14가 그 문자열의 부재로 판정한다).
 
 | 위치 | 현재 | 교정 |
 |---|---|---|
@@ -1372,7 +1393,7 @@ curl -s 'localhost:9090/api/v1/rules?type=record' \
 | **AC-4-13** | 거짓 레코드명이 **적용 대상 코퍼스에서** 완전히 사라졌다 | `! git grep -q 'product:node_bios_versions:count\|instance:node_bios_age:days' -- infra/monitoring/rules/ infra/monitoring/dashboards/ specs/hardware-ops/ ; echo $?` → `0`. **T4-7의 11곳(D4-6) 전부 교정 후에만 통과한다** — 교정 전 실측 히트는 hardware-ops **8줄**(`spec.md:212·216·221·261·551·889` · `tasks.md:42·151`)이고, D4-6이 9곳이던 초안은 그중 `spec.md:551`·`tasks.md:151` 2줄을 못 덮어 **영구 rc=1**이었다(D4-6 10·11행이 그 둘이다). ⚠️ **스코프를 `specs/ infra/` 전체로 잡으면 영구 rc=1** — 이 스펙 자신의 README·spec·tasks가 그 이름을 "삭제 대상"의 근거로 인용하기 때문이다(실측: fleet-hardening 3파일 히트). 삭제해야 할 것은 **규칙·대시보드·hardware-ops 문장**이지 삭제 근거를 적은 문서가 아니다 |
 | **AC-4-14** | hardware-ops의 거짓 기대값이 교정됐다 | `grep -c '현재 \`2\`' specs/hardware-ops/spec.md` → `0`(현재 1) · `grep -q 'fleet:gpu_driver_unlabeled:count' specs/hardware-ops/spec.md` · `grep -q 'count_hygiene' specs/hardware-ops/spec.md` · `! grep -q 'docker compose restart prometheus' specs/hardware-ops/tasks.md` (D4-6 9번째 행) |
 | **AC-4-15** | syshealth에 row 2개 추가 + 플릿 전력 stat이 커버리지 동반 표시 | `jq -r '.uid' …/syshealth.json` → `keiwi-syshealth` · `jq '[.panels[]\|select(.type=="row")]\|length'` → `5`(현재 3) · 「플릿 섀시 전력」 targets에 `reporting_count` 포함 → `true` |
-| **AC-4-16** | 대시보드가 참조하는 모든 레코드명이 규칙 파일에 실제로 정의됨(패널 no-data 방지) | `bash scripts/gates/check-promql-metrics.sh --dashboards infra/monitoring/dashboards --rules infra/monitoring/rules; echo rc=$?` → `OK` + `rc=0`. **전제: AC-4-19(죽은 패널 3개 제거)가 먼저 통과** |
+| **AC-4-16** | 대시보드가 참조하는 모든 레코드명이 규칙 파일에 실제로 정의됨(패널 no-data 방지) | `bash scripts/gates/check-promql-metrics.sh --dashboards infra/monitoring/dashboards --rules infra/monitoring/rules; echo rc=$?` → `OK` + `rc=0`. **전제: AC-4-19(죽은 패널 3개 제거) + 패널 4·10의 `apt_upgrades_pending` 교체가 먼저 통과** |
 | **AC-4-19** | **죽은 패널 3개가 제거됐다 — CI가 W2부터 초록일 수 있는 조건** | `python3 -c "import json;d=json.load(open('infra/monitoring/dashboards/syshealth.json'));ps=d['panels']+[q for p in d['panels'] for q in (p.get('panels') or [])];print([(p.get('id'),t.get('expr')) for p in ps for t in (p.get('targets') or []) if any(k in t.get('expr','') for k in ['percentage_used','available_spare','smartctl_device_attribute'])])"` → `[]`. **도입 전 실행 결과(실측): 3건**(패널 6·7·8) |
 | **AC-4-17** | 라이브 재적용 성공 + 새 그룹 health=ok | `q 'prometheus_config_last_reload_successful'` → `1` · `/api/v1/rules?type=record`의 `keiwi_(power\|standards\|firmware)` 그룹 전 규칙 `health=ok` |
 | **AC-4-18** | 새 그룹 평가 비용이 기존 수준을 크게 넘지 않는다 | `q 'max by (rule_group) (prometheus_rule_group_last_duration_seconds{rule_group=~".*keiwi-(hardware\|standards).*"})'` → 각 그룹 `< 0.5s` (기존 최대 0.0092s) |

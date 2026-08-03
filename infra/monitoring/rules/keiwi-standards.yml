@@ -1,0 +1,50 @@
+# KEIwi 표준 드리프트 — GPU 드라이버 · 커널 릴리스 recording rules
+#
+# 성격: record: 만. **alert: 키 금지**(scripts/gates/check-rules.sh 가 강제).
+#       에이전트는 생성만, 라이브 적용은 사람(§11). /data/monitoring/rules/ 직접 편집 금지(§12).
+#
+# `or vector(0)` 사용 원칙(설계 규약, spec §D4-2)
+#   0이 **모호하지 않은 값일 때만** 붙인다. 드리프트/사각지대 카운트(0 = 없음)에는 붙이고,
+#   "관측된 버전 수"류(0 = 데이터 없음과 구분 불가)에는 붙이지 않는다.
+#   후자에 붙이면 "데이터 없음"이 "정상"으로 렌더링된다 — 이 레포가 고치려는 결함 그 자체다.
+
+groups:
+  - name: keiwi_standards
+    interval: 5m
+    rules:
+      # ⚠️ 교정 (구 규칙: count by (DCGM_FI_DRIVER_VERSION)(DCGM_FI_DEV_GPU_UTIL))
+      #  구 식이 반환하는 2는 "버전 2종"이 아니라 **"라벨 있는 버킷 1 + 라벨 없는 버킷 1"** 이다.
+      #  [실측 2026-08-03]
+      #    count by (DCGM_FI_DRIVER_VERSION)(DCGM_FI_DEV_GPU_UTIL)
+      #      → {DCGM_FI_DRIVER_VERSION="595.71.05"} = 2  (data05 A40 ×2)
+      #      → {}                                   = 4  (data03·data04 RTX6000 ×2씩 — 라벨 부재)
+      #    /api/v1/label/DCGM_FI_DRIVER_VERSION/values → ["595.71.05"] **1개뿐**
+      #  즉 숫자 2는 우연히 "실제 버전이 2종"과 일치할 뿐 근거가 다르다. data03·04의
+      #  dcgm-exporter가 2022년 :latest 이미지라 버전 라벨 자체를 방출하지 않기 때문이고,
+      #  전 노드가 같은 버전이 되어도 이 식은 여전히 2를 보고한다(영구 미수렴).
+      #  → 라벨 있는 것만 세고, **사각지대 크기를 별도 시리즈로 반드시 함께 노출**한다.
+      #    필터만 걸고 끝내면 "1종으로 통일됨"이라는 더 나쁜 거짓말이 된다.
+      # [실측 교정 후] 1
+      - record: fleet:gpu_driver_versions:count
+        expr: count(count by (DCGM_FI_DRIVER_VERSION) (DCGM_FI_DEV_GPU_UTIL{DCGM_FI_DRIVER_VERSION!=""})) or vector(0)
+
+      # 위 지표가 **못 보는** GPU 수. [실측] 4 (data03 ×2 + data04 ×2).
+      # 0이 되어야 위 값이 비로소 "플릿 전체"를 뜻한다. 이 시리즈가 축8(DCGM 이미지 digest 고정)의
+      # 근거이며, 조용히 필터로 지워버리면 그 근거가 사라진다.
+      - record: fleet:gpu_driver_unlabeled:count
+        expr: count(DCGM_FI_DEV_GPU_UTIL{DCGM_FI_DRIVER_VERSION=""}) or vector(0)
+
+      # 커널 릴리스 종류 수. 이 규칙은 교정 불필요 — 실측 4 (.101=4.4.0-179 / .104=6.8.0-101 /
+      # .105=6.8.0-117 / .103=6.8.0-134)로 라벨·의미가 모두 맞다.
+      - record: fleet:kernel_releases:count
+        expr: count(count by (release) (node_uname_info)) or vector(0)
+
+      # ── 드라이버 드리프트의 **정본**은 DCGM 라벨이 아니라 node-hygiene textfile이다.
+      #    DCGM은 (a) data01(DCGM 불가)을 아예 못 보고 (b) 커널모듈 버전만 보여
+      #    유저스페이스 불일치(data05: 커널 595.71.05 vs NVML 595.84)를 못 잡는다.
+      #    축1 T1-4(node-hygiene NVIDIA 블록) 배포 후 자동으로 살아나며, 그 시점에
+      #    fleet:gpu_driver_versions:count 는 **DCGM 부분집합 지표로 강등**된다(T4-11).
+      #    ⚠️ or vector(0) 금지 — 시리즈가 없을 때 0을 내면 "드리프트 없음"으로 오독된다.
+      #       배포 전에는 결과가 비어 있는 것이 정답이고, 그 공백 자체가 "아직 안 왔다"는 신호다.
+      - record: fleet:gpu_driver_versions:count_hygiene
+        expr: count(count by (version) (node_nvidia_kernel_module_version))

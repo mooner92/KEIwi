@@ -1,0 +1,127 @@
+# KEIwi 하드웨어 — 섀시 전력 · 펌웨어 드리프트 recording rules
+#
+# 성격: record: 만. **alert: 키 금지**(헌장 — 알림 보류 중, scripts/gates/check-rules.sh 가 강제).
+#       에이전트는 생성만, 라이브 적용은 사람(§11). /data/monitoring/rules/ 직접 편집 금지(§12).
+#
+# 이 파일이 존재하는 이유 [실측 2026-08-03]
+#   node_hwmon_power_average_watt 는 이미 4노드에서 수집 중인데(합 929W)
+#   `grep -rn 'hwmon_power' infra/` 히트가 **0**이었다 — 규칙도 패널도 없어 아무도 보지 않는
+#   데이터였다. 이 파일이 그 배선이다.
+#
+# ⚠️ 메트릭명은 **단수 `_watt`** 다. `node_hwmon_power_average_watts`(복수)는 라이브에
+#    존재하지 않으며, promtool은 오타를 문법상 유효한 참조로 통과시킨다 → 조용한 no-data.
+#    이 오타를 빌드 실패로 바꾸는 것이 scripts/gates/check-promql-metrics.sh 다(spec §D4-4).
+#
+# 알림을 만들지 않는 이유(spec §D4-5 CAUTION): 820W→900W일 때 1인 운영자가 취할 조치가
+#   정의되지 않는다(랙 전력 예산·PSU 정격 **미측정**). 조치가 불명확한 신호는 패널이지
+#   알림이 아니다. 임계 근거가 없는 알림은 무시 습관을 만든다.
+
+groups:
+  # ─────────────────────────────────────────────────────────────────────────
+  # 1) 섀시 전력 — hwmon(ACPI power meter) × DCGM(GPU) 대조
+  #    interval 60s: 원 센서의 평균 창이 300s(node_hwmon_power_average_interval_seconds)라
+  #    그보다 촘촘히 평가할 실익이 없고, 그보다 성기면 패널이 계단처럼 보인다.
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: keiwi_power
+    interval: 60s
+    rules:
+      # 노드별 섀시 전력(W). chip/sensor/job 라벨을 떨어뜨려 instance(<ip>:9100)만 남긴다
+      # — syshealth `$instance` 변수(label_values(node_uname_info, instance))와 같은 키.
+      # [실측 2026-08-03] .105=394 .104=325 .103=210 .101=0
+      - record: instance:node_chassis_power:watts
+        expr: sum by (instance) (node_hwmon_power_average_watt{sensor="power1"})
+
+      # ── 정직성 분모. 이게 없으면 노드가 빠질 때 합계 감소가 "절전"으로 보인다. 현재 3.
+      #    data05가 61일간 망가진 채였던 환경에서 이건 이론적 위험이 아니다(spec §4.3).
+      - record: fleet:node_chassis_power:reporting_count
+        expr: count(instance:node_chassis_power:watts > 0) or vector(0)
+
+      # 플릿 합. 0W 노드 제외 = "과소집계된 합"을 만들지 않기 위한 조건.
+      # data01(.101 DL380 Gen9)은 ACPI power meter 객체(lnxsybus:00_acpi000d:00 / power1)가
+      # **존재하지만 값이 항상 0**이다 — 30일 보존 전 구간 max_over_time = 0 [실측 2026-08-03].
+      # 즉 센서 미지원(iLO4/Gen9가 ACPI 전력계를 채우지 않음)이지 "전력을 안 쓰는 것"이 아니다.
+      # 0을 평균·합에 넣으면 플릿 전력이 조용히 과소집계되므로 `> 0`으로 제외하고,
+      # 제외 사실은 reporting_count(3/4)로 화면에 남긴다.
+      - record: fleet:node_chassis_power:watts_sum
+        expr: sum(instance:node_chassis_power:watts > 0) or vector(0)
+
+      # GPU 전력 — dcgm-exporter instance는 <ip>:9400 이라 그대로는 조인이 안 된다.
+      # :9100 으로 정규화해 node-exporter 계열과 조인 키를 통일한다.
+      # `node` 라벨을 쓰지 않는 이유: 라이브에서 node 라벨은 dcgm(.103)·gpu-model·port-exporter
+      # 에만 있고 node-exporter 4타깃에는 **없다**(붙이는 것은 prometheus.yml 소관 = 범위 밖).
+      - record: instance:gpu_power:watts
+        expr: |
+          sum by (instance) (
+            label_replace(DCGM_FI_DEV_POWER_USAGE, "instance", "$1:9100", "instance", "(.*):9400")
+          )
+
+      - record: fleet:gpu_power:watts_sum
+        expr: sum(instance:gpu_power:watts) or vector(0)
+
+      # GPU가 섀시 전력에서 차지하는 비율. [실측 2026-08-03] 217.7 / 929 = 0.234
+      # (부하에 따라 변동 — 2026-08-02 관측은 0.266이었다. 고정값으로 읽지 말 것)
+      - record: fleet:gpu_power_share:ratio
+        expr: fleet:gpu_power:watts_sum / fleet:node_chassis_power:watts_sum
+
+      # 노드별 GPU 점유율. [실측] .105=0.399 .104=0.100 .103=0.136
+      # "같은 섀시인데 왜 하나는 40%고 하나는 10%인가"가 증설·재배치 판단의 입력이다.
+      - record: instance:gpu_power_share:ratio
+        expr: instance:gpu_power:watts / on(instance) (instance:node_chassis_power:watts > 0)
+
+      # 비-GPU 전력(냉각·CPU·디스크·PSU 손실 몫). GPU를 빼도 노드당 180~290W 상시.
+      - record: instance:node_nongpu_power:watts
+        expr: (instance:node_chassis_power:watts > 0) - on(instance) instance:gpu_power:watts
+
+      # ── 일일 전력량(kWh) ──────────────────────────────────────────────────
+      # ⚠️ **원 메트릭 기반이어야 한다.** 레코딩 시리즈([1d])를 참조하면 적용 후 24h 동안
+      #    과소값이 나온다 — 첫날 값이 틀리면 신뢰를 잃고 그대로 방치된다.
+      #    원 메트릭은 30일치가 이미 있어 적용 즉시 정확하다.
+      # ⚠️ `> 0` 필터 필수 — 없으면 data01이 0 kWh 시리즈를 내고 패널이
+      #    "data01은 전력을 안 쓴다"로 읽힌다. 필터를 **결과에** 거는 이유:
+      #    원 시계열에 걸고 subquery로 평균내면 "간헐적 0" 노드에서 낮은 표본이 빠져
+      #    에너지가 과대집계된다. 결과 필터는 "항상 0인 노드"만 떨어뜨린다.
+      # [실측 2026-08-03] .103=5.08 .104=8.35 .105=9.44 kWh (.101 제외)
+      - record: instance:node_chassis_energy:kwh1d
+        expr: sum by (instance) (avg_over_time(node_hwmon_power_average_watt{sensor="power1"}[1d])) * 24 / 1000 > 0
+
+      # GPU 일일 전력량. DCGM 누적 에너지는 mJ 단위 → ÷ 3.6e9 = kWh.
+      # 교차검증 [실측] data05: GPU 3.72 kWh ÷ 섀시 9.44 kWh = 0.394 ≈ 순시 점유율 0.399
+      # → DCGM 에너지 카운터를 신뢰할 수 있다.
+      - record: instance:gpu_energy:kwh1d
+        expr: |
+          sum by (instance) (
+            label_replace(increase(DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION[1d]),
+                          "instance", "$1:9100", "instance", "(.*):9400")
+          ) / 3.6e9
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 2) 펌웨어 드리프트 — hardware-ops의 거짓 규칙 교정본
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: keiwi_firmware_drift
+    interval: 5m
+    rules:
+      # ⚠️ 교정 — hardware-ops 초안의 BIOS 버전 카운트 레코드를 **폐기**하고 이것으로 대체한다.
+      #    (폐기된 레코드의 정확한 이름은 fleet-hardening spec §4.2 D4-1/D4-6에 있다.
+      #     여기에 그 이름을 적지 않는 이유: AC-4-13이 rules/·dashboards/·specs/hardware-ops/
+      #     에서 그 문자열의 **부재**로 교정 완료를 판정한다 — 근거 문서에만 남긴다.)
+      #  ① 구 규칙은 `by (product)` 를 썼는데 라이브 라벨은 `product_name` 이다.
+      #     존재하지 않는 라벨로 by 하면 전부 한 그룹 {}으로 뭉쳐 max=3이 나오고,
+      #     hardware-ops의 BiosVersionDrift(`> 1`)가 **day-1 오발화**한다 [실측].
+      #  ② 라벨 이름만 고쳐도 부족하다. bios_version 은 HPE **ROM 패밀리 코드**(U30/U46/P89)라
+      #     동일 모델에서 상수다 — data03·data04가 U30/2.2 로 같은데 한쪽만 U30/**2.4**로
+      #     올라가도 값이 1 그대로다(구조적 미탐). 실제 리비전은 `bios_release`(1.58 / 2.2)다.
+      #  → 그룹 키에 bios_release 를 넣고 **이름도 바꾼다**. 이름을 바꿔야 구 규칙 참조가
+      #    레포에 남았는지 grep으로 검증 가능하다(AC-4-13).
+      # [실측 2026-08-03] Gen10 Plus=1 · Gen10=1 · Gen9=1 → 드리프트 0
+      - record: product:node_bios_revisions:count
+        expr: count by (product_name) (count by (product_name, bios_version, bios_release) (node_dmi_info))
+
+      # 분모 — 1대뿐인 모델에서는 드리프트가 정의되지 않는다.
+      # [실측] DL380 Gen10=2 · Gen10 Plus=1 · Gen9=1 → 비교 가능한 그룹은 Gen10 하나뿐.
+      # 이 분모가 없으면 "드리프트 0"이 "통일됐다"인지 "비교할 게 없다"인지 구분되지 않는다.
+      - record: product:node_count:count
+        expr: count by (product_name) (node_dmi_info)
+
+      # 드리프트가 있는 모델 수. 0 = 드리프트 없음(모호하지 않음) → or vector(0) 적용.
+      - record: fleet:node_bios_drift:count
+        expr: count(product:node_bios_revisions:count > 1) or vector(0)

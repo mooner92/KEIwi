@@ -28,6 +28,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 RULES_DIR="$ROOT/infra/monitoring/rules"
+TESTS_DIR="$RULES_DIR/tests"
 
 MODE=""
 SCHEMA_ONLY=0
@@ -55,8 +56,14 @@ if [[ "$RESOLVER" == "none" ]]; then ENGINE=structural; else ENGINE=promtool; fi
 AUTO=0
 if [[ -z "$MODE" ]]; then MODE=check; AUTO=1; fi
 
+# 기본 대상: --check 는 rules/*.yml (maxdepth 1 — tests/ 는 규칙 파일이 아니다),
+#            --test  는 rules/tests/*.test.yml
 if [[ ${#FILES[@]} -eq 0 ]]; then
-  mapfile -t FILES < <(find "$RULES_DIR" -maxdepth 1 -name '*.yml' -o -maxdepth 1 -name '*.yaml' 2>/dev/null | sort)
+  if [[ "$MODE" == "test" ]]; then
+    mapfile -t FILES < <(find "$TESTS_DIR" -maxdepth 1 -name '*.test.yml' 2>/dev/null | sort)
+  else
+    mapfile -t FILES < <(find "$RULES_DIR" -maxdepth 1 \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null | sort)
+  fi
 fi
 if [[ ${#FILES[@]} -eq 0 ]]; then
   echo "RULES_OK engine=$ENGINE (검사 대상 0개)"; exit 0
@@ -75,8 +82,41 @@ structural_check() {
   python3 "$FALLBACK" check-rules "$@"
 }
 
+# `--test --schema-only` 전용 — .test.yml 은 최상위가 `groups`가 아니라 `tests`라
+# check-rules 스키마로는 검사할 수 없다(그대로 부르면 전부 FAIL한다).
+# 로직은 역시 tools/promtool_fallback.py 가 소유한다(인라인 복제 금지).
+test_schema_check() {
+  if [[ ! -f "$FALLBACK" ]]; then
+    echo "  FAIL 폴백 엔진 없음: $FALLBACK" >&2
+    return 1
+  fi
+  python3 "$FALLBACK" check-test-schema "$@"
+}
+
+# ── record 전용 강제 (T4-4 / AC-4-2) ─────────────────────────────────────────
+# rules/ 는 사전집계 전용이다. alert 규칙은 Grafana 프로비저닝(alerting/)이 소유하며,
+# 여기에 alert: 가 섞이면 (a) 알림 정본이 둘로 갈리고 (b) 규칙 파일 복사만으로 알림이
+# 라이브에 발화한다 — 사람이 승인하지 않은 발화다(헌장 §11).
+# **엔진과 무관하게** 돈다: promtool은 alert 규칙을 정상으로 통과시키므로 이건 정책 검사다.
+# ⚠️ **텍스트 검사로 판정하지 않는다.** 이전 구현은 `grep -nE '^[[:space:]]*-[[:space:]]*alert:'`
+#    한 줄이었는데, YAML 리스트 대시를 줄바꿈한 형태를 **통과시켰다** [실증 2026-08-03]:
+#        rules:
+#        -
+#          alert: Foo
+#    두 엔진(promtool·structural) 모두 rc=0이었다 — 즉 금지가 강제되지 않았다.
+#    파싱된 dict에서 `alert` 키를 보는 것이 유일하게 옳은 판정이다.
+alert_key_check() {
+  if [[ ! -f "$FALLBACK" ]]; then
+    echo "  FAIL 폴백 엔진 없음: $FALLBACK" >&2
+    return 1
+  fi
+  python3 "$FALLBACK" check-rules --record-only "$@"
+}
+
 case "$MODE" in
   check)
+    # 정책 검사(alert 혼입)는 엔진 분기보다 앞이다 — promtool이 있든 없든 같은 판정이어야 한다.
+    alert_key_check "${FILES[@]}" || { echo "RULES_FAIL engine=$ENGINE (alert 키 혼입)"; exit 1; }
     if [[ "$ENGINE" == "structural" ]]; then
       structural_check "${FILES[@]}" || { echo "RULES_FAIL engine=structural"; exit 1; }
       echo "RULES_OK engine=structural"
@@ -87,9 +127,24 @@ case "$MODE" in
       if [[ $st -ne 0 ]]; then echo "$out" >&2; echo "RULES_FAIL engine=$ENGINE"; exit 1; fi
       echo "RULES_OK engine=$ENGINE"
     fi
-    # 인자 없음 호출은 여기서 test를 자동 강등해 이어 붙인다(D4-4) — SKIP 대신 NOTE.
-    if [[ $AUTO -eq 1 && "$ENGINE" == "structural" ]]; then
-      echo "  NOTE: --test는 평가 엔진이 필요해 --schema-only로 강등됨." >&2
+    # 인자 없음 호출은 여기서 test를 이어 붙인다(D4-4) — 엔진이 없으면 SKIP 대신 강등 + NOTE.
+    # 글롭 실행기(verify-all.sh)는 게이트를 **인자 없이** 부르므로, 여기서 rc=2를 내면
+    # 요약표에 SKIP(env)가 하나 더 늘고 "안 돌았는데 초록"의 반대편(=전체 red)이 된다.
+    if [[ $AUTO -eq 1 ]]; then
+      mapfile -t TFILES < <(find "$TESTS_DIR" -maxdepth 1 -name '*.test.yml' 2>/dev/null | sort)
+      if [[ ${#TFILES[@]} -gt 0 ]]; then
+        if [[ "$ENGINE" == "structural" ]]; then
+          echo "  NOTE: --test는 평가 엔진이 필요해 --schema-only로 강등됨(promtool 부재)." >&2
+          test_schema_check "${TFILES[@]}" || { echo "RULES_TEST_SCHEMA_FAIL"; exit 1; }
+          echo "RULES_TEST_SCHEMA_OK engine=structural"
+        else
+          out=$(bash "$HERE/promtool.sh" --run test rules "${TFILES[@]}" 2>&1)
+          st=$?
+          if [[ $st -ne 0 ]]; then echo "$out" >&2; echo "RULES_TEST_FAIL engine=$ENGINE"; exit 1; fi
+          echo "$out"
+          echo "RULES_TEST_OK engine=$ENGINE"
+        fi
+      fi
     fi
     exit 0 ;;
 
@@ -99,7 +154,7 @@ case "$MODE" in
     # 단위테스트 파일로 오인해 `field groups not found in type main.unitTestFile`로 죽는다
     # [실측 2026-08-03]. 강등 요청을 엔진 존재가 무시하면 안 된다.
     if [[ $SCHEMA_ONLY -eq 1 ]]; then
-      structural_check "${FILES[@]}" || exit 1
+      test_schema_check "${FILES[@]}" || { echo "RULES_TEST_SCHEMA_FAIL"; exit 1; }
       echo "RULES_TEST_SCHEMA_OK engine=structural"; exit 0
     fi
     if [[ "$ENGINE" == "structural" ]]; then
@@ -109,5 +164,8 @@ case "$MODE" in
     out=$(bash "$HERE/promtool.sh" --run test rules "${FILES[@]}" 2>&1)
     st=$?
     [[ $st -ne 0 ]] && { echo "$out" >&2; echo "RULES_TEST_FAIL engine=$ENGINE"; exit 1; }
+    # promtool의 `SUCCESS` 원문을 삼키지 않는다 — AC-4-3·AC-4-4가 그 문자열로 판정하고,
+    # 케이스별 통과 여부를 게이트가 요약해버리면 "몇 개가 돌았는지"가 사라진다.
+    echo "$out"
     echo "RULES_TEST_OK engine=$ENGINE"; exit 0 ;;
 esac
