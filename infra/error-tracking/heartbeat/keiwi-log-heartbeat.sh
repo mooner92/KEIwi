@@ -20,7 +20,7 @@
 #
 # 설정: /data/glitchtip/heartbeat.env (root 0600, §13)
 #   GLITCHTIP_HEARTBEAT_URL=http://127.0.0.1:8090/api/0/organizations/<org>/heartbeat_check/<uuid>/
-#   ※ 반드시 로컬 주소. UI가 알려주는 glitchtip.excusa.uk는 터널(E1-7) 완료 전엔 도달 불가.
+#   ※ 반드시 로컬 주소. UI가 알려주는 외부 도메인은 터널(E1-7) 완료 전엔 도달 불가.
 #   ※ 반드시 POST. GET은 405를 준다[실측].
 set -uo pipefail
 

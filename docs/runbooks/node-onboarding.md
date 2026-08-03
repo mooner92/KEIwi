@@ -21,7 +21,7 @@ last_seen: 2026-07-03
 ## 1. 사전 준비 (control = data05)
 
 - data05에서 모든 ansible/적용을 실행(자기 자신은 `ansible_connection=local`).
-- **① 계정명부터 확인** — 계정을 가정하지 말고 대상 노드에서 `ls /home`으로 실제 ansible 계정을 확인한다(data03 온보딩 때 mhchoi로 가정했다가 Permission denied — 실제는 mooner92. 노드마다 계정이 다르다: data03=mooner92, data04=mhchoi, data05=mooner92(control — ansible local)).
+- **① 계정명부터 확인** — 계정을 가정하지 말고 대상 노드에서 `ls /home`으로 실제 ansible 계정을 확인한다(data03 온보딩 때 **다른 노드의 계정으로 가정**했다가 Permission denied — 노드마다 계정이 다르다. 실제 계정명은 레포에 적지 않는다 §13 · control인 data05는 ansible local이라 무관).
 - **② SSH 키 인증**: data05 공개키를 대상 계정 `authorized_keys`에 등록:
   ```bash
   ssh-copy-id -p <port> <user>@<ip>        # 예: ssh-copy-id -p 764 mooner92@192.168.1.103

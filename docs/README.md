@@ -70,6 +70,7 @@
 | [reboot-required-stale](./runbooks/reboot-required-stale.md) | 재부팅 부채 청산 절차(알림은 T1-14에서 승격 — 현재 미배포) | `RebootRequiredStale`(미배포) |
 | [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — 하트비트 | `LogIngestStalled` |
 | [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) | — (절차서) |
+| [alert-relay-rollback](./runbooks/alert-relay-rollback.md) | alert-relay 장애 시 알림 경로 복구 — 직송 복귀(파일 1개, <5분) | — (절차서) |
 | [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 | — (종결 인시던트) |
 
 ## 🏗️ 인프라 (`../infra/`)

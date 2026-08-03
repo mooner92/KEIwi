@@ -85,7 +85,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=DCGM_FI_DEV_GPU_UTI
 
 ```bash
 # 카드 자체의 스로틀·셧다운 임계 확인 (해당 노드에서)
-ssh -p 764 "<user>@<node-ip>"        # 예: ssh -p 764 mhchoi@192.168.1.104
+ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 764
 nvidia-smi -q -d TEMPERATURE
 nvidia-smi -q -d PERFORMANCE | grep -iA6 'Clocks Event Reasons\|Clocks Throttle Reasons'
 ```

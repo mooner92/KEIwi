@@ -168,8 +168,8 @@ POST/GET https://o<orgId>.ingest.sentry.io/api/<projectId>/cron/<monitor_slug>/<
 **(3) PII — 가설이 아니라 실데이터다.** `keiwi-logs-2026.07.29`에서 그대로 뽑은 문서:
 
 ```
-message: "Accepted password for mhchoi from 192.168.100.108 port 6425 ssh2"
-process.command_line: "\"sshd: mhchoi [priv]\""
+message: "Accepted password for user5 from 192.168.100.108 port 6425 ssh2"
+process.command_line: "\"sshd: user5 [priv]\""
 process.pid: 2475390
 process.thread.capabilities.effective: [CAP_CHOWN, CAP_DAC_OVERRIDE, ... 41개]
 service: "ssh.service"   host_name: "data05lx"   category: "system"

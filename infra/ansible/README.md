@@ -28,7 +28,7 @@ flowchart LR
 | 경로 | 내용 |
 | --- | --- |
 | `ansible.cfg` | 실행 기본값 — inventory·roles 경로·`become=sudo`·SSH(`ansible_port` via inventory) |
-| `inventory.ini` | 대상: `[logging]`·`[gpu]`·`[nodes]` = **data03**(mooner92, 직접)·**data04**(mhchoi, 터널)·**data05**(local) · `ansible_port=764` · `fleet_node` |
+| `inventory.ini` | 대상: `[logging]`·`[gpu]`·`[nodes]` = **data03**(직접)·**data04**(터널)·**data05**(local) · `ansible_port=764` · `fleet_node` · 계정은 env 주입(아래 «노드 계정 주입») |
 | `playbooks/logging.yml` | `filebeat` 역할 |
 | `playbooks/agents.yml` | `gpu-model-exporter`(GPU 노드) + `port-exporter`(모든 노드) 역할 |
 | `roles/filebeat/` | Elastic APT 설치 + `filebeat.yml.j2`(fleet_node·logstash 변수화) + enable |
@@ -40,11 +40,23 @@ flowchart LR
 1. **control = data05**(관제 스택 호스트)에서 실행. data05 자신은 `ansible_connection=local`.
 2. **대상 SSH(포트 764) 키 인증** — data05 공개키를 대상 계정에 등록:
    ```bash
-   ssh-copy-id -p 764 mooner92@192.168.1.103   # data03 (1회)
-   ssh-copy-id -p 764 mhchoi@192.168.1.104     # data04 (1회)
-   ssh -p 764 mhchoi@192.168.1.104 true        # 무프롬프트 확인
+   ssh-copy-id -p 764 "$KEIWI_USER_DATA03@192.168.1.103"   # data03 (1회)
+   ssh-copy-id -p 764 "$KEIWI_USER_DATA04@192.168.1.104"   # data04 (1회)
+   ssh -p 764 "$KEIWI_USER_DATA04@192.168.1.104" true      # 무프롬프트 확인
    ```
-   계정명은 노드마다 다르다(data03 `mooner92` / data04 `mhchoi`) — 가정하지 말고 대상 노드에서 `ls /home`으로 먼저 확인.
+   계정명은 노드마다 다르다 — 가정하지 말고 대상 노드에서 `ls /home`으로 먼저 확인한다.
+
+   ### 노드 계정 주입
+   계정명은 **레포에 적지 않는다**(PUBLIC 레포 · §13 — 실재하는 사람의 OS 계정이다).
+   `inventory.ini`의 `ansible_user`는 env를 읽고, 미설정이면 `undef()`로 **즉시 실패**한다
+   (조용히 현재 사용자로 붙지 않는다):
+   ```bash
+   export KEIWI_NODE_USER=<대부분의 노드 계정>     # 공통 기본값
+   export KEIWI_USER_DATA03=<data03 계정>          # 다른 노드만 개별 override
+   ansible -i inventory.ini data04 -m debug -a var=ansible_user -c local   # 확인
+   ```
+   > `~/.bashrc`가 아니라 세션에서 export 하거나 레포 밖 파일(`~/.config/keiwi/env`)을
+   > `source` 한다 — 값이 레포 안 파일로 돌아오면 이 조치가 무의미해진다.
 3. **sudo** — `ansible.cfg`는 `become_ask_pass=False`(NOPASSWD sudo 전제). **전 노드에 `/etc/sudoers.d/90-keiwi-ansible` 적용됨(2026-07-03 표준)** → `-K` 불필요.
    > [!NOTE] 신규 노드 NOPASSWD 등록
    > 온보딩 시 반드시 **원격에서** 1회 실행(원라이너 표준은 [`docs/runbooks/node-onboarding.md`](../../docs/runbooks/node-onboarding.md) 부록). 아직 미적용인 노드만 임시로 `-K`(`--ask-become-pass`) — 비번은 입력만(레포 저장 안 함 §13).
@@ -80,8 +92,8 @@ ansible -i inventory.ini logging -b -m shell -a 'systemctl is-active filebeat'
 curl -s 'http://localhost:9200/keiwi-logs-*/_search?size=0' -H 'Content-Type: application/json' \
   -d '{"aggs":{"by_node":{"terms":{"field":"fleet_node"}}}}' | python3 -m json.tool   # data03·04·05 버킷
 
-# GPU 모델 익스포터 (계정은 노드별 — data03 mooner92 / data04 mhchoi)
-ssh -p 764 mooner92@192.168.1.103 'systemctl is-active keiwi-gpu-model-exporter && curl -s localhost:9836/metrics | grep -m3 gpu_model_info'
+# GPU 모델 익스포터 (계정은 노드별 — «노드 계정 주입» 참고)
+ssh -p 764 "$KEIWI_USER_DATA03@192.168.1.103" 'systemctl is-active keiwi-gpu-model-exporter && curl -s localhost:9836/metrics | grep -m3 gpu_model_info'
 ```
 
 ## 선택 파일 로그 (예: vLLM)

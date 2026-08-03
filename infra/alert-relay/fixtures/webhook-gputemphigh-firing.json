@@ -1,0 +1,53 @@
+{
+  "receiver": "alert-relay",
+  "status": "firing",
+  "orgId": 1,
+  "version": "1",
+  "groupKey": "{}/{domain=\"infra\",severity=\"critical\"}:{alertname=\"GpuTempHigh\", node=\"192.168.1.103:9400\"}",
+  "truncatedAlerts": 0,
+  "externalURL": "http://192.168.1.105:3000/",
+  "title": "🔴 [CRITICAL] GpuTempHigh · 192.168.1.103:9400",
+  "state": "alerting",
+  "message": "*GpuTempHigh* · 192.168.1.103:9400 — GPU 과열 192.168.1.103 GPU1 — 94°C (임계 92°C · 10m 지속)\n시작 08-03 18:02 KST",
+  "groupLabels": {
+    "alertname": "GpuTempHigh",
+    "node": "192.168.1.103:9400"
+  },
+  "commonLabels": {
+    "alertname": "GpuTempHigh",
+    "domain": "infra",
+    "node": "192.168.1.103:9400",
+    "severity": "critical"
+  },
+  "commonAnnotations": {},
+  "alerts": [
+    {
+      "status": "firing",
+      "fingerprint": "b2c3d4e5f6a70002",
+      "startsAt": "2026-08-03T09:02:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://192.168.1.105:3000/alerting/grafana/keiwi-gpu-temp/view",
+      "silenceURL": "http://192.168.1.105:3000/alerting/silence/new?alertmanager=grafana",
+      "dashboardURL": "",
+      "panelURL": "",
+      "values": {
+        "A": 94,
+        "C": 1
+      },
+      "labels": {
+        "alertname": "GpuTempHigh",
+        "domain": "infra",
+        "gpu": "1",
+        "instance": "192.168.1.103:9400",
+        "node": "192.168.1.103:9400",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "GPU 과열 192.168.1.103 GPU1 — 94°C (임계 92°C · 10m 지속)",
+        "console_url": "http://192.168.1.105:3106/incidents?alert=GpuTempHigh&node=192.168.1.103:9400&from=now-6h",
+        "drilldown_url": "http://192.168.1.105:3000/d/keiwi-gpu-v3?orgId=1&var-instance=192.168.1.103:9400&var-node=192.168.1.103:9400&var-host=192.168.1.103:9400&from=now-6h&to=now",
+        "runbook_url": "https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-thermal.md"
+      }
+    }
+  ]
+}

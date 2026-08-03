@@ -5,6 +5,8 @@
 #
 #   S1 자격증명 리터럴 금지   — 코퍼스: 레포 전체(추적 + 미추적·비무시). 테스트도 포함. 예외 0
 #   S2 배포 결합 리터럴 금지  — 코퍼스: 런타임 소스만(apps/console/src 빼기 테스트, + next.config.ts)
+#                               **사설 IP만** 본다. 자체 도메인은 scripts/gates/check-public-safety.sh
+#                               P1 소관(레포 전역 · SHA-256 대조 — 근거는 아래 스코프 상수 주석).
 #   S3 서버 전용 env의 클라이언트 번들 노출 금지 — .next/static. 부재 시 **skip이 아니라 실패**
 #   S4 .env 실파일 git 추적 금지 — 레포 전체
 #
@@ -55,8 +57,13 @@ import sys
 import tempfile
 
 # ── 스코프 상수 (한 곳에서만 정의한다) ──────────────────────────────────────
-# 자체 보유 도메인. 새 도메인이 생기면 여기만 고친다.
-OWNED_DOMAINS = ["excusa.uk"]
+# ⚠️ 자체 보유 도메인 목록은 **여기 없다.** 이 레포는 PUBLIC이고, 목록을 여기 두면
+#    "외부 진입 경로를 알리지 않는다"는 결정을 게이트 자신이 무효화한다 —
+#    숨기려는 값을 정규식으로 적어 두는 것이 곧 광고다. 스코프 제외로는 못 푼다:
+#    제외해도 파일 안에 값은 그대로 남기 때문이다.
+#    자체 도메인 탐지는 scripts/gates/check-public-safety.sh 의 **P1**이 맡는다
+#    (SHA-256 대조 + 스택 서비스명 일반 패턴, 스코프는 **레포 전역** = S2의 상위집합).
+#    여기 S2는 사설 IP만 본다.
 
 # S3가 클라이언트 번들에서 금지하는 서버 전용 env 키.
 SERVER_ONLY_ENV_KEYS = [
@@ -86,11 +93,10 @@ S1_PATTERNS = [
 
 # S2 — "배포마다 달라지는 값"만 본다. localhost·127.0.0.1·github.com·www.w3.org 가
 # 통과하는 것은 예외 목록이 아니라 **규칙의 정의** 때문이다(어느 배포에서도 같은 값).
+# 자체 도메인은 위 주석대로 check-public-safety.sh P1 소관이다(중복 구현 금지).
 S2_PATTERNS = [
     ("private_ip",
      r"\b(?:10\.\d{1,3}|192\.168\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3})\.\d{1,3}\b"),
-    ("owned_domain",
-     r"\b[a-z0-9-]+\.(?:" + "|".join(d.replace(".", r"\.") for d in OWNED_DOMAINS) + r")\b"),
 ]
 
 S1_RE = [(n, re.compile(p)) for n, p in S1_PATTERNS]
@@ -240,7 +246,6 @@ def build_s1_fixtures():
 def build_s2_fixtures():
     return {
         "private_ip":   "const h = " + '"' + "192." + "168.1.42" + '"' + ";",
-        "owned_domain": "const u = " + '"https://grafana.' + OWNED_DOMAINS[0] + '"' + ";",
     }
 
 

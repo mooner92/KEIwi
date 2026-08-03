@@ -3,7 +3,7 @@
 # 라이브와 차이:
 #  - GF_SECURITY_ADMIN_PASSWORD를 .env(${GRAFANA_ADMIN_PASSWORD})로 — 시크릿 레포 밖(§13, README §보안)
 #  - GF_AUTH_ANONYMOUS_*: LAN 익명 뷰어(조회 전용) — 내부(IP) 접속 임베드에서 로그인 없이 대시보드 표시.
-#    쓰기/관리자는 여전히 로그인 필요. 외부(grafana.excusa.uk)는 Cloudflare Access가 앞단 차단.
+#    쓰기/관리자는 여전히 로그인 필요. 외부(터널 뒤 — 주소는 레포에 적지 않는다)는 Access가 앞단 차단.
 version: "3.8"
 
 services:

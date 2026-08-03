@@ -112,12 +112,31 @@ jobs:
         run: bash scripts/gates/check-alerting-escapes.sh
       - name: 런북 무결성 (runbook_url ↔ 파일)
         run: bash scripts/gates/check-runbooks.sh
+      # alert-relay: 유닛(AC-E3-1·3·4·7) + Slack 반출 단일경로·raw 미참조·stdlib 전용 계약.
+      # mock Slack·mock 어시스턴트를 로컬 http.server로 띄우므로 **러너에서 외부 통신 0**이다.
+      - name: alert-relay (유닛 + 반출 경로 계약)
+        run: bash scripts/gates/check-alert-relay.sh
+      - name: alert-relay 게이트 자기검증 (역증명 — 패턴이 죽지 않았는가)
+        run: bash scripts/gates/check-alert-relay.sh --self-test
+      # E4 귀속 수집기 2종. 둘 다 역증명(일부러 깨진 입력)과 변이 검사를 **본 실행에 내장**하므로
+      # self-test 스텝이 따로 없다. 유닛 25건은 픽스처 리플레이라 **러너에서 외부 통신 0**이다.
+      - name: 귀속 수집기 read-only 계약 (파괴적 명령·리다이렉션 0 — AC-E4-1)
+        run: bash scripts/gates/check-collector-readonly.sh
+      - name: 귀속 반출 redaction (경로·COMMAND 미반출 + 사건 리플레이 — AC-E4-3·E4-6)
+        run: bash scripts/gates/check-attribution-redaction.sh
       # 콘솔 잡과 달리 빌드 산출물이 없다 → S1(자격증명)·S4(.env 추적)만 돈다.
       # S2 는 콘솔 잡이, S3 는 build 뒤에 콘솔 잡이 판정한다(중복 실행 금지, §0.2).
       - name: 자격증명·.env 게이트 (레포 전역 S1·S4)
         run: bash apps/console/scripts/check-no-secrets.sh --rules S1,S4
       - name: 게이트 자기검증 (패턴이 죽지 않았는가)
         run: bash apps/console/scripts/check-no-secrets.sh --self-test
+      # PUBLIC 레포 안전: 외부 진입 도메인·연구자 실계정·개인 홈 하위 경로.
+      # 부인 목록이 평문이 아니라 SHA-256이라 게이트 소스에도, 이 워크플로 로그에도 값이
+      # 남지 않는다(게이트가 매칭값을 출력하지 않는 것도 같은 이유다).
+      - name: PUBLIC 안전 (외부 도메인·실계정·홈 경로)
+        run: bash scripts/gates/check-public-safety.sh
+      - name: PUBLIC 안전 자기검증 (역증명 — 해시 대조 기구가 살아 있는가)
+        run: bash scripts/gates/check-public-safety.sh --self-test
       # 새 게이트를 scripts/gates/ 에 떨어뜨리고 CI 배선을 잊는 드리프트를 잡는다.
       - name: CI 커버리지 (모든 게이트가 어느 잡에선가 돈다)
         run: bash scripts/gates/check-ci-coverage.sh

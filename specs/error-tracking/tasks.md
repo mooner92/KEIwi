@@ -41,7 +41,7 @@
 - [x] **E1-4** `[server]` (S) **GV-5 빈 시크릿 거동 측정** — 격리 프로젝트에서 `SECRET_KEY=`로 `up -d` → `docker logs`. **기동 실패인지 경고만인지 기록.** 이 결과가 `check-env.sh`의 강도를 정한다. **선행: E1-3**
 - [x] **E1-5** `[server]` (S) **정상 기동** — `check-env.sh` 통과 후 `postgres` → 헬스 확인 → `web`·`valkey` 순서로. compose 1.29 recreate 시 `docker rm -f` 후 `up -d`. 검증: `curl -o /dev/null -w '%{http_code}' 127.0.0.1:8090` → 200 · **AC-E-16**(mem_limit 실효). **선행: E1-4**
 - [ ] **E1-6** `[server]` (S) **첫 사용자 생성 → 즉시 `ENABLE_USER_REGISTRATION=False` → 재기동.** 검증: **AC-E-9**. **선행: E1-5.** ⚠️ 이 항목을 미루면 가입이 열린 상태로 남는다(기본값이 안전하지 않다)
-- [ ] **E1-7** `[server]` (S) Cloudflare 터널 라우트 `glitchtip.excusa.uk` + Access 정책 — E0-1의 cloudflared 런타임 판정에 따라 대상 주소 결정. `grafana.excusa.uk`와 동일 패턴(§14). **선행: E1-5**
+- [ ] **E1-7** `[server]` (S) Cloudflare 터널 라우트(GlitchTip 서브도메인) + Access 정책 — E0-1의 cloudflared 런타임 판정에 따라 대상 주소 결정. Grafana 터널과 동일 패턴(§14). **주소는 레포에 적지 않는다**(§13). **선행: E1-5**
 - [x] **E1-8** (S) `infra/monitoring/prometheus.yml`에 `glitchtip` job 1개 추가(`172.18.0.1:8090`). **레포만.** 검증: **AC-E-19**. **선행: E1-5**
 - [ ] **E1-9** `[server]` (S) E1-8 라이브 반영 — 레포본을 `/data/monitoring/prometheus.yml`에 정렬 후 `docker compose restart prometheus`. **라이브 파일 직접 편집 금지(§12).** **선행: E1-8**
 

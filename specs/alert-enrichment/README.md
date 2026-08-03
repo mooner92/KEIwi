@@ -19,9 +19,9 @@
 
 | 시각 | 일 |
 |---|---|
-| 17:45~17:48 | data04에서 sunakang이 tensorflow venv 2개(각 1.1G) 설치 |
+| 17:45~17:48 | data04에서 user6이 tensorflow venv 2개(각 1.1G) 설치 |
 | 17:59 | **DiskUsageHigh data04 발화** — 첫 실전 알림. Slack 제목에 `{{ .instance }}` 리터럴 노출 |
-| ~18:30 | 사람이 수동 추적 완료(약 30분): `/` 95% → `/home` 303G(jhkim 134G·mhchoi 76G·sunakang 30G) → `find -mtime` 최근 대형 파일 → 소유자 확인 |
+| ~18:30 | 사람이 수동 추적 완료(약 30분): `/` 95% → `/home` 303G(user2 134G·user5 76G·user6 30G) → `find -mtime` 최근 대형 파일 → 소유자 확인 |
 
 ### 1.2 결함 4종
 

@@ -8,11 +8,14 @@
 
 | 단계 | 내용 | 태스크 | 완료 | AC |
 |---|---|---|---|---|
-| E1 | 알림 메시지 수리 (이스케이프+현재값+템플릿 그룹) | 6 | 0 | 7 |
-| E2 | 딥링크 (annotation 3종 + 콘솔 소보수) | 5 | 0 | 5 |
-| E3 | 스레드 보강 (alert-relay) | 8 | 0 | 7 |
-| E4 | 귀속 (0단계 수집기 + 의도 요약) | 8 | 0 | 6 |
-| **합계** | | **27** | **0** | **25** |
+| E1 | 알림 메시지 수리 (이스케이프+현재값+템플릿 그룹) | 6 | 5 | 7 |
+| E2 | 딥링크 (annotation 3종 + 콘솔 소보수) | 5 | 3 | 5 |
+| E3 | 스레드 보강 (alert-relay) | 8 | 5 | 7 |
+| E4 | 귀속 (0단계 수집기 + 의도 요약) | 8 | 6 | 6 |
+| **합계** | | **27** | **13** | **25** |
+
+> 잔여 14건 중 **8건이 `[server]`**(사람이 라이브에 적용)다: T-E1-5 · T-E2-4 · T-E3-6·7·8 · T-E4-7.
+> 에이전트가 레포에서 더 만들 수 있는 것은 T-E2-3(P2, 선택) · T-E4-1~6·8이다.
 
 ## 권장 파동
 
@@ -50,22 +53,23 @@
 
 ## E3 — 스레드 보강 (alert-relay)
 
-- [ ] **T-E3-1** (M) relay 스켈레톤 — `POST /webhook`(공유 시크릿 검증) → 렌더된 title/message로 `chat.postMessage` → 200. `GET /healthz`. Python3 stdlib 전용·pip 0. systemd unit + `EnvironmentFile=/data/alert-relay/env`(§13) 파일 초안(레포엔 예시 `.env.example`만). **선행: T-E1-3(메시지 정본).** 검증: AC-E3-1
-- [ ] **T-E3-2** (S) fingerprint→thread_ts sqlite 저장 + resolved 웹훅을 같은 스레드에 "✅ 해결" 답글 + TTL 30일 정리. **선행: T-E3-1.** 검증: AC-E3-3
-- [ ] **T-E3-3** (S) 프로비저닝 — webhook contact point(+HMAC/시크릿 헤더) + 섀도 미러 라우트(`#keiwi-relay-test`). continue 매칭 미지원 시 테스트 전용 라벨 우회(열린 질문 2). **선행: T-E3-1.** 검증: 섀도 배포 시
-- [ ] **T-E3-4** (M) 어시스턴트 연동 — 직렬 큐·타임아웃 120s·429/502 백오프 3회·최종 실패 조용히 생략. 2차 답글 포맷(근거 번호 필수·원문 로그 미포함·콘솔 절대시간창 딥링크). 알림별 프리셋 질문은 콘솔 프리셋 테이블(T-E2-2)과 공유. **선행: T-E3-1.** 검증: AC-E3-4·AC-E3-7
-- [ ] **T-E3-5** (S) ADR 작성 — "웹훅 중계 도입: contact-points의 '값어치 없다' 판단 갱신 근거 + 되돌리기 조건(섀도 실패·유지 부담 초과 시 직송 복귀)". 번호는 `docs/decisions/` 최신 확인(0023·0024는 fleet-hardening 예약). **선행: 없음.** 검증: 문서 존재
-- [ ] **T-E3-6** `[server]` (S) data05 섀도 배포 — systemd 기동, env 배선(값은 §13 경로), external-watchdog에 `/healthz` 등록, kill 테스트(재기동 중 발화 유실 관찰 — Grafana 재시도 [가설] 실측). **선행: T-E3-1~4.** 검증: AC-E3-2·AC-E3-5
+- [x] **T-E3-1** (M) relay 스켈레톤 — `POST /webhook`(공유 시크릿 검증) → 렌더된 title/message로 `chat.postMessage` → 200. `GET /healthz`. Python3 stdlib 전용·pip 0. systemd unit + `EnvironmentFile=/data/alert-relay/env`(§13) 파일 초안(레포엔 예시 `env.example`만). **선행: T-E1-3(메시지 정본).** 검증: AC-E3-1 → `infra/alert-relay/{alert_relay.py,keiwi-alert-relay.service,env.example,README.md}`
+- [x] **T-E3-2** (S) fingerprint→thread_ts sqlite 저장 + resolved 웹훅을 같은 스레드에 "✅ 해결" 답글 + TTL 30일 정리. **선행: T-E3-1.** 검증: AC-E3-3(유닛분 통과 — 라이브분은 T-E3-6) · 스레드 없는 해결은 최상위 폴백(유실 금지)
+- [x] **T-E3-3** (S) 프로비저닝 — webhook contact point(+HMAC/시크릿 헤더) + 섀도 미러 라우트(`#keiwi-relay-test`). continue 매칭 미지원 시 테스트 전용 라벨 우회(열린 질문 2). **선행: T-E3-1.** 검증: 섀도 배포 시 → `infra/alert-relay/provisioning/contact-points.relay.yaml`(프로비저닝 디렉터리 **밖** — env 배선 전에 두면 기동 실패) + `notification-policies.yaml` 첫 routes 항목에 **주석 상태의** 미러 라우트
+- [x] **T-E3-4** (M) 어시스턴트 연동 — 직렬 큐·타임아웃 120s·429/502 백오프 3회·최종 실패 조용히 생략. 2차 답글 포맷(근거 번호 필수·원문 로그 미포함·콘솔 절대시간창 딥링크). 알림별 프리셋 질문은 콘솔 프리셋 테이블(T-E2-2)과 공유(게이트 P2가 키 집합 정합을 기계 판정). **선행: T-E3-1.** 검증: AC-E3-4·AC-E3-7 통과
+- [x] **T-E3-5** (S) ADR 작성 — "웹훅 중계 도입: contact-points의 '값어치 없다' 판단 갱신 근거 + 되돌리기 조건(섀도 실패·유지 부담 초과 시 직송 복귀)". **선행: 없음.** 검증: [ADR-0025](../../docs/decisions/0025-alert-relay-webhook.md) 존재 + `contact-points.yaml` 원 주석에 갱신 각주
+- [ ] **T-E3-6** `[server]` (S) data05 섀도 배포 — systemd 기동, env 배선(값은 §13 경로), external-watchdog에 `/healthz` 등록, kill 테스트(재기동 중 발화 유실 관찰 — Grafana 재시도 [가설] 실측). **선행: T-E3-1~4(완료).** 절차: `infra/alert-relay/README.md` "설치". 이때 확정할 것 3가지 — ① 컨테이너→호스트 도달 주소(`host.docker.internal` vs `172.17.0.1`) ② 라우트 `continue` 실지원 여부(미지원 시 테스트 라벨 우회) ③ HMAC 서명 대상 문자열([검증 필요] — 헤더 실측 후 하나로 좁힘). 검증: AC-E3-2·AC-E3-5
 - [ ] **T-E3-7** `[server]` (S) 섀도 2주 게이트 판정(README §2: 유실 0·p95<5s·유용성) → 통과 시 컷오버: slack-infra를 relay 경유로 교체 + `contact-points.fallback.yaml`·롤백 런북 커밋. **선행: T-E3-6 + 2주.** 검증: 게이트 기록
 - [ ] **T-E3-8** `[server]` (S) 롤백 리허설 — relay 정지→fallback 복사+리로드→테스트 발화 도착, 소요 시간 기록. **컷오버 전 필수.** **선행: T-E3-6.** 검증: AC-E3-6
+- [x] **T-E3-9** (M) 🩹 적대적 검증 반려분 수리[2026-08-04] — ① **저장 실패 → Slack 도배** 차단: 저장소가 예외를 올리지 않고(메모리 티어), `do_POST`가 어떤 예외에도 응답하며, 배달 멱등키(`DeliveryLedger`, 메모리)가 재시도를 삼킨다. *게시 전 sqlite 예약은 기각* — 디스크가 차면 알림이 사라진다(ADR-0025 보강 ①) ② **redaction 동등화**: 세탁 규칙을 `infra/alert-relay/keiwi_redaction.py` 한 곳으로 모아 E4 `attribution_export`와 **공유**(복제 금지). relay가 통과시키던 4종(URL 우회·`~/`·허용목록 밖 절대경로·하드 거부 부재)이 막힌다 ③ `templates.yaml`의 죽은 `.DashboardURL` 분기 제거 ④ 게이트 self-test가 **본체 탐지기**를 태우도록 수정 + 별칭·변수 키 우회 적발 + 못 잡는 것 명시. **선행: T-E3-1~4.** 검증: AC-E3-8·9·10 + 기존 AC-E3-1·3·4·7 회귀 없음(유닛 47건) → `infra/alert-relay/{keiwi_redaction.py,alert_relay.py,test_alert_relay.py}` · `scripts/gates/check-alert-relay.sh`
 
 ## E4 — 귀속 (0단계)
 
-- [ ] **T-E4-1** (M) disk-attribution collector — df/du/find/owner SSH read-only + 스냅샷 저장·diff + JSON 스키마(spec §4.2 D4-1). CLI 단독 실행 지원(E3 무관). 쓰기 명령 0 게이트 내장. **선행: 없음.** 검증: AC-E4-1
-- [ ] **T-E4-2** (S) OpenSearch COMMAND 검색 모듈 — `keiwi-logs-*` 노드·시간창·`COMMAND=` 필터(read-only). `raw`는 로컬 전용 필드. **선행: T-E4-1(스키마).** 검증: AC-E4-1 부속
-- [ ] **T-E4-3** (M) redaction·카테고리화(결정적) + vLLM 의도 요약 프롬프트("~로 보인다" 서술 강제·원문 인용 금지) + LLM 출력 이중 redaction 게이트. **선행: T-E4-1.** 검증: AC-E4-3·AC-E4-4
-- [ ] **T-E4-4** (S) relay 연동 — DiskUsageHigh·DiskFillPredicted 수신 시 답글 #1(결정적)·#2(요약) 게시. **선행: T-E3-1·T-E4-1·T-E4-3.** 검증: AC-E3-7과 합동
-- [ ] **T-E4-5** (S) 8-03 사건 리플레이 픽스처 + 유닛테스트 — 기대 출력: 소유자 sunakang·카테고리 "Python 환경"·시간창 17:45~48. **선행: T-E4-1~3.** 검증: AC-E4-2(픽스처분)
-- [ ] **T-E4-6** (S) data05 폴백(`partial: true`) + 일일 스냅샷 cron 정의(03:00, systemd timer 초안). **선행: T-E4-1.** 검증: AC-E4-5
-- [ ] **T-E4-7** `[server]` (S) 배포 — data03·04 실행 검증 + data04 실환경 리플레이 + cron 활성. **선행: T-E4-1~6.** 검증: AC-E4-1·2·5·6
-- [ ] **T-E4-8** (S) 단계 게이트 문서화 — psacct(1단계)·auditd/eBPF(2단계)의 게이트 질문·판정 절차를 이 폴더에 명문화(README §2 표 참조). **지금 psacct를 켜지 않는다.** **선행: 없음.** 검증: 문서 존재
+- [x] **T-E4-1** (M) disk-attribution collector — `scripts/collectors/disk-attribution.sh`(원격 read-only 3종: df·du·find) + `attribution_lib.py`(파싱·카테고리화·스냅샷 diff·스키마). CLI 단독 실행 + relay 계약(`--node/--mount/--since/--json`) 양쪽 지원. 게이트 `scripts/gates/check-collector-readonly.sh`(파괴적 명령 0·리다이렉션 0·원격 명령 화이트리스트·쓰기는 write_snapshot 한정, 역증명 4종 내장). data03·data04·data05 **실행 검증 완료**. 검증: AC-E4-1
+- [x] **T-E4-2** (S) OpenSearch COMMAND 검색 모듈 — `attribution_lib.search_sudo_commands()`(`fleet_node` term + `COMMAND=` match_phrase + `@timestamp` range, UTC 변환). `raw`는 로컬 전용. 실패 시 `partial_reasons`에 남기고 파일 증거만으로 계속한다(조용한 실패 금지). 검증: AC-E4-1 부속
+- [x] **T-E4-3** (M) redaction·카테고리화 — 결정적 4카테고리(+`.ollama`·HF 캐시 실측 확장) · `attribution_export.py`가 반출 **유일 경로**(`public_view()`로 raw 재귀 제거 → `redact_text()` → `assert_no_leak()` 예외 차단) · vLLM 의도 요약(어조 계약 `_enforce_hedge()`, 실패 시 None) + LLM 출력 재-redaction. 게이트 `check-attribution-redaction.sh`(R1~R6, **변이 검사** 포함). 검증: AC-E4-3·AC-E4-4
+- [~] **T-E4-4** (S) relay 연동 — 수집기 쪽 계약 이행 완료(`--json`·`--since` 별칭, mtime RFC3339, `top_dirs` 정렬 고정). **실제 relay 렌더러로 종단 확인**: 우리 JSON → `drop_local_only_fields` → `render_attribution_reply` → 누출 0 · user6·Python 환경 도출(게이트 R6가 회귀 감시). 잔여는 relay `[server]` 배포(T-E3-6)뿐. 검증: AC-E3-7과 합동
+- [x] **T-E4-5** (S) 8-03 사건 리플레이 — `fixtures/incident-2026-08-03-data04.raw`(**19:55 KST data04 실수집 원문**, 합성 아님) + `test_attribution.py` 25건(네트워크 0). 재현 확인: 소유자 user6 · 카테고리 "Python 환경" · 1.1GiB ×2 · **17:45/17:48**. 검증: AC-E4-2
+- [x] **T-E4-6** (S) data05 폴백 — `sudo -n` 실패 시 비특권 축소 수집 + `partial: true`·사유 명시(data05 실행 rc=0 확인). 일일 베이스라인 `infra/collectors/keiwi-disk-baseline.{service,timer}`(03:00·Persistent·`-`접두사로 노드별 실패 격리·ProtectSystem=strict). 검증: AC-E4-5
+- [ ] **T-E4-7** `[server]` (S) 배포 — 수집기를 `/opt/keiwi/scripts/collectors/`로 복사 + 타이머 활성 + `/data/alert-relay/snapshots` 생성(§11). **read-only 실행 검증은 이미 끝났다**(data03·04·05, 2026-08-03) — 남은 것은 배치·타이머·relay `RELAY_COLLECTOR` 배선. **선행: T-E4-1~6.** 검증: AC-E4-1·2·5·6
+- [x] **T-E4-8** (S) 단계 게이트 문서화 — [attribution-stages.md](./attribution-stages.md): 단계 비교표 · 게이트 A/B 통과 조건과 **판정 기록 양식** · 명시적 거부 목록 · "단계 상승이 아니라 0단계 미완성인 실패" 감별표. **psacct·auditd 코드는 만들지 않았다.** 검증: 문서 존재

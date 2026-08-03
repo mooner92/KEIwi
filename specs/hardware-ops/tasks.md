@@ -32,8 +32,8 @@
   - [ ] **systemd failed — data03·04 `networkd-wait-online`** — 원인 실측: `eno2`가 no-carrier인데 configured → 전 인터페이스 대기 타임아웃. **`--any` drop-in을 node-hygiene role에 코드화 완료**(`node_hygiene_fix_wait_online`), 적용 대기.
   - [x] **systemd failed — data01 `rc-local`** — ⚠️ **건드리지 마라.** rc.local이 설정하는 `192.168.1.51`이 현재 bond0의 **primary IP로 라이브**(:764 응답, .101이 오히려 secondary). 업타임 1.22년이라 부팅 시 실제 IP 소스를 검증할 수 없음 — disable 시 재부팅 후 접속 불능 위험. failed 상태는 known-issue로 문서화(2021-04부터, 5년 무해).
   - [ ] **systemd failed — data01 `unattended-upgrades`** — 16.04 EOL이라 apt 소스가 죽어 서비스 무의미. disable 무방(낮은 우선순위).
-  - [~] **data04 `/` 86%** — 시스템측 정리 실행(journal 848M→200M 상한 + apt 캐시 591M) → **~1GB 회수에 그침**. 본질은 `/home` 272G(jhkim 134G · mhchoi 74G · dyjin 23G · jskim 22G) = **연구자 데이터라 관리자가 못 지움 → 통보 대상**. 후보: `/opt/conda/pkgs` 캐시 21G(`conda clean -p`, **공용이라 사용자 승인 필요**) · `/tmp` 5.1G(내용 확인 필요). 알림은 % 대신 `predict_linear`로 전환(실측: 24h 후 57GB 여유 = 당장 안전).
-  - [ ] **data01 메모리 90%** — 원인 특정: **sunakang의 Jupyter 커널 1개가 RSS 291GB(73.6%)**, 2025년부터 상주. 추가 커널 3개(16G·14G·3.8G). swap 41G 사용 중 = 시스템 압박. **자동 kill 금지(§11) — 연구자 통보 필요.** 유휴/좀비 GPU·메모리 넛지(백로그 #9)의 실증 사례 1호.
+  - [~] **data04 `/` 86%** — 시스템측 정리 실행(journal 848M→200M 상한 + apt 캐시 591M) → **~1GB 회수에 그침**. 본질은 `/home` 272G(user2 134G · user5 74G · user1 23G · user3 22G) = **연구자 데이터라 관리자가 못 지움 → 통보 대상**. 후보: `/opt/conda/pkgs` 캐시 21G(`conda clean -p`, **공용이라 사용자 승인 필요**) · `/tmp` 5.1G(내용 확인 필요). 알림은 % 대신 `predict_linear`로 전환(실측: 24h 후 57GB 여유 = 당장 안전).
+  - [ ] **data01 메모리 90%** — 원인 특정: **user6의 Jupyter 커널 1개가 RSS 291GB(73.6%)**, 2025년부터 상주. 추가 커널 3개(16G·14G·3.8G). swap 41G 사용 중 = 시스템 압박. **자동 kill 금지(§11) — 연구자 통보 필요.** 유휴/좀비 GPU·메모리 넛지(백로그 #9)의 실증 사례 1호.
   **선행: 없음.** 막고 있는 것: 축2 승격(AC-2-14). 남은 것 전부 사람 적용/통보/결정.
 - [ ] **T0-8** (S) `specs/alerting/spec.md` 사실 드리프트 3건 교정(spec §2.10) — data01 수집 중 / no-data는 data02뿐 / data03 DCGM 기동 확인 / data05 systemd 수집기 미작동. **선행: 없음**
 - [ ] **T0-9** (S) `docs/inventory.yaml` 드라이버·커널모듈 실측 교정(418.39 / 595.71.05-open / 535.309.01 / 595.71.05+595.84) + `kernel_module: open|proprietary` 필드 신설. 검증: AC-3-14. **선행: 없음**

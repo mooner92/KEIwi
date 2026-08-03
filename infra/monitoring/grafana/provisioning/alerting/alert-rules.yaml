@@ -59,13 +59,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-system-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=NodeDown&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=NodeDown&node={{ $$labels.instance }}&from=now-6h'
           summary: '{{ $$labels.instance }} node-exporter 응답 없음 (5분 이상)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-down.md
 
@@ -135,13 +134,12 @@ groups:
           severity: critical
           domain: infra
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-logs-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-logs-v3?orgId=1&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=LogIngestStalled&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-logs-v3?orgId=1&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=LogIngestStalled&from=now-6h'
           summary: '통합 로그 인입 중단 — 최근 30분 유입 100건 미만 (정상 ≈17,600건)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/log-ingestion-stopped.md
 
@@ -177,13 +175,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-system-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
           summary: '{{ $$labels.instance | stripPort }} {{ $$labels.mountpoint }} 사용률 {{ printf "%.1f" $$values.A.Value }}% (임계 90% · 15m 지속)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md
 
@@ -225,13 +222,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-gpu-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-gpu-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=GpuTempHigh&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-gpu-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=GpuTempHigh&node={{ $$labels.instance }}&from=now-6h'
           summary: 'GPU 과열 {{ $$labels.instance | stripPort }} GPU{{ $$labels.gpu }} — {{ printf "%.0f" $$values.A.Value }}°C (임계 92°C · 10m 지속)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-thermal.md
 
@@ -265,13 +261,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-system-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=MemoryLow&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=MemoryLow&node={{ $$labels.instance }}&from=now-6h'
           summary: '{{ $$labels.instance | stripPort }} 가용 메모리 {{ printf "%.1f" $$values.A.Value }}% (임계 5% · 15m 지속)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/memory-pressure.md
 
@@ -319,13 +314,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-gpu-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-gpu-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=GpuXidErrorNew&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-gpu-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=GpuXidErrorNew&node={{ $$labels.instance }}&from=now-6h'
           summary: 'GPU 하드웨어 에러(XID) 신규 발생 — {{ $$labels.instance }} GPU{{ $$labels.gpu }}'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/gpu-xid.md
 
@@ -358,13 +352,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-system-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=OomKillOccurred&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=OomKillOccurred&node={{ $$labels.instance }}&from=now-6h'
           summary: 'OOM kill 발생 — {{ $$labels.instance }} (최근 1시간). 어떤 프로세스가 죽었는지 journald 확인'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/memory-pressure.md
 
@@ -416,13 +409,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-syshealth'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=SmartHealthFailed&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=SmartHealthFailed&node={{ $$labels.instance }}&from=now-6h'
           summary: 'SMART 헬스 실패 — {{ $$labels.instance }} {{ $$labels.device }}{{ $$labels.serial }}. 디스크 교체 준비'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/smart-health-failed.md
 
@@ -458,13 +450,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-system-v3'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=DiskFillPredicted&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskFillPredicted&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
           summary: '{{ $$labels.instance | stripPort }} {{ $$labels.mountpoint }} — 현재 추세로 4시간 내 가득 참 (예측 여유 {{ humanize1024 $$values.A.Value }}B)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md
 
@@ -518,13 +509,12 @@ groups:
           severity: warning
           domain: infra
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-syshealth'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-syshealth?orgId=1&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=NodeHygieneCoverageGap&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=NodeHygieneCoverageGap&from=now-6h'
           summary: '위생 수집기가 없는 노드 존재 — 그 노드에는 드라이버/재부팅/apt 탐지가 통째로 없다'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-coverage-gap.md
 
@@ -559,13 +549,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-syshealth'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=NodeHygieneStale&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=NodeHygieneStale&node={{ $$labels.instance }}&from=now-6h'
           summary: '{{ $$labels.instance }} 위생 수집기 90분 이상 미실행 — 값은 남아 있지만 낡았다 (타이머 주기 30분)'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/node-hygiene-stale.md
 
@@ -636,13 +625,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-syshealth'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=DiskGrownDefectsGrowing&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskGrownDefectsGrowing&node={{ $$labels.instance }}&from=now-6h'
           summary: '오늘 새 불량섹터 — {{ $$labels.instance }} 시리얼 {{ $$labels.serial }}. 열화 진행 중이므로 교체 계획을 세운다'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md
 
@@ -680,13 +668,12 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-syshealth'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=DiskUncorrectedErrorsGrowing&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=DiskUncorrectedErrorsGrowing&node={{ $$labels.instance }}&from=now-6h'
           summary: '미교정 I/O 오류 증가 — {{ $$labels.instance }} 시리얼 {{ $$labels.serial }} ({{ $$labels.op }}). 데이터 손실이 실현되고 있다'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md
 
@@ -728,12 +715,11 @@ groups:
           domain: infra
           node: '{{ $$labels.instance }}'
         annotations:
-          # E2 딥링크(alert-enrichment D2-1). __dashboardUid__→.DashboardURL(시간범위 포함)은 공짜지만
-          # var-*를 못 실으므로 drilldown_url 별도. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
+          # E2 딥링크(alert-enrichment D2-1). 딥링크 2종. __dashboardUid__는 쓰지 않는다 —
+          # Grafana가 __panelId__ 동반을 강제해 기동 실패 위험[2026-08-04 실전]. drilldown_url이 대체. var 3종 동시 주입 = 콘솔(grafana-tabs)과 같은 전략
           # (없는 변수는 Grafana가 무시). 시간창은 상대형 — annotation은 발화 시점 1회 평가라
           # 절대 epoch을 못 만든다(정확한 절대창은 E3 relay 몫).
-          __dashboardUid__: 'keiwi-syshealth'
-          drilldown_url: 'https://grafana.excusa.uk/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-          console_url: 'https://keiwi.excusa.uk/incidents?alert=PhysicalDiskDisappeared&node={{ $$labels.instance }}&from=now-6h'
+          drilldown_url: 'http://192.168.1.105:3000/d/keiwi-syshealth?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+          console_url: 'http://192.168.1.105:3106/incidents?alert=PhysicalDiskDisappeared&node={{ $$labels.instance }}&from=now-6h'
           summary: '물리 디스크 대수 감소 — {{ $$labels.instance }} 컨트롤러 {{ $$labels.controller }}. 어레이는 degraded 상태에서도 OK를 말한다'
           runbook_url: https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-grown-defects.md

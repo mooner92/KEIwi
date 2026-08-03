@@ -39,7 +39,7 @@ grep -nE '\$[a-zA-Z]' infra/monitoring/grafana/provisioning/alerting/*.yaml \
 
 - Grafana API: `curl -s -H "Authorization: Bearer $GRAFANA_SA_TOKEN" http://localhost:3000/api/v1/provisioning/alert-rules` — 토큰은 `/data/monitoring/.env`(§13, 레포 밖).
 - 어시스턴트: `curl -s -X POST http://localhost:3105/api/assistant -H 'content-type: application/json' -d '{"fleetNode":"data04","question":"..."}'` — 라이브, 인증 없음, 동시 1(초과 429) [실측 `route.ts:10-11`].
-- 노드 SSH(read-only): data03 `mooner92@192.168.1.103 -p 764` · data04 `mhchoi@192.168.1.104 -p 764` — 둘 다 `sudo -n` OK. **data05만 실패** [실측].
+- 노드 SSH(read-only): data03 `192.168.1.103 -p 764` · data04 `192.168.1.104 -p 764` — 둘 다 `sudo -n` OK. **data05만 실패** [실측]. 계정명은 레포에 적지 않는다(§13) — `KEIWI_NODE_USER`/`KEIWI_USER_DATA0N` env.
 
 ---
 
@@ -106,7 +106,7 @@ templates:
       {{ define "keiwi.alert" -}}
       *{{ .Labels.alertname }}*{{ if .Labels.node }} · {{ .Labels.node }}{{ end }} — {{ .Annotations.summary }}
       시작 {{ .StartsAt | tz "Asia/Seoul" | date "01-02 15:04" }} KST
-      {{ if .Annotations.console_url }}<{{ .Annotations.console_url }}|콘솔 분석>{{ end }}{{ if .Annotations.drilldown_url }} · <{{ .Annotations.drilldown_url }}|드릴다운>{{ end }}{{ if .DashboardURL }} · <{{ .DashboardURL }}|대시보드>{{ end }}{{ if .SilenceURL }} · <{{ .SilenceURL }}|침묵>{{ end }}{{ if .Annotations.runbook_url }} · <{{ .Annotations.runbook_url }}|런북>{{ end }}
+      {{ if .Annotations.console_url }}<{{ .Annotations.console_url }}|콘솔 분석>{{ end }}{{ if .Annotations.drilldown_url }} · <{{ .Annotations.drilldown_url }}|드릴다운>{{ end }}{{ if .SilenceURL }} · <{{ .SilenceURL }}|침묵>{{ end }}{{ if .Annotations.runbook_url }} · <{{ .Annotations.runbook_url }}|런북>{{ end }}
       {{- end }}
 
       {{ define "keiwi.text" -}}
@@ -116,6 +116,7 @@ templates:
       {{- end }}
 ```
 
+- ✏️교정 **`.DashboardURL` 분기는 없다**[2026-08-04]. 그 값은 규칙의 `__dashboardUid__` annotation이 있어야 채워지는데, 실적용에서 Grafana가 `__panelId__` 동반을 강제해 기동에 실패했고 그래서 14규칙 전부에서 제거했다(§2.3 AC-E2-1 같은 결정). 즉 이 분기는 **영구히 빈 값**이었다 — 남겨 두면 "언젠가 대시보드 링크가 나온다"는 거짓 약속이고, 그 자리는 `drilldown_url`이 이미 덮는다(var-*까지 실을 수 있어 더 정확하다). 되살리려면 `__dashboardUid__`+`__panelId__`를 **쌍으로** 넣고 기동 검증(AC-E1-5)부터 한다.
 - `.StartsAt | tz "Asia/Seoul" | date "01-02 15:04"` 파이프 순서는 **[검증 필요]** — Grafana UI 템플릿 미리보기로 확인, 실패 시 `.StartsAt` 원시 출력으로 폴백하고 KST 표기는 E3의 relay가 담당.
 - 본문이 알림별 `.Labels.node`를 찍으므로 warning 라우트(group_by `[alertname]`)에서 다중 노드 동시 발화 시 `.CommonLabels.node`가 탈락해도 노드가 보인다 [출처: template-notifications/reference — CommonLabels는 그룹 내 전 알림 공유 라벨만].
 - Slack 링크는 `<url|라벨>` mrkdwn 문법.
@@ -177,16 +178,18 @@ text: '{{ template "keiwi.text" . }}'
 
 ```yaml
 # 노드 계열 규칙(NodeDown·DiskUsageHigh·MemoryLow·DiskFillPredicted·OOM) 예 — DiskUsageHigh:
+# ✏️교정[2026-08-04 실전]: __dashboardUid__ / __panelId__ 는 **쓰지 않는다**(아래 첫 불릿).
+#   실제 커밋된 14규칙에는 두 키가 없다. 이 블록의 두 줄은 "왜 안 쓰는지"의 맥락으로만 남긴다.
 annotations:
-  __dashboardUid__: 'keiwi-system-v3'          # → .DashboardURL/.PanelURL 자동 생성(시간범위 포함)
-  __panelId__: '<디스크 패널 ID>'               # 선택 — 패널 ID 확정 후
-  drilldown_url: 'https://grafana.excusa.uk/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-  console_url: 'https://keiwi.excusa.uk/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
+  __dashboardUid__: 'keiwi-system-v3'          # ❌ 미채택 — Grafana가 __panelId__ 동반을 강제 → 기동 실패
+  __panelId__: '<디스크 패널 ID>'               # ❌ 미채택 — 패널 ID가 대시보드 개편마다 바뀐다
+  drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+  console_url: 'http://192.168.1.105:3106/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
 # GPU 계열(GpuTempHigh·GpuXidErrorNew): __dashboardUid__: keiwi-gpu-v3
 # LogIngestStalled: __dashboardUid__: keiwi-logs-v3 (노드 무관 — var-* 없이)
 ```
 
-- `__dashboardUid__`→`.DashboardURL`·`.SilenceURL`(Grafana-managed면 무조건, 라벨 matcher 프리필)은 공짜 [출처: grafana.com/docs/…/annotation-label/ + create-silence/]. DashboardURL엔 var-*를 못 실으므로 `drilldown_url`을 별도로 만든다.
+- ✏️교정 `__dashboardUid__`→`.DashboardURL` 은 **채택하지 않았다**[2026-08-04 실전]: 실적용에서 Grafana가 `__panelId__` 동반을 강제해 프로비저닝이 실패했다(§1.5-1과 같은 "안 뜨는" 유형). 그래서 14규칙에서 제거했고, `templates.yaml`의 `.DashboardURL` 분기도 함께 제거했다 — 값이 영원히 비는 분기를 남기면 거짓 약속이 된다. `drilldown_url`이 그 역할을 대체하고, DashboardURL엔 실을 수 없는 `var-*`까지 싣는다. **`.SilenceURL`은 그대로 공짜다** — Grafana-managed 규칙이면 `__dashboardUid__` 없이도 채워지므로 템플릿에 남아 있다 [출처: grafana.com/docs/…/annotation-label/ + create-silence/].
 - var 후보 3종 동시 주입은 콘솔의 기존 전략을 미러링한 것(`grafana-tabs.tsx:50-60` — 대시보드에 없는 변수는 Grafana가 무시). **[검증 필요]**: system-v3가 `var-nodename` 없이 instance만으로 전환되는지 — 커밋 3a35dd8("Instance만으론 전환 안 됨")·e61c23b(후보 확장)의 경위가 있으므로 클릭 실측(AC-E2-2) 필수. 안 되면 노드명 매핑은 E3 relay(정적 5노드 맵)로 이관하고 annotation은 콘솔 링크만 유지.
 - 시간창은 상대형(`now-6h`)을 쓴다 — annotation은 발화 시점 1회 평가라 절대 epoch을 못 만든다. "발화 직후 클릭" 시나리오에선 상대형이 정확하고, 정확한 절대창은 E3 relay가 `startsAt`으로 계산해 스레드 링크에 넣는다.
 - 한국어 프리셋 질문을 URL에 넣지 않는다(인코딩 지옥) — `alert=<이름>` 파라미터를 콘솔이 받아 **콘솔 코드의 프리셋 테이블**이 질문을 만든다(D2-2). 프리셋이 코드로 버전관리되는 부수 이득.
@@ -201,7 +204,7 @@ annotations:
 
 | AC | 검증 | 기대 |
 |---|---|---|
-| **AC-E2-1** | `grep -c '__dashboardUid__' alert-rules.yaml` / `grep -c 'console_url'` | 규칙 수와 일치 — 9(dev)/14(W1). LogIngestStalled 등 노드 무관 규칙은 console_url에 node 파라미터 없음 허용 |
+| **AC-E2-1** ✏️교정 | `grep -c '^\s*console_url:' alert-rules.yaml` + `grep -c '^\s*drilldown_url:'` | 각 14(W1) — 규칙 수와 일치. LogIngestStalled 등 노드 무관 규칙은 console_url에 node 파라미터 없음 허용.<br>**`__dashboardUid__`는 검증 대상에서 뺀다**: 실적용에서 Grafana가 `__panelId__` 동반을 강제해 기동 실패 위험이 있어 **쓰지 않기로 했다**[2026-08-04 실전] — `drilldown_url`이 그 역할을 대체한다. 또한 원래 검증식(`grep -c '__dashboardUid__'`)은 **주석 14줄을 세어 14를 반환**해 실제 키가 0건인데도 통과하는 **거짓 PASS**였다(자기참조 결함 — 함정을 설명하는 주석 자신이 히트). 그래서 위 두 grep은 **행 앞 키 형태(`^\s*키:`)** 로 고정한다 |
 | **AC-E2-2** `[server]` | drilldown_url 실클릭 (사건 재현 파라미터: `var-instance=192.168.1.104:9100`) | system-v3가 data04로 필터된 상태로 열림 (스크린샷). 실패 시 D2-1 폴백 경로 발동 기록 |
 | **AC-E2-3** | Playwright: `/incidents?alert=DiskUsageHigh&node=192.168.1.104:9100&mount=/&from=now-6h` | 200 + 노드가 data04로 정규화 표시 + 자동 분석 1회 발화(요청 1건 관측) |
 | **AC-E2-4** | 같은 Playwright에서 assistant 요청 body 검사 | `from` 반영 확인 |
@@ -227,7 +230,8 @@ Grafana ──webhook(JSON: labels·annotations·values·fingerprint·startsAt·
         │         title/message는 E1 템플릿으로 렌더된 상태)
         ▼
 alert-relay (data05, 신규 — Python3 stdlib 전용, systemd)
-  1. 서명/토큰 검증 → 즉시 chat.postMessage(#keiwi-infra, E1 렌더된 title+message)
+  1. 서명/토큰 검증 → 즉시 chat.postMessage(채널은 env `RELAY_SLACK_CHANNEL` —
+     섀도 기본값 #keiwi-relay-test, 컷오버 후 #keiwi-infra. E1 렌더된 title+message)
      → 응답 ts를 fingerprint와 함께 sqlite 저장 → Grafana에 200  [여기까지 동기, LLM 무관]
   2. (비동기) E4 결정적 수집기 실행 → 스레드 답글 #1 (수 초)
   3. (비동기) POST :3105/api/assistant (프리셋 질문+수집 요약) → 스레드 답글 #2 (1~3분 목표)
@@ -246,10 +250,10 @@ egress: api.slack.com 하나 그대로. LLM은 로컬 vLLM. 신규 외부 통신
 | 언어/의존성 | Python 3 stdlib만(http.server·urllib·sqlite3·hmac). pip 0개 — egress 최소·감사 용이·1인 유지보수 |
 | 배치 | data05, systemd unit(`Restart=always`), 포트 예시 :8130(배포 시 확정) |
 | 엔드포인트 | `POST /webhook`(Grafana) · `GET /healthz`(watchdog — sqlite 접근성·마지막 처리 시각 포함) |
-| 스레드 저장 | sqlite `threads(fingerprint TEXT PK, channel, ts, alertname, started_at, last_seen)` — TTL 30일 정리 |
+| 스레드 저장 | sqlite `threads(fingerprint TEXT PK, channel, ts, alertname, started_at, last_seen)` — TTL 30일 정리.<br>✏️보강[2026-08-04] **저장 실패는 전달 실패도, 도배도 아니다.** 실증된 사고: DB가 쓰기 불가일 때 `remember`가 게시 **뒤에** 던졌고 `do_POST`가 안 잡아 Grafana에 응답이 가지 않았다 → 재시도마다 최상위 게시가 늘었다(알림 1건 = 게시 3건). 하필 그 실패의 대표 원인이 디스크 풀이고 이 relay의 주 용도가 DiskUsageHigh다. 계약 3줄: ① 저장소는 예외를 올리지 않고 메모리 티어로 계속한다(`degraded`가 `/healthz` 503) ② `do_POST`는 어떤 예외에도 **응답을 낸다** ③ 배달 멱등키(`delivery_key`)를 **메모리 원장**에 두어 재시도를 삼킨다. **게시 전 sqlite 예약을 택하지 않은 이유**: 디스크가 차면 예약이 실패해 알림이 통째로 사라진다 — 전달 무손실(§3.2-1)이 상위 계약이므로 예약은 절대 실패하지 않는 매체에 한다. 받아들인 손실은 "재시작 직후 수 초의 재시도 중복". 창(`RELAY_DEDUP_WINDOW_SEC`, 기본 300초)이 재시도(수십 초)와 재통지(4~12h)를 가른다 |
 | 어시스턴트 호출 | 직렬 큐(동시 1 — :3105 계약과 정합), 타임아웃 120s, 429/502 → 지수 백오프 3회, 최종 실패 시 **조용히 생략**(Slack에 실패 도배 금지, relay 로그에만) |
-| 귀속 검색 | OpenSearch `localhost:9200/keiwi-logs-*/_search` 직접(read-only) — 콘솔 `answerError`가 levels error/warn 고정이라 sudo COMMAND(info)를 놓치는 실측 제약의 우회 |
-| 프라이버시 | Slack payload 빌더는 단일 함수 경로 — E4 redaction 게이트(AC-E4-3)가 이 함수를 검사한다 |
+| 귀속 검색 | **E4 수집기 소관**(T-E4-2)이고 relay는 결과 JSON을 소비만 한다 — 소유가 둘이면 스키마가 갈린다. 콘솔 `answerError`가 levels error/warn 고정이라 sudo COMMAND(info)를 놓치는 실측 제약은 그대로이고, 그 우회(OpenSearch `keiwi-logs-*` 직접 read-only 검색)를 **수집기가** 수행해 `sudo_commands[]`로 넘긴다. relay 호출 계약: `<collector> --node <dataNN> --mount <path> --since <RFC3339> --json` → stdout JSON(rc 0만 채택, 그 밖은 답글 #1 생략) [구현 2026-08-03: `infra/alert-relay/README.md` "E3 ↔ E4 인터페이스"] |
+| 프라이버시 | Slack payload 빌더는 단일 함수 경로 — E4 redaction 게이트(AC-E4-3)가 이 함수를 검사한다.<br>✏️보강[2026-08-04] **세탁 규칙은 E4와 공유한다**(`infra/alert-relay/keiwi_redaction.py` 한 파일을 relay와 `attribution_export`가 import). 각자 정규식을 들고 있던 동안 relay 쪽이 실증 4종에서 더 약했다 — ① URL을 빼돌린 뒤 **호스트 검사 없이 복원**(→ `http://attacker.invalid/?p=/home/…` 통과) ② `~/` 미처리(부정 lookbehind가 오히려 제외) ③ 허용목록(`home\|root\|data\|…`) 밖 절대경로 통과(`/var/log/private/…`·`/scratch/…`) ④ 하드 거부 부재(놓치면 조용히 나감). 위협 모델이 같으면 방어도 같아야 한다. 게이트 P6이 "같은 객체인가"를 기계로 본다.<br>**1차 전달만** 하드 거부 시 폴백 본문으로 대체한다(알림을 삼키지 않기 위해). 보강 답글은 생략한다 — 답글은 없어도 되지만 알림은 없으면 안 된다 |
 
 ### 3.4 트레이드오프 — 정직하게: 알림 경로가 relay에 의존하게 된다
 
@@ -258,6 +262,7 @@ egress: api.slack.com 하나 그대로. LLM은 로컬 vLLM. 신규 외부 통신
 1. **섀도 2주** — 기존 Grafana→Slack 직송을 건드리지 않고, 별도 webhook contact point + 라우트 사본으로 relay는 `#keiwi-relay-test`에만 게시. 실채널 무영향으로 유실·지연·품질을 관찰.
 2. **감시** — external-watchdog에 `/healthz` 등록(감시자를 감시하는 기존 축). relay 다운 = watchdog 경보(별도 경로).
 3. **롤백 1파일** — 직송 설정을 `contact-points.fallback.yaml`로 레포 보존. 롤백 = 파일 1개 복사 + 프로비저닝 리로드(<5분). **컷오버 전에 리허설한다**(AC-E3-6).
+   ⚠️ 이 사본은 **`provisioning/alerting/` 밖**에 둔다 — 실제 경로 `infra/monitoring/grafana/rollback/contact-points.fallback.yaml`. Grafana는 프로비저닝 디렉터리의 모든 YAML을 읽으므로 같은 uid(`keiwi-slack-infra`)가 두 파일에 있으면 프로비저닝이 실패하고 **Grafana가 뜨지 않는다**(inhibitionRules 사고와 같은 유형, §1.5-1). 롤백 파일이 롤백 대상 장애를 만드는 자기모순을 피한다 [구현 시 발견 2026-08-03].
 4. Grafana 내장 Alertmanager는 실패한 통지를 재시도한다 [출처: Alertmanager notification retry — 세부 백오프는 [검증 필요]]. relay 재기동(수 초) 동안의 웹훅은 재시도로 흡수될 것 [가설 — 섀도 기간에 kill 테스트로 실측].
 
 ### 3.5 섀도 → 컷오버
@@ -279,6 +284,9 @@ egress: api.slack.com 하나 그대로. LLM은 로컬 vLLM. 신규 외부 통신
 | **AC-E3-5** `[server]` | `curl :8130/healthz` + watchdog 설정 diff | 200 + 등록 확인 |
 | **AC-E3-6** `[server]` | 롤백 리허설: relay 정지 → fallback 복사+리로드 → 테스트 발화 | Slack 도착 + 소요 시간 <5분 기록 |
 | **AC-E3-7** | 유닛: 2차 답글 payload 검사 | 근거 번호 `[n]` ≥1 포함(어시스턴트 계약 재사용 — evidence는 서버 검증), **원문 로그 라인 미포함**(정규식 게이트) |
+| **AC-E3-8** 신규[2026-08-04] | 유닛 `TestStoreFailureDoesNotFlood` — DB 읽기전용(실파일 chmod) + 저장소가 던지는 구현, 같은 웹훅 3회 | HTTP **200×3**(응답 부재 0) · Slack 최상위 게시 **1건** · `degraded:true` · `/healthz` 503 · 발생→해결이 같은 스레드(메모리 티어). 게시 0건일 때만 502이고 그때는 원장이 비어 재시도가 산다 |
+| **AC-E3-9** 신규[2026-08-04] | `bash scripts/gates/check-alert-relay.sh` P6 (+ 유닛 `TestRedactionParityWithE4`) | relay·E4·`keiwi_redaction`이 **같은 객체**(`is` 동일) · 실증 6종(URL 우회·URL 내 `COMMAND=`·`~/`·`/var/log/private`·`/scratch`·`/nfs/home`) 차단 · 반출 상한 안(`/home`·허용 딥링크) 보존 · 변이 검사(위임을 빼면 실제로 샌다) |
+| **AC-E3-10** 신규[2026-08-04] | `bash scripts/gates/check-alert-relay.sh --self-test` | 게이트 **본체의 탐지기 함수**를 깨진 입력에 태운다(정규식 사본 금지). 별칭(`_p = slack.post`)·변수 키(`_k = "raw"`)·세탁 사본을 전부 적발하고 정상 입력에는 오탐 0 |
 
 ### 3.7 위험
 
@@ -298,7 +306,7 @@ egress: api.slack.com 하나 그대로. LLM은 로컬 vLLM. 신규 외부 통신
 
 ### 4.2 0단계 — 파일시스템 증거 + 기존 로그 (데이터가 이미 있다)
 
-수동 30분 추적(df→du→find→소유자)을 그대로 스크립트화한다. 이번 사건 기준으로 이 4단계만으로 "sunakang · 17:45~48 · tensorflow venv 2개(각 1.1G)"가 재현된다 [실측].
+수동 30분 추적(df→du→find→소유자)을 그대로 스크립트화한다. 이번 사건 기준으로 이 4단계만으로 "user6 · 17:45~48 · tensorflow venv 2개(각 1.1G)"가 재현된다 [실측].
 
 #### D4-1. disk-attribution collector (`scripts/collectors/disk-attribution.sh` + 파서)
 
@@ -314,20 +322,23 @@ sudo -n find <mount> -xdev -type f -size +100M -mmin -360 \
 
 - **스냅샷 diff**: 실행 결과를 `/data/alert-relay/snapshots/<node>/<ts>.tsv`로 저장. 일일 cron(03:00, data05→SSH) 베이스라인과 diff → "지난 24h 어떤 디렉터리가 얼마나 늘었나". 베이스라인 없는 첫 실행도 `-mmin` 기반 최근 파일로 성립한다.
 - **journald COMMAND 검색**(수집기 추가 없이 지금 됨 [실측]): OpenSearch `keiwi-logs-*`에서 해당 노드·발화 전 6h·`message: COMMAND=` — sudo 경유 명령의 유저·PWD·argv. 비sudo 활동은 저널에 없다 — 이 한계가 파일시스템 증거(위)와 상호 보완이고, 파일을 안 남기는 원인(로그 폭주 등)은 OpenSearch 로그 검색이 보완재다. **한계는 스레드 답글에 명시한다**("sudo 경유 + 파일 증거 기반 — 전체가 아님").
-- 출력 JSON 스키마: `{node, mount, usage_pct, collected_at, top_dirs[{path_category,owner,bytes,delta_bytes?}], recent_files[{bytes,mtime,owner,category}], sudo_commands[{ts,user,cwd_category,raw}] , partial:bool}` — `raw`는 로컬 전용 필드로 Slack 빌더에 절대 전달 금지.
+  ✏️**교정 [구현 2026-08-03]**: README §3의 "0단계의 절반이 공짜"는 **이번 사건에는 해당하지 않았다.** 사건 시간창(17:40~17:51) data04의 `COMMAND=` 레코드에 user6은 **0건**이다 — venv 설치는 sudo를 타지 않는다. 즉 이 사건의 귀속 근거는 **100% 파일시스템 증거**였고, journald는 배경(그 시간대 누가 sudo로 무엇을 했나)만 줬다. 설계 결론은 바뀌지 않는다(둘은 상호 보완) 그러나 **우선순위는 find 쪽**이다. 이 사실이 게이트 A(0→1단계 psacct) 판단의 1차 데이터이기도 하다 — 상세는 [attribution-stages.md](./attribution-stages.md).
+- **[실측 2026-08-03] 플릿 타임존이 균일하지 않다**: data04=KST(+09:00) · data03·data05=UTC(+00:00). `find -printf %TH:%TM`은 **노드 로컬 벽시계**(tz 없음)이고 Grafana의 `startsAt`은 tz-aware다. 창 비교를 노드 오프셋으로 옮기지 않으면 UTC 노드에서 9시간이 어긋난다. 수집기는 mtime을 **RFC3339(노드 오프셋 포함)** 로 정규화해 내보내고, Slack 표기에 `시각은 노드 로컬 UTC±N`을 병기한다.
+- **relay 호출의 `--since`는 "발화 시각"이지 "창 시작"이 아니다**(§3.3 계약): 원인은 발화보다 **앞선다**(이번 사건 17:45 작업 → 17:59 발화). 수집기는 창을 `[since − minutes, now]`로 잡는다 — `--minutes`(기본 360)가 **발화 전 되짚기 폭**이고, 발화 이후 구간도 함께 본다(디스크는 계속 찼을 수 있다). 이걸 `[since, now]`로 읽으면 **원인 파일이 통째로 창 밖으로 나간다**(구현 중 실측: 5건만 잡혀 사건 재현 실패).
+- 출력 JSON 스키마: `{node, mount, usage_pct, collected_at, top_dirs[{path_category,owner,bytes,delta_bytes?}], recent_files[{bytes,mtime,owner,category}], sudo_commands[{ts,user,cwd_category,raw}] , partial:bool}` — `raw`는 로컬 전용 필드로 Slack 빌더에 절대 전달 금지. 구현은 여기에 `schema·window{minutes,tz_offset,anchor}·recent_groups[]·baseline·limits[]·partial_reasons[]`를 **더한다**(필수 키는 위 목록 그대로 — 게이트가 이 목록으로 검사한다). `top_dirs` 정렬은 `/home 합계 → 사용자 홈(desc) → 홈 하위 상세(desc)` 고정: 순수 용량순이면 `/home/user2`과 그 하위가 나란히 와서 "상위 N"을 찍는 소비처에 같은 계정이 두 번 나온다 [실측].
 
 #### D4-2. redaction·카테고리화 → LLM 의도 요약
 
 1. **결정적 카테고리화**(LLM 이전): 경로 패턴 → 카테고리. `*/venv*|*/site-packages/*`→"Python 환경(패키지명)", `*.ckpt|*.safetensors|*.pt|*.pth`→"모델 가중치", `*.tar|*.zip|데이터 확장자`→"데이터/아카이브", 기타→"대형 파일". 사용자 홈 하위 상세 경로는 카테고리로 대체.
-2. **vLLM 의도 요약**(비동기, 실패 시 생략): 입력 = 수집 JSON(원문 포함, 로컬) + 지시("원문 명령·경로를 인용하지 말고 의도만 한 문장으로. 불확실하면 불확실하다고"). 출력 예: *"sunakang이 17:45경 tensorflow 가상환경 2개를 설치한 것으로 보인다(합 ~2.2G) [1][2]"*.
+2. **vLLM 의도 요약**(비동기, 실패 시 생략): 입력 = 수집 JSON(원문 포함, 로컬) + 지시("원문 명령·경로를 인용하지 말고 의도만 한 문장으로. 불확실하면 불확실하다고"). 출력 예: *"user6이 17:45경 tensorflow 가상환경 2개를 설치한 것으로 보인다(합 ~2.2G) [1][2]"*.
 3. **이중 게이트**: LLM 출력에도 redaction 정규식(`/home/[^ ]+/` 경로·`COMMAND=` 패턴) 적용 후 게시 — 환각·지시 불이행 방어.
 
 스레드 답글 #1(결정적, LLM 무관) 예 — 이번 사건이라면:
 
 ```
 📎 디스크 귀속(자동 수집, read-only) — data04 /
-현재 95.2% · /home 303G (jhkim 134G · mhchoi 76G · sunakang 30G)
-최근 6h 신규 대형: Python 환경 ×2, 합 2.2G (소유 sunakang, 17:45~17:48)
+현재 95.2% · /home 303G (user2 134G · user5 76G · user6 30G)
+최근 6h 신규 대형: Python 환경 ×2, 합 2.2G (소유 user6, 17:45~17:48)
 근거: sudo 이력 + 파일 증거 기반(비sudo 활동은 미포함) · 상세 → 콘솔 링크
 ```
 
@@ -346,12 +357,12 @@ sudo -n find <mount> -xdev -type f -size +100M -mmin -360 \
 
 | AC | 검증 | 기대 |
 |---|---|---|
-| **AC-E4-1** `[server]` | data03·data04 대상 collector 실행 | rc=0 + JSON 스키마 유효(jq 검사) + 전 명령 read-only(스크립트 내 쓰기 명령 grep 게이트: `rm\|mv\|chmod\|>` 0건) |
-| **AC-E4-2** `[server]` | 8-03 사건 리플레이(data04, 사건 시간창 픽스처) | recent_files 상위에 사건 실소유자(sunakang)·카테고리 "Python 환경" 도출 — 수동 30분과 동일 결론 |
+| **AC-E4-1** `[server]` ✏️교정 | data03·data04 대상 collector 실행 + `bash scripts/gates/check-collector-readonly.sh` | rc=0 + JSON 스키마 유효(jq 검사) + 전 명령 read-only.<br>**게이트 패턴 교정**: 원문 `rm\|mv\|chmod\|>`를 그대로 grep 하면 `--format`·`perform` 같은 평범한 단어가 `rm`에 걸려 **영구 red**가 된다(실측: `format`에 `rm`이 들어 있다). 그래서 `rm\|mv\|chmod`는 **명령 위치의 단어 경계**(`\b…\b`)로 고정하고 `chown·dd·truncate·shred·tee·mkfs·sed -i`를 **더** 잡는다(정밀화는 완화가 아니다). `>`는 원문대로 **전면 0건** — 그 대가로 수집기는 `2>/dev/null`조차 쓰지 않으며(원격 stderr를 숨기지 않는다) 인자 오류도 stdout으로 나간다(소비자는 rc를 먼저 본다). 파일 쓰기는 파서의 `write_snapshot()` 한 함수로 격리하고 게이트가 그 격리를 검사한다 |
+| **AC-E4-2** `[server]` | 8-03 사건 리플레이(data04, 사건 시간창 픽스처) | recent_files 상위에 사건 실소유자(user6)·카테고리 "Python 환경" 도출 — 수동 30분과 동일 결론 |
 | **AC-E4-3** | 유닛: 원문 경로·COMMAND 포함 픽스처 → Slack payload 빌더 | 출력에 `/home/<user>/…` 전체 경로 0건 · `COMMAND=` 원문 0건 (정규식 게이트, LLM 출력 경로 포함) |
 | **AC-E4-4** | 유닛: vLLM mock 실패 시나리오 | 답글 #1(결정적)만으로 성립 — 의도 요약은 있으면 더하는 것 |
 | **AC-E4-5** `[server]` | data05 대상 실행 | rc=0 + `partial: true` 명시 (sudo 없이 죽지 않음) |
-| **AC-E4-6** | 코드 검사: Slack 반출 경로 단일 함수 + `raw` 필드 미참조 | 게이트 테스트 통과 — 원문이 `/data/alert-relay/` 밖으로 나가는 경로 부재 |
+| **AC-E4-6** ✏️교정 | `bash scripts/gates/check-attribution-redaction.sh` (정적 R1~R3 + 런타임 R4 + 변이 R5 + 경계 R6) | 게이트 통과 — 원문이 `/data/alert-relay/` 밖으로 나가는 경로 부재.<br>**"단일 함수" 교정**: E3 relay가 자기 답글 #1을 **직접 조립**하므로(`alert_relay.render_attribution_reply`) 반출 경로는 실제로 **둘**이다. 하나로 합치려면 relay가 수집기 모듈을 import 해야 해서 "relay는 stdlib 전용·수집기 무관"(§3.3) 규약이 깨진다. 그래서 계약을 **"경계마다 단일 함수 + 경계 검사"** 로 바꾼다: 수집기 쪽 `attribution_export.build_slack_text` 하나, relay 쪽 `render_attribution_reply` 하나, 그리고 **우리 출력이 relay 문을 통과했을 때도 새지 않는지**를 R6가 교차 검증한다(경계 사고는 양쪽이 자기 몫만 볼 때 생긴다). `raw` 미참조는 양쪽 모두에 유효하다 |
 
 ### 4.5 위험
 

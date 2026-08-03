@@ -52,7 +52,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=up' \
 data04의 **4개 타깃 전부**가 data05의 SSH 터널을 지난다 [실측 `keiwi-tunnel-data04.service`]:
 
 ```text
-ssh -N -p 764 mhchoi@192.168.1.104
+ssh -N -p 764 "$KEIWI_USER_DATA04@192.168.1.104"   # 계정은 env(§13) — infra/ansible/README.md
   -L 172.18.0.1:9104:localhost:9100   # node-exporter  ← NodeDown이 보는 타깃
   -L 172.18.0.1:9404:localhost:9400   # DCGM
   -L 172.18.0.1:9837:localhost:9836   # gpu-model
@@ -77,7 +77,7 @@ ping -c 3 "<node-ip>"                              # 예: ping -c 3 192.168.1.10
 ssh -p 764 "<user>@<node-ip>" 'uptime; systemctl is-system-running'
 ```
 
-계정은 노드마다 다르다 — data03=`mooner92`, data04=`mhchoi`. 포트는 전부 **764**.
+계정은 노드마다 다르다 — **실제 계정명은 레포에 적지 않는다**(대상 노드에서 `ls /home`, 또는 `KEIWI_USER_DATA0N` env). 포트는 전부 **764**.
 
 | ping | ssh | 판정 |
 | --- | --- | --- |

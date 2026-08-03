@@ -196,7 +196,7 @@ hardware-ops T0-1의 메트릭 이름 4개는 **그대로 쓴다**(재정의 금
 | timer enable (86) | `stat.exists and not check_mode` | `when: not ansible_check_mode` |
 
 같은 파일 1-6행 헤더 주석("대상: apt로 node-exporter가 깔린 노드(data03/04). data05는 컨테이너 → 이 role은 자동 스킵")도 **거짓이 되므로 함께 교체**한다.
-`playbooks/agents.yml`이 같은 주장을 한 번 더 한다(38-40행 주석 + 41행 play 이름의 "apt 노드") — **T1-1이 함께 교체**한다. role만 고치면 플레이북이 사라진 동작을 계속 주장한다. 같은 파일 **9행의 `-K` 안내("대상의 sudo가 NOPASSWD가 아니면 필요(예 data04 mhchoi)")도 실측과 반대**다 — data04는 NOPASSWD(rc=0)이고 `-K`가 필요한 노드는 **data05**다(README §4.2.1).
+`playbooks/agents.yml`이 같은 주장을 한 번 더 한다(38-40행 주석 + 41행 play 이름의 "apt 노드") — **T1-1이 함께 교체**한다. role만 고치면 플레이북이 사라진 동작을 계속 주장한다. 같은 파일 **9행의 `-K` 안내("대상의 sudo가 NOPASSWD가 아니면 필요(예 data04)")도 실측과 반대**다 — data04는 NOPASSWD(rc=0)이고 `-K`가 필요한 노드는 **data05**다(README §4.2.1).
 
 가드를 그냥 없애면 "소비처 없는 노드에 생산자만 깔리는" **새 실패모드**가 생긴다 — 지금 고치는 것과 정확히 같은 종류의 재발이다. 그래서 소비처를 **명시적으로 선언**하게 한다.
 
@@ -716,7 +716,7 @@ SER=ZC1AE78X
 P=$(curl -s --get --data-urlencode "query=node_smart_disk_grown_defect_list{serial=\"$SER\"}" \
      http://localhost:9090/api/v1/query \
    | python3 -c "import sys,json;r=json.load(sys.stdin)['data']['result'];print(int(float(r[0]['value'][1])) if r else 'NOSERIES')")
-S=$(ssh -p 764 mhchoi@192.168.1.104 "for n in \$(seq 0 24); do sudo -n smartctl --json -d cciss,\$n /dev/sg3 2>/dev/null; done" \
+S=$(ssh -p 764 "$KEIWI_USER_DATA04@192.168.1.104" "for n in \$(seq 0 24); do sudo -n smartctl --json -d cciss,\$n /dev/sg3 2>/dev/null; done" \
    | python3 -c "
 import sys,json
 buf=sys.stdin.read()
@@ -870,7 +870,7 @@ curl -s "localhost:9200/keiwi-logs-*/_search" -H 'Content-Type: application/json
 
 **§4 하드웨어 확증 — 있는 신호와 없는 신호(실측)** 있다: `UNCORRECTABLE_REMAPPED_ROWS`·`ROW_REMAP_FAILURE`·`PCIE_REPLAY_COUNTER`(현재 전부 0). **한계**: remap 계열은 data05(A40)에만 존재 — data03/04(RTX 6000)는 row remapping이 없어 확증 경로가 없고 원문 로그 + `dmesg` + 재현성이 유일 근거다. ECC SBE/DBE는 현 DCGM csv에 없다(hardware-ops T6-4 예정) — **이 런북은 그 의존 없이 성립한다.** DCGM으로 드라이버 mismatch는 판별 불가 → `nvidia-driver-mismatch.md` 병행 확인.
 
-**§5 누가 쓰고 있나 (파괴적 조치 전 필수)** `gpu_model_info{node="data05"}`의 `user` 라벨이 소유자다(라이브 예: node=data04, user=mhchoi, framework=ollama, pid=391942). **연구 잡을 죽이기 전에 통보한다(§11: 자동 종료 금지).**
+**§5 누가 쓰고 있나 (파괴적 조치 전 필수)** `gpu_model_info{node="data05"}`의 `user` 라벨이 소유자다(라이브 예: node=data04, user=user5, framework=ollama, pid=391942). **연구 잡을 죽이기 전에 통보한다(§11: 자동 종료 금지).**
 
 **§6 조치 트리(파괴 강도 순)** 앱 판정 → 소유자 통보 → 프로세스만 재시작 / 24h 내 동일 GPU 3회 반복 → 해당 GPU 배제 안내 + 인시던트 기록 / HW 코드 → 잡 대피 → 정비창 재부팅 → 재발 시 교체 요청.
 
@@ -958,8 +958,8 @@ R7의 정밀도: **단위(`°C`/`%`)가 붙은 숫자만** 대조하므로 LogIn
 `bash -n` 실패의 정확한 원인 [실측]: bash가 `<user>`의 `<`를 **입력 리다이렉션**으로 파싱한다. 최소 수정:
 
 ```diff
--ssh -p 764 <user>@<node-ip>          # 예: ssh -p 764 mhchoi@192.168.1.104
-+ssh -p 764 "<user>@<node-ip>"        # 예: ssh -p 764 mhchoi@192.168.1.104
+-ssh -p 764 <user>@<node-ip>          # 계정은 노드별(레포에 적지 않는다)
++ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다)
 ```
 
 따옴표 안에서는 리다이렉션으로 해석되지 않고(검증: `bash -n` 통과) 사람이 읽는 의미도 그대로다.
@@ -1460,7 +1460,7 @@ curl -s 'localhost:9090/api/v1/rules?type=record' \
 > 그 파서가 문자열 안의 `//`를 주석 시작으로 오인하면 **조용한 미탐**이 된다(게이트가 가장 피해야 할 실패).
 > 그래서 규칙을 약화시키지 않고 **문서 예시를 RFC 2606·RFC 5737로 교정**했다(T5-2·T5-4 범위에 포함).
 
-**스캔 사각지대** 스크립트는 `apps/console/src`만 본다. 같은 성격의 리터럴이 밖에 있다 — `apps/console/next.config.ts:31` `allowedDevOrigins: ["127.0.0.1","localhost","192.168.1.105","*.excusa.uk"]`. `infra/`·`docs/`·`.github/`는 전혀 검사되지 않는다.
+**스캔 사각지대** 스크립트는 `apps/console/src`만 본다. 같은 성격의 리터럴이 밖에 있다 — `apps/console/next.config.ts:31` `allowedDevOrigins: ["127.0.0.1","localhost","192.168.1.105","*.<자체 도메인>"]`. `infra/`·`docs/`·`.github/`는 전혀 검사되지 않는다.
 
 **진짜 시크릿 탐지 능력 0** 규칙 1은 `https?://`로 시작하는 문자열만 본다. 개인키·`ghp_`·`xoxb-`·Slack 웹훅·GlitchTip DSN·Cloudflare 터널 토큰은 전부 통과한다.
 
@@ -1530,7 +1530,7 @@ const SECRET_TOKEN = ["xoxb", "PROBE", "SECRET", "TOKEN"].join("-");
 
 > 이 엄격한 형식 덕분에 hardware-ops `spec.md:390`의 `services/T00000000/…`, `tasks.md:86`의 `services/TEST`는 **예외 없이 자연 통과**한다(`/B…/…` 세그먼트가 없다). 허용리스트가 필요 없는 이유가 여기 있다.
 
-**S2 — 배포 결합 리터럴 금지** (스코프: **런타임 소스만** — `apps/console/src/**` 빼기 `**/*.test.ts(x)`·`**/__tests__/**`, 더하기 `apps/console/next.config.ts`). 패턴: 사설 IP `\b(?:10\.\d{1,3}|192\.168\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3})\.\d{1,3}\b` + 자체 도메인 `\b[a-z0-9-]+\.excusa\.uk\b`(스크립트 상단 `OWNED_DOMAINS` 상수 1곳).
+**S2 — 배포 결합 리터럴 금지** (스코프: **런타임 소스만** — `apps/console/src/**` 빼기 `**/*.test.ts(x)`·`**/__tests__/**`, 더하기 `apps/console/next.config.ts`). 패턴: 사설 IP `\b(?:10\.\d{1,3}|192\.168\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3})\.\d{1,3}\b` **하나뿐**이다. 자체 도메인 패턴은 2026-08-04에 이 규칙에서 **뺐다** — 레포를 PUBLIC으로 유지하기로 하면서 도메인 평문을 게이트 소스에 둘 수 없게 됐기 때문이다(숨기려는 값을 정규식으로 적어 두는 것이 곧 광고다. 스코프 제외로는 못 푼다 — 제외해도 값은 파일에 남는다). 대체 소관은 `scripts/gates/check-public-safety.sh` **P1**(SHA-256 대조 + 스택 서비스명 일반 패턴, 스코프는 **레포 전역** = 옛 S2의 상위집합).
 `localhost`·`127.0.0.1`·`github.com`·`www.w3.org`는 통과 — **규칙이 "배포마다 달라지는 값"만 보기 때문**이지 예외 목록이 아니다. `xmlns`도, 템플릿 리터럴도 리터럴 호스트가 없으므로 구조적으로 안 걸린다.
 
 > **테스트를 S2에서 빼는 것은 스코프 정의이지 면제가 아니다.** S2의 목적은 "배포 산출물이 환경에 못 박히지 않게"인데 테스트는 배포되지 않는다. 더구나 `sentry-scrub.test.ts`는 **사설 IP 마스킹을 검증**하는 테스트라 픽스처에서 사설 IP를 빼면 테스트가 무의미해진다. 반대로 S1은 커밋 자체가 유출이므로 테스트에도 예외를 두지 않는다.

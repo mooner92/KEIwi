@@ -47,11 +47,11 @@ docker run --rm -v "$PWD:/out" ubuntu:16.04 bash -c '
 file ./smartctl                  # "statically linked" 여야 한다
 ldd  ./smartctl                  # "not a dynamic executable" 여야 한다
 
-# ③ data01로 전송(포트 764, 계정 mhchoi)
-scp -P 764 ./smartctl "mhchoi@192.168.1.101:/tmp/smartctl-7.4"
+# ③ data01로 전송(포트 764 · 계정은 env, 레포에 적지 않는다 §13)
+scp -P 764 ./smartctl "$KEIWI_USER_DATA01@192.168.1.101:/tmp/smartctl-7.4"
 
 # ④ 설치(사람, sudo)
-ssh -p 764 "mhchoi@192.168.1.101" 'sudo install -o root -g root -m 0755 \
+ssh -p 764 "$KEIWI_USER_DATA01@192.168.1.101" 'sudo install -o root -g root -m 0755 \
   /tmp/smartctl-7.4 /opt/keiwi/bin/smartctl'
 ```
 
@@ -60,7 +60,7 @@ ssh -p 764 "mhchoi@192.168.1.101" 'sudo install -o root -g root -m 0755 \
 `infra/ansible/inventory.ini`의 data01 호스트 라인에 override 한 줄을 더한다:
 
 ```ini
-data01 ansible_host=192.168.1.101 ansible_user=mhchoi fleet_node=data01 \
+data01 ansible_host=192.168.1.101 ansible_user="{{ ... }}" fleet_node=data01 \
        node_hygiene_apt_enabled=false disk_smart_smartctl_path=/opt/keiwi/bin/smartctl
 ```
 
@@ -78,7 +78,7 @@ T2-17이 판정한다:
 
 ```bash
 # 임시로 벤더링 바이너리를 두고(설치 아님) 한 번만 물어본다 — 읽기 전용
-ssh -p 764 "mhchoi@192.168.1.101" 'sudo /tmp/smartctl-7.4 --json -d cciss,0 /dev/sg0'
+ssh -p 764 "$KEIWI_USER_DATA01@192.168.1.101" 'sudo /tmp/smartctl-7.4 --json -d cciss,0 /dev/sg0'
 ```
 
 | 결과 | 판정 |

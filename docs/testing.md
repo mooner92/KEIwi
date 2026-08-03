@@ -90,7 +90,7 @@ BASE=http://127.0.0.1:3199 node scripts/logs-workbench-test.mjs   # 스크린샷
 
 [`apps/console/scripts/embed-host-test.mjs`](../apps/console/scripts/embed-host-test.mjs): 접속 host별 임베드 베이스 분기(`lib/grafana-host.ts`) — localhost/IP 접속 시 iframe이 `http://<host>:3000`(same-site)으로 향하는지 확인(크로스 사이트 쿠키 거부 → Grafana 로그인 무한 루프 회귀 가드).
 > [!NOTE] Grafana iframe·외부 사이트
-> Grafana 임베드는 Cloudflare Access 뒤라 헤드리스에서 인증 없이 **안 떠도 정상**입니다 — 검증 대상은 **콘솔 레이아웃·네이티브 동작**이지 Grafana 내용이 아닙니다. 라이브 URL(keiwi.excusa.uk)도 Access로 막히니 검증은 **localhost(격리 빌드)** 로.
+> Grafana 임베드는 Cloudflare Access 뒤라 헤드리스에서 인증 없이 **안 떠도 정상**입니다 — 검증 대상은 **콘솔 레이아웃·네이티브 동작**이지 Grafana 내용이 아닙니다. 라이브 외부 URL(Cloudflare Access 뒤 · 주소는 레포에 적지 않는다)도 Access로 막히니 검증은 **localhost(격리 빌드)** 로.
 
 ## 단위 테스트
 

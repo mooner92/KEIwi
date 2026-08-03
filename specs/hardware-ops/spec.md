@@ -447,7 +447,7 @@ POST /api/convert/prometheus/config/v1/rules
 | `pid`, `cmdline`, XID 로그의 `name=VLLM::Worker` | 프로세스 정보 | **높음** | **금지** |
 | annotations `summary`/`description` | 임계와 실측값 | 중 | **허용**(수치만, 라벨 보간 금지) |
 | `values`/`valueString` | 메트릭 수치 | 중 | 허용 |
-| `generatorURL`/`dashboardURL`/`panelURL`/`silenceURL` | 내부 호스트명 또는 `grafana.excusa.uk` | 중 | **`grafana.excusa.uk`만 허용**(내부 IP URL 금지) |
+| `generatorURL`/`dashboardURL`/`panelURL`/`silenceURL` | 내부 호스트명 또는 외부 도메인(터널 뒤) | 중 | **허용목록 호스트만**(주소는 레포에 적지 않는다 §13 — 현행은 내부 IP `192.168.1.105:3000`·`:3106`) |
 
 > [!CAUTION]
 > **가장 주의할 점**: `user` 라벨과 XID 로그의 `pid`/`name`을 템플릿에 그대로 태우면 **연구원 계정명이 외부 SaaS에 영구 적재된다.** 되돌릴 수 없다. 그래서 v1의 Slack 템플릿은 **화이트리스트 방식**(alertname/severity/node/gpu/job만 출력)이며, 블랙리스트가 아니다 — 새 라벨이 생겨도 자동으로 새지 않는다. 상세는 링크로만 보낸다("콘솔에서 확인").

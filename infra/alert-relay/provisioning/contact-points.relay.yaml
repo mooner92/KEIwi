@@ -1,0 +1,54 @@
+# alert-relay webhook 수신처 — **섀도 배포 때만** 복사한다 (T-E3-3 · spec §3.5 S1)
+#
+# ⚠️ 이 파일은 일부러 provisioning/alerting/ **밖**에 있다.
+#    · `$__env{RELAY_SHARED_SECRET}` 이 Grafana 컨테이너 환경에 없으면 프로비저닝이 실패하고,
+#      프로비저닝이 실패하면 **Grafana가 뜨지 않는다**(inhibitionRules 사고와 같은 유형).
+#    · 즉 "env 배선 → 이 파일 복사" 순서가 강제돼야 한다. 디렉터리에 미리 둘 수 없다.
+#
+# 적용(사람, §11 — T-E3-6에서):
+#   1) /data/monitoring/.env 에 RELAY_SHARED_SECRET=... 추가 (relay의 /data/alert-relay/env 와 동일 값)
+#      + docker-compose.yml grafana 서비스 environment 에 - RELAY_SHARED_SECRET=${RELAY_SHARED_SECRET}
+#   2) 도달성 확인 — Grafana 컨테이너에서 relay가 보이는가:
+#        docker exec grafana wget -qO- http://<RELAY_HOST>:8130/healthz
+#   3) sudo cp infra/alert-relay/provisioning/contact-points.relay.yaml \
+#              /data/monitoring/grafana/provisioning/alerting/
+#   4) docker restart grafana && docker logs grafana 2>&1 | grep -i 'provision.*err'   # 0건이어야 한다
+#
+# ⚠️ 네트워크 함정 — Grafana는 **컨테이너 안**이다(bridge). 컨테이너의 127.0.0.1은
+#    호스트가 아니라 컨테이너 자신이다. 아래 셋 중 하나를 골라 url 을 확정한다:
+#      (a) compose grafana 에 `extra_hosts: ["host.docker.internal:host-gateway"]` 추가
+#          → url: http://host.docker.internal:8130/webhook  (권장 — 주소가 이름으로 고정)
+#      (b) 호스트 docker0 IP(보통 172.17.0.1) → RELAY_LISTEN_ADDR 도 같은 IP로
+#      (c) 호스트 LAN IP(192.168.1.105) → **ufw로 컨테이너 서브넷만** 허용할 것
+#    (a)를 기본으로 적었다. 실제 선택은 T-E3-6에서 도달성 확인 후 확정한다.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: alert-relay
+    receivers:
+      - uid: keiwi-alert-relay
+        type: webhook
+        settings:
+          url: http://host.docker.internal:8130/webhook
+          httpMethod: POST
+          # 공유 시크릿 — 값은 레포에 없다(§13). Grafana가 기동 시 env에서 읽는다.
+          # relay는 이 헤더를 상수 시간 비교로 검증한다(verify_shared_secret).
+          authorization_scheme: Bearer
+          authorization_credentials: $__env{RELAY_SHARED_SECRET}
+          # ⚠️ webhook 알림기의 본문 키는 `message` 다(slack 알림기의 `text` 가 아니다).
+          #    이 둘을 넣어야 payload 최상위에 렌더된 title/message가 실리고,
+          #    relay는 **그것을 그대로** Slack에 올린다 — 포맷 정본은 E1 템플릿 한 곳(spec §3.2).
+          title: '{{ template "keiwi.title" . }}'
+          message: '{{ template "keiwi.text" . }}'
+        # 해결 웹훅이 와야 relay가 "✅ 해결" 스레드 답글을 만든다. 끄면 안 된다.
+        disableResolveMessage: false
+
+# ── HMAC 서명(선택) ─────────────────────────────────────────────────────────
+# Grafana 12+ 의 webhook HMAC 서명 옵션. 서명 대상 문자열이 [검증 필요]라
+# 기본은 **끈 채** 둔다(공유 시크릿 헤더가 1차 방어이고, 같은 호스트 루프백이다).
+# 섀도 기간에 실제 헤더를 relay 로그로 확인한 뒤 켠다:
+#         hmacConfig:
+#           secret: $__env{RELAY_HMAC_SECRET}
+#           header: X-Grafana-Alerting-Signature
+#           timestampHeader: X-Grafana-Alerting-Timestamp

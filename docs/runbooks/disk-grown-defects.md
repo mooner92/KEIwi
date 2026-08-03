@@ -78,7 +78,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=node_smart_disks'
 
 ```bash
 # ⑤ 노드에서 직접 대조 (읽기 전용. -t 를 절대 쓰지 않는다 — 셀프테스트는 부하다)
-ssh -p 764 "<user>@<node-ip>"        # data03=mooner92@192.168.1.103 · data04=mhchoi@192.168.1.104
+ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별 — 레포에 적지 않는다(대상 노드 `ls /home`)
 ls -l /sys/class/scsi_generic/       # device/type 이 12인 것이 RAID 컨트롤러 (data03=sg2, data04=sg3, data05=sg4)
 for n in $(seq 0 15); do
   sudo smartctl --json -d "cciss,$n" /dev/sg2 \

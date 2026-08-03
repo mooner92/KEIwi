@@ -112,14 +112,14 @@
 | 콘솔(호스트 프로세스) → ingest | `127.0.0.1:8090` | **HTTP** | 망을 타지 않는다. **자체 서명 CA를 도입하지 않는다**(`transportOptions.caCerts` 불필요 — 관리 부담만 늘고 얻는 것이 없다) |
 | Prometheus(컨테이너) → `/metrics` | `172.18.0.1:8090` | HTTP | 기존 관례와 동일 — vLLM `172.18.0.1:8003`·gpu-model `172.18.0.1:9836`[실측]. 6.0에서 `/metrics` 경로가 고정됐다[조사] |
 | 브라우저 → 이벤트 전송 | **콘솔 자신의 오리진** `/monitoring` (tunnel route) | HTTPS(CF 엣지 종단) | §5.1 |
-| 사람 → UI | `https://glitchtip.excusa.uk` + Cloudflare Access | HTTPS | 기존 `grafana.excusa.uk` 패턴(§14) |
+| 사람 → UI | 외부 도메인 + Cloudflare Access — **주소는 레포에 적지 않는다**(§13, env 주입) | HTTPS | 기존 Grafana 터널과 동일 패턴(§14) |
 
 **바인드 결정**: `web`의 ports를 **두 줄**로 쓴다 — `"127.0.0.1:8090:8000"` + `"172.18.0.1:8090:8000"`.
 - `0.0.0.0` 바인드를 피하는 이유: LAN 전체에 로그인 화면을 노출할 이유가 없다.
 - 두 줄이 필요한 이유: Prometheus는 컨테이너라 `127.0.0.1`에 닿지 못한다.
 - **[미확인 → GV-6]** cloudflared가 컨테이너라면 `172.18.0.1` 쪽으로 향해야 한다. 판정 후 확정한다.
 
-`GLITCHTIP_DOMAIN=https://glitchtip.excusa.uk` — 이 값이 **Slack 메시지의 링크를 만든다**(`issue.get_detail_url()`)[조사]. 잘못 넣으면 알림은 오는데 링크가 죽는다.
+`GLITCHTIP_DOMAIN`(값은 `/data/glitchtip/.env` — 레포에 없다) — 이 값이 **Slack 메시지의 링크를 만든다**(`issue.get_detail_url()`)[조사]. 잘못 넣으면 알림은 오는데 링크가 죽는다.
 `ALLOWED_HOSTS`·`CSRF_TRUSTED_ORIGINS`는 **GV-2에서 키 존재를 확인한 뒤에만** 쓴다(기본 `["*"]` + 경고).
 
 ### 2.4 볼륨

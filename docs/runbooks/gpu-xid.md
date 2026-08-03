@@ -143,7 +143,7 @@ done
 **원문이 없을 때(§2의 (b)가 계속 0건)** — 해당 노드에서 직접 본다:
 
 ```bash
-ssh -p 764 "<user>@<node-ip>"        # 예: ssh -p 764 mhchoi@192.168.1.104
+ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 764
 sudo dmesg -T | grep -i 'NVRM: Xid' | tail -20
 nvidia-smi -q | grep -iE 'Remapped Rows|Retired Pages|ECC Errors' -A3 | head -40
 ```
@@ -173,7 +173,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info' \
   | python3 -c "import sys,json;[print(m['node'],'gpu'+m['gpu'],m['user'],m['framework'],m['model'],'pid='+m['pid']) for m in (s['metric'] for s in json.load(sys.stdin)['data']['result'])]"
 ```
 
-**[실측 2026-08-03]** 예: `data04 gpu0 mhchoi ollama ollama pid=391942`, `data04 gpu0/1 mhchoi uvicorn 04_rag_api`.
+**[실측 2026-08-03]** 예: `data04 gpu0 user5 ollama ollama pid=391942`, `data04 gpu0/1 user5 uvicorn 04_rag_api`.
 
 > **연구 잡을 죽이기 전에 소유자에게 통보한다(헌장 §11 — 자동 종료 금지).**
 > 재현 불가능한 학습·추론이 돌고 있을 수 있고, XID 43은 대개 그 잡 하나만 재시작하면 끝난다.

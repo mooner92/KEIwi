@@ -15,7 +15,7 @@
 ### Added
 - **알림 계층(라이브)** — Grafana 알림 규칙 9건을 코드로 프로비저닝, Slack 2채널(#keiwi-infra·#keiwi-web)로 발신. 1차 5건(`9a38343`) 후 결정적 실패 4건 추가로 9건(`dd9e1a6`: GpuXidErrorNew·OomKillOccurred·SmartHealthFailed·DiskFillPredicted). 임계는 2026-07-30 실측 기반, 첫날 오발화 0건 확인.
 - **로그 인입 하트비트 — dead man's switch(라이브)** — 정상일 때만 GlitchTip 하트비트로 POST(`127.0.0.1:8090`), 신호 부재를 장애로 판정. 로그 인입 중단 탐지 5.7일 → 40분(`ac8b88b`). Grafana `LogIngestStalled`와 서로 다른 실패 도메인으로 이중화.
-- **GlitchTip 에러 트래킹(콘솔 계측 라이브 / 외부 터널 미완)** — 자체호스팅 GlitchTip + 콘솔 Sentry SDK 배선, 반출 최소화 스크러버(화이트리스트)로 egress 통제(`f939d71`). DSN 게터는 부팅 안전 우선 no-throw(`43ec711`), 서버 왕복 성공(`505fb7d`), E1 인프라·게이트 실측 통과(`8958949`). 외부 도메인(glitchtip.excusa.uk) 터널 E1-7은 미완 — 현재 로컬 루프백 사용.
+- **GlitchTip 에러 트래킹(콘솔 계측 라이브 / 외부 터널 미완)** — 자체호스팅 GlitchTip + 콘솔 Sentry SDK 배선, 반출 최소화 스크러버(화이트리스트)로 egress 통제(`f939d71`). DSN 게터는 부팅 안전 우선 no-throw(`43ec711`), 서버 왕복 성공(`505fb7d`), E1 인프라·게이트 실측 통과(`8958949`). 외부 도메인 터널 E1-7은 미완(주소는 레포에 적지 않는다 §13) — 현재 로컬 루프백 사용.
 - **디자인 v3 "Quiet Console" + /about** — 정적(靜的) 토큰 체계 신설·소개 페이지(`e1249e3`), 셸·워크벤치·플릿/임베드 전면 재정렬(`6b1de66`). Grafana 대시보드 v3 테마(게이지 제거·투명 패널·팔레트 정렬, `a037edb`).
 - **문서 지식 그래프 + 코드베이스 메모리 도구** — graphify 도입(ADR↔스펙↔런북 그래프), vLLM 백엔드로 egress 0(`d84d63d`).
 - **specs** — alerting v2(임계 결정 프레임워크, `17abac0`) / hardware-ops(축2 신선도·크로스노드 watchdog) / error-tracking SDD(GlitchTip 자체호스팅, ADR-0022, `fdb418d`).
