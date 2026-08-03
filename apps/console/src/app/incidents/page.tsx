@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * 로그 어시스턴트 — 보류 M4(/incidents) 자리를 전용(ADR-0012/0014).
  * 좌: 현재 신호(에러 진입점) · 우: 어시스턴트(로컬 vLLM RAG). "분석" → ?service&node&q prefill.
  * 알림 딥링크(specs/alert-enrichment §2 E2): ?alert&node&mount&from — alert는 프리셋 질문으로,
- * node는 Grafana instance 라벨(`192.168.1.104:9100`)까지 흡수해 노드 id로 정규화.
+ * node는 Grafana instance 라벨(`192.0.2.104:9100`)까지 흡수해 노드 id로 정규화.
  */
 export default async function AssistantPage({
   searchParams,

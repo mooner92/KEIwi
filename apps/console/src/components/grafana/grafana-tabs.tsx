@@ -1,19 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTheme } from "@/lib/use-theme";
-
-// 하이드레이션 완료 감지 — 서버 스냅샷 false → 클라이언트 true. 구독할 외부 변화가
-// 없으므로 구독자는 빈 함수다(use-theme.ts와 같은 useSyncExternalStore 관용구 —
-// effect+setState는 react-hooks/set-state-in-effect가 계단식 렌더로 막는다).
-const emptySubscribe = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  );
-}
 
 type Dashboard = { uid: string; label: string };
 type Tab = { key: string; label: string; kind: "service" | "grafana"; dash?: Dashboard };
@@ -99,6 +87,7 @@ export function GrafanaTabs({
   selectedDcgm,
   servicePanel,
   timeOverride,
+  initialTheme = "light",
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
@@ -109,18 +98,19 @@ export function GrafanaTabs({
   servicePanel?: ReactNode;
   /** 시간창/변수 강제(근거 로그 딥링크) — Grafana 탭 전체에 적용. */
   timeOverride?: EmbedTimeOverride | null;
+  /** SSR 시 쓸 테마 — 서버가 `keiwi-theme` 쿠키에서 읽어 준다(use-theme.ts 주석 참조). */
+  initialTheme?: "light" | "dark";
 }) {
-  const theme = useTheme(); // 콘솔 다크 ↔ Grafana 임베드 테마 동기화
-  // ── 테마 불일치 버그의 근본 원인과 방어 ──────────────────────────────────
-  // 테마의 진실은 클라이언트에만 있다(localStorage → <html data-theme>, 페인트 전 인라인
-  // 스크립트). 서버는 그 값을 모르므로 useTheme의 서버 스냅샷("light")은 **추측**이다.
-  // 예전에는 그 추측으로 SSR HTML에 theme=light iframe이 실렸고,
-  //   · 하이드레이션이 늦거나 깨지면(브라우저 확장 주입·HMR — 이 레포에서 실제 전례)
-  //     콘솔 크롬은 다크(CSS 즉시 적용)인데 Grafana만 라이트로 **고정**됐다("종종" 재현 조건)
-  //   · 정상 경로여도 다크 사용자는 Grafana를 2번 로드했다(light 로드 → dark 재로드)
-  // → iframe은 **하이드레이션 후, 진짜 테마를 안 뒤에만** 만든다. 그 전에는
-  //   조용한 자리표시자를 그린다. 첫 로드부터 올바른 테마 하나로 간다.
-  const mounted = useHydrated();
+  // ── 테마 동기화 ─────────────────────────────────────────────────────────
+  // 서버는 DOM이 없어 테마를 모르므로 **쿠키에서 읽은 값(initialTheme)을 주입**받는다
+  // (서버 컴포넌트 grafana-embed.tsx가 cookies()로 읽어 넘긴다).
+  // 그래야 SSR HTML이 처음부터 올바른 테마의 iframe을 담는다 —
+  //   · 다크 사용자의 Grafana 이중 로드(light→dark)가 사라지고
+  //   · 임베드가 **하이드레이션에 의존하지 않는다**(2026-08-04 회귀의 교훈:
+  //     iframe을 하이드레이션 뒤로 미뤘더니 dev 모드에서 Grafana가 아예 안 떴다.
+  //     잘못된 테마보다 부재가 더 나쁜 실패다.)
+  // 토글 시 반응은 useSyncExternalStore가 <html data-theme> 변화를 구독해 처리한다.
+  const theme = useTheme(initialTheme);
   // 탭 순서: 시스템·GPU·모델(env 순서) → 서비스 마지막 (2026-07-02 사용자 지시 — v2.1 R01 개정).
   const tabs: Tab[] = [
     ...dashboards.map((d) => ({ key: d.uid, label: d.label, kind: "grafana" as const, dash: d })),
@@ -137,7 +127,7 @@ export function GrafanaTabs({
   const applyInstance = onSystem ? selectedInstance : onGpu ? selectedDcgm : undefined;
   const applyNodeName = onSystem ? selectedNodeName : undefined;
   const src =
-    !mounted || onService || !cur?.dash
+    onService || !cur?.dash
       ? ""
       : buildEmbedSrc(
           baseUrl,
@@ -226,14 +216,15 @@ export function GrafanaTabs({
               suppressHydrationWarning
             />
           ) : (
-            // 마운트 전(SSR·하이드레이션 사이) 자리표시자 — 테마를 모르는 채 iframe을
-            // 만들면 틀린 테마로 로드된다(위 mounted 주석). 스켈레톤은 콘솔 토큰만 쓰므로
-            // 어느 테마에서든 자연스럽고, Grafana 로드 1회보다 훨씬 싸다.
-            <div
-              aria-hidden
-              className="h-full w-full animate-pulse bg-surface-2"
-              data-testid="grafana-embed-placeholder"
-            />
+            // 대시보드 uid가 없을 때만 도달한다(정상 경로에서는 SSR부터 iframe이 있다).
+            // 자리표시자를 "로딩 중"으로 쓰지 않는다 — 임베드가 클라이언트 상태에 의존하면
+            // 하이드레이션이 실패한 브라우저에서 Grafana가 영영 안 뜬다(2026-08-04 회귀).
+            <div className="flex h-full w-full items-center justify-center p-6 text-center">
+              <p className="text-sm text-ink-subtle">
+                대시보드가 지정되지 않았습니다 —{" "}
+                <span className="tnum">GRAFANA_DASHBOARD_UID</span>를 확인하세요.
+              </p>
+            </div>
           )}
         </div>
       )}

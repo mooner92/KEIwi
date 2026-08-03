@@ -103,9 +103,12 @@ function FilterChip({
 export function LogsWorkbench({
   signals,
   grafana,
+  initialTheme = "light",
 }: {
   signals: LogDoc[];
   grafana: GrafanaConf | null;
+  /** SSR 테마 — 서버가 `keiwi-theme` 쿠키에서 읽어 준다(use-theme.ts 주석 참조). */
+  initialTheme?: "light" | "dark";
 }) {
   const [open, setOpen] = useState(true); // 기본 열림(발견성) — 저장된 닫힘만 복원
   const [selected, setSelected] = useState<LogDoc | null>(null);
@@ -249,6 +252,7 @@ export function LogsWorkbench({
             <div className="min-h-0 flex-1">
               <GrafanaTabs
                 baseUrl={grafana.baseUrl}
+                initialTheme={initialTheme}
                 dashboards={grafana.dashboards}
                 timeOverride={override}
               />

@@ -8,7 +8,7 @@ const m = (over: Partial<GpuModel>): GpuModel => ({
   port: "",
   gpu: "0",
   vramBytes: 0,
-  user: "mhchoi",
+  user: "user5",
   ...over,
 });
 
@@ -45,11 +45,11 @@ describe("aggregateGpuModels (중복 제거 — model+framework, 노드별)", ()
 
   it("같은 모델이라도 소유자(user)가 다르면 분리", () => {
     const out = aggregateGpuModels([
-      m({ model: "ollama", framework: "ollama", user: "mhchoi", vramBytes: 100 }),
+      m({ model: "ollama", framework: "ollama", user: "user5", vramBytes: 100 }),
       m({ model: "ollama", framework: "ollama", user: "jdoe", vramBytes: 200 }),
     ]);
     expect(out).toHaveLength(2);
-    expect(out.map((a) => a.user).sort()).toEqual(["jdoe", "mhchoi"]);
+    expect(out.map((a) => a.user).sort()).toEqual(["jdoe", "user5"]);
   });
 
   it("같은 모델이라도 노드가 다르면 분리", () => {

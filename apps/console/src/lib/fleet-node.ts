@@ -3,10 +3,10 @@ import type { Node } from "@/types/fleet";
 /**
  * 알림 딥링크의 node 파라미터 정규화 (specs/alert-enrichment §2 D2-2).
  *
- * Grafana 규칙 템플릿은 `192.168.1.104:9100`(instance 라벨) 형태만 만들 수 있으므로
+ * Grafana 규칙 템플릿은 `192.0.2.104:9100`(instance 라벨) 형태만 만들 수 있으므로
  * 콘솔이 노드 id로 흡수한다. 순수 함수 — inventory는 호출부(서버)가 loadInventory()로 공급.
  *
- * 수용: `data04`(id) | `192.168.1.104`(ip) | `192.168.1.104:9100`(ip:port).
+ * 수용: `data04`(id) | `192.0.2.104`(ip) | `192.0.2.104:9100`(ip:port).
  * 미지 입력은 undefined — 판단은 호출부가 한다(원문 폴백 등).
  */
 export function normalizeFleetNode(
