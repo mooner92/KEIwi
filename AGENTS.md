@@ -26,6 +26,9 @@
 | 🎨 `specs/design/` | **이식형 디자인 시스템 스펙**(KRDS 기반, 디자인 SoT — 다른 프로젝트 복사 가능) |
 | 🎨 `design-system/spec/` | KRDS 토큰·색·shape·타이포 규약(ADR 0006/0007) |
 | 🤖 `infra/` | 관제 스택 — 레포는 **권장본 생성만**, 라이브 적용은 사람(§11·§12). `monitoring/`(prometheus·grafana 프로비저닝=바인드 마운트·`docker-compose.yml` 권장본·gpu-model/port-exporter·터널)·`logging/`·`ansible/` |
+| 🧠 `infra/rag/` | LightRAG 지식그래프(vLLM+bge-m3, egress 0) — 진단·검색 계층 |
+| 📮 `infra/alert-relay/` | 알림 중계 + L1 조치 제안(실행 기능 0) |
+| 🔩 `infra/monitoring/bmc/` | BMC·SEL 백필 — 관측 스택 사각지대 |
 | 🖥️ `apps/console/` | KEIwi 콘솔 (Next.js 16 · KRDS) — 검증 스크립트는 `scripts/`(screenshot·logs-workbench-test·embed-host-test·assistant-func-test) |
 
 ## 🔄 워크플로 (SDD)

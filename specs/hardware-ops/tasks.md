@@ -16,7 +16,7 @@
   - ⚠️ **구현은 fleet-hardening T1-3이다** — 메트릭 이름 4개는 그대로 쓰고(재정의 금지), 실측 교정 2건이 붙는다: ⓐ 유저스페이스 경로를 `ldconfig -p`→`readlink -f`로 해석(하드코딩하면 data01의 `/usr/lib/nvidia-418`에서 깨진다, spec §T0-1 각주) ⓑ `node_nvidia_probe_ok`·`node_nvidia_smi_exit_code` 2종 추가(판정불능/미수집 구분). 이 태스크는 **그 산출물을 인수**한다.
 - [ ] **T0-2** `[server]` (S) T0-1 배포 — `ansible-playbook playbooks/agents.yml --tags node-hygiene --check` → 실적용. **선행: T0-1, fleet-hardening T1-4.** 기대: data05에서 `node_nvidia_version_mismatch = 1` 관측(=탐지 성공 증명)
   - ⚠️ **fleet-hardening T1-4 없이는 이 태스크 단독으로 기대치를 달성할 수 없다** — 교정 전 role은 `/etc/default/prometheus-node-exporter` stat 가드가 7개 태스크를 전부 게이팅해서 **data05(컨테이너)·data01(수동설치)를 통째로 스킵**한다. 스크립트에 블록을 넣어도 data05에 도달하지 않으므로 mismatch=1이 영원히 관측되지 않는다(fleet-hardening spec §1.1 커버리지 갭).
-- [ ] **T0-3** (S) 런북 `docs/runbooks/nvidia-driver-mismatch.md` 생성 — 증상(`nvidia-smi` exit 18) → 판별 3줄(`/proc/driver/nvidia/version` vs `modinfo nvidia` vs `readlink libnvidia-ml.so.1`) → 원인(무인 업그레이드 + 미재부팅) → 조치(재부팅) → 예방(ADR-0020). **frontmatter 계약 필수**(fleet-hardening spec §3.2 D3-2): `id: nvidia-driver-mismatch` · `kind: alert` · `category: gpu` · `severity: critical` · `alerts: []`(탐지 알림 신설 전이므로 빈 배열이 정상 — 게이트가 **WARN**으로 통과시킨다) + `docs/README.md` 런북 표에 한 줄(게이트 R9). 교차링크: [`gpu-xid.md`](../../docs/runbooks/gpu-xid.md) §4가 이 문서를 가리킨다(XID와 혼동해 재부팅하는 오조치 방지). **선행: 없음**
+- [ ] **T0-3** (S) 런북 `docs/runbooks/nvidia-driver-mismatch.md` 생성 — 증상(`nvidia-smi` exit 18) → 판별 3줄(`/proc/driver/nvidia/version` vs `modinfo nvidia` vs `readlink libnvidia-ml.so.1`) → 원인(무인 업그레이드 + 미재부팅) → 조치(재부팅) → 예방(ADR-0020(신설 예정)). **frontmatter 계약 필수**(fleet-hardening spec §3.2 D3-2): `id: nvidia-driver-mismatch` · `kind: alert` · `category: gpu` · `severity: critical` · `alerts: []`(탐지 알림 신설 전이므로 빈 배열이 정상 — 게이트가 **WARN**으로 통과시킨다) + `docs/README.md` 런북 표에 한 줄(게이트 R9). 교차링크: [`gpu-xid.md`](../../docs/runbooks/gpu-xid.md) §4가 이 문서를 가리킨다(XID와 혼동해 재부팅하는 오조치 방지). **선행: 없음**
 - [ ] **T0-4** `[server]` (M) **data05 재부팅으로 드라이버 수복.** 사전 확인: Q9(`:8003` 고아 소멸 → 어시스턴트 모델이 Qwen3-Coder-30B → Qwen2.5-Coder-32B로 바뀜, 의도 확인) · `:9836` 고아(`/gits/MineSweeper/...`) 처분. 사후 검증: `nvidia-smi` 정상 · 4유닛 active · `gpu_vram_total_bytes`에 data05 시리즈 복귀(ADR-0013 판정 회복) · CDI 재생성 성공 · `node_nvidia_version_mismatch = 0`. **선행: T0-2, T0-3, fleet-hardening T1-11(증거 보존)**
   - 🚫 **되돌릴 수 없는 순서 제약** — 재부팅이 T1-11보다 먼저 일어나면 `node_nvidia_version_mismatch`의 **1→0 전이가 시계열에 남지 않는다.** 그러면 이 태스크의 사후 검증 `= 0`은 "고쳤다"가 아니라 "원래 0이었다"와 구분되지 않고, AC-3-2("수복 전 1, 후 0, 두 값이 시계열에 모두 남아야")가 **영구 미달성**이 된다. T1-11이 `query_range` 응답을 JSON으로 커밋하는 것이 이 게이트의 완료 조건이다(TSDB 보존 30d 뒤에는 그 파일이 유일한 증거다). 위반 여부는 fleet-hardening AC-1-13이 재부팅 후 30일까지 기계 판정한다.
 - [x] **T0-5** `[server]` (M) **로그 인입 복구**(G0-2) — **완료 2026-07-30.** 원인은 하나가 아니라 **독립 결함 2개**였다:
@@ -69,7 +69,7 @@
 
 - [ ] **T3-1** `[server]` (S) data03에 `freeipmi-tools` 설치(현재 `ipmi-sensors`가 전 노드 MISSING). data03에 `ipmitool` 1.8.19는 이미 있음. **1노드만.** **선행: 없음**
 - [ ] **T3-2** `[server]` (S) **data05 BMC 실측 완료** — G0-4 해소 후 `ipmitool sdr elist all` / `sel info` / `sel elist` / `dcmi power reading` / `fru print 0` / `chassis status` / `mc info` 수집 → 4노드 하드웨어 사실표 완성(spec §1.1의 data05 공백 채움). **선행: T0-6**
-- [ ] **T3-3** `[server]` (M) `prometheus-community/ipmi_exporter`를 data03 local 모드로 기동(:9290) → **갭 표 작성**: 어떤 메트릭이 채워지고 무엇이 비는지(PSU별 출력 W · 엔티티 의미 · iLO 펌웨어 · HPE 센서 네이밍 · SDR 임계값). 이 표가 ADR-0019의 "고려한 대안" 절이 된다. **선행: T3-1**
+- [ ] **T3-3** `[server]` (M) `prometheus-community/ipmi_exporter`를 data03 local 모드로 기동(:9290) → **갭 표 작성**: 어떤 메트릭이 채워지고 무엇이 비는지(PSU별 출력 W · 엔티티 의미 · iLO 펌웨어 · HPE 센서 네이밍 · SDR 임계값). 이 표가 ADR-0019(신설 예정)의 "고려한 대안" 절이 된다. **선행: T3-1**
 - [ ] **T3-4** (S) `docs/decisions/0019-bmc-collection-method.md` — in-band 1차 / out-of-band 2차 + T3-3 갭 표 + 크레덴셜 0 근거(§13). **선행: T3-3**
 - [ ] **T3-5** (S) textfile PoC — `keiwi_bmc.prom` 생성 스크립트(node-hygiene 원자교체 패턴 복제). **새 포트·새 job·새 ufw 룰 0.** 대표 메트릭만: 전력·인렛온도+임계·팬 duty·PSU 출력·PSU/팬 이중화·SEL 사용률·`keiwi_bmc_info`·`keiwi_bmc_up`·`_collector_last_run_timestamp_seconds`. **선행: T3-3**
 - [ ] **T3-6** `[server]` (S) T3-5를 data03에 배포 → `syshealth.json`의 전력·냉각 row에 BMC 패널 추가(인렛온도 vs 임계선 · 팬 duty · PSU 균형). 검증: AC-1-6(팬 RPM 메트릭 **부재**)·AC-1-7(임계 42 데이터로 들어옴). **선행: T3-5, T1-4**
@@ -140,7 +140,7 @@
 - [ ] **T7-2** (M) 관리망 설계 문서 + IP 배정 협의안. **선행: T7-1**
 - [ ] **T7-3** `[server]` (L) iLO NIC 결선/모드 전환 + IP 할당. 롤백 절차를 먼저 쓴다. **선행: T7-2 승인**
 - [ ] **T7-4** (M) Redfish out-of-band 수집으로 승격 — `/UpdateService/FirmwareInventory`(**펌웨어 전량 — IPMI로는 불가**) · `/Chassis/1/Power`(PSU 모델·정격W) · `/Managers/1/LogServices/IEL`. 크레덴셜은 `.env`만(§13). **선행: T7-3**
-- [ ] **T7-5** (S) ADR-0019 개정 — 2차 승격 결과와 in-band 유지 범위. **선행: T7-4**
+- [ ] **T7-5** (S) ADR-0019(신설 예정) 개정 — 2차 승격 결과와 in-band 유지 범위. **선행: T7-4**
 
 ---
 

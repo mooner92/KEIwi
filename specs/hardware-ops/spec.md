@@ -73,7 +73,7 @@
 | **[B] out-of-band Redfish** | 노드가 꺼져 있어도 관측 · 에이전트 0(agentless 지향과 정합) · `/UpdateService/FirmwareInventory`로 **펌웨어 전량**(IPMI 불가) · `/Chassis/1/Power`의 PowerSupplies 배열(모델·정격W·상태) | **현재 불가** — iLO NIC DHCP·0.0.0.0(§1.1) · 관리망 결선 L급 물리작업 · **BMC 크레덴셜 발생(§13)** · 기관망 IP 협의 | **2차(P7)** |
 | **[C] in-band Redfish**(`/dev/hpilo` chif + `ilorest --local`) | 관리망 없이 Redfish 전체 인벤토리 · **크레덴셜 불필요** · 4노드 전부 채널 존재 | `ilorest` 설치 필요(apt에 있음) · HPE 전용 | **보조**(인벤토리 수집용, §1.9) |
 
-**결정(ADR-0019)**: **1차 = in-band(FreeIPMI 기반 + HPE 갭만 자체 수집), 2차 = out-of-band Redfish 승격.**
+**결정(ADR-0019(신설 예정))**: **1차 = in-band(FreeIPMI 기반 + HPE 갭만 자체 수집), 2차 = out-of-band Redfish 승격.**
 근거: (a) 관리망이 L급 물리작업 + 기관망 협의라 착수 자체가 막힌다, (b) in-band chif/KCS는 §13 부담이 **0**, (c) 기존 `roles/port-exporter` 3단 패턴 + static job + syshealth 대시보드에 정확히 얹힌다.
 
 **패키지 가용성 [실측]**
@@ -855,7 +855,7 @@ keiwi_gpu_bench_matmul_tflops / quantile_over_time(0.5, keiwi_gpu_bench_matmul_t
 | **data03** | **최적** | 완전 유휴(가용 VRAM 97.7%/97.7%, util 0, 전력 11.1W/17.1W) · 드라이버 595.71.05 정합 · CUDA 13.2 천장(torch cu130 호환) · `.105`에서 SSH `:764` 직접 · Prometheus가 9100/9400/9836/9986/9633을 **직접 스크랩** → textfile 즉시 반영 · 2GPU SYS로 cross-socket 특성 측정 가능 |
 | data05 | 지금은 부적합 | GPU0에 vLLM 상주(가용 VRAM 8.66%) · G0-1 미수복 · CDI 깨짐. **단 수복 후에는 A40(PCIe4·sm8.6) vs RTX6000(PCIe3·sm7.5) 세대 비교의 다른 한쪽으로 필요** |
 | data04 | 2순위 | 유휴 편(52.3%/76.1%)이나 CUDA 12.2 천장 → **동일 바이너리 불가**. 접근도 터널 경유. 역설적으로 "표준화 안 하면 비교조차 못 한다"의 산증인 |
-| data01 | 제외 | 418.39 / 커널 4.4 / Tesla M4 3.7GiB / CUDA 10.1. 현대 스택 불가 → **legacy 예외 선언**(ADR-0020) |
+| data01 | 제외 | 418.39 / 커널 4.4 / Tesla M4 3.7GiB / CUDA 10.1. 현대 스택 불가 → **legacy 예외 선언**(ADR-0020(신설 예정)) |
 
 > [!CAUTION]
 > **벤치마크는 "읽기 전용"이 아니다.** all_reduce·gpu-burn·`dcgmi diag -r3`는 GPU를 배타 점유하고 전력·온도를 상한까지 올린다. §11/§12 게이트를 통과해야 하고, 실행 노드에 상주 워크로드가 있으면 OOM·서비스 중단을 유발한다. 이 조사에서 실제 벤치는 **의도적으로 실행하지 않았다** — capability 질의(`can_device_access_peer`·`get_device_properties`)까지다.
@@ -900,7 +900,7 @@ groups:
 
 **축5) 전력·열 헤드룸.** `instance:gpu_power:watts`(현재 data05 157.1 / data04 32.4 / data03 28.6) · `instance:gpu_energy:kwh1d`(data05 gpu0 누적 4.165e11 mJ ≈ **115.7 kWh** 생애 소비) · 그리고 §1.8의 섀시 전력. 랙 예산은 `inventory.yaml`의 `pdu_circuit`이 채워진 뒤에만 비율로 말한다(그 전에는 W 절대값만).
 
-**증설 트리거 3개 (ADR-0021)**
+**증설 트리거 3개 (ADR-0021(신설 예정))**
 
 | # | 트리거 | 조건 | 의미 |
 |---|---|---|---|
@@ -916,7 +916,7 @@ groups:
 > [!IMPORTANT]
 > 증설 판단 모델의 첫 산출물이 **"사지 마라, 대신 data03을 쓰라"**인 것이 이 모델을 신뢰할 수 있게 만드는 가장 강한 증거다. 지표 체계를 "증설을 정당화하는 도구"가 아니라 **"증설을 기각할 수도 있는 도구"**로 제시한다.
 
-### 3.8 표준화 결정 (ADR-0020)
+### 3.8 표준화 결정 (ADR-0020(신설 예정))
 
 1. **표준 드라이버 = 595.x, 커널모듈은 open으로 통일**(data03이 이미 그 형태).
 2. **NVIDIA 패키지를 `unattended-upgrades` 블랙리스트에 넣는다.** G0-1의 직접 원인 차단이며, 드라이버는 커널모듈 재적재를 요구하므로 무인 업그레이드 대상이 되어선 안 된다.
