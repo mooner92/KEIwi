@@ -8,6 +8,41 @@ severity: warning
 signature: "node_reboot_required"
 affected_nodes: [data03, data04, data05]
 last_verified: 2026-08-03
+# tier 0 = 사람 전용. **재부팅은 spec §4.5의 Tier0 고정 항목 1번**이다 — 비가역이고 그 노드의
+#   전 워크로드를 중단시킨다. 아래 reboot-node는 화이트리스트에서 **빼지 않고 남겨 둔다**:
+#   숨기면 L1이 "재부팅하세요"를 자유 텍스트로 짓게 되고, 그러면 위험 라벨도 근거번호도
+#   붙지 않는다. risk:high + reversible:false + idempotent:false 로 정직하게 적어 두면
+#   게이트 A5가 이 런북의 상한을 강제로 0~1에 묶고, L3 정책 로더도 등재를 거부한다(AC-L3-8).
+tier: 0
+actions:
+  - id: check-reboot-debt
+    title: 지금 재부팅 부채가 있는 노드
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=node_reboot_required == 1'
+  - id: check-pending-packages
+    title: 무엇 때문에 대기 중인가 (커널? glibc?)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      cat /run/reboot-required.pkgs
+  - id: find-owner-gpu
+    title: 누가 쓰고 있는지 먼저 본다 (예고 없이 죽이지 않는다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info'
+  - id: reboot-node
+    title: 재부팅 — 정비창에 사람이. 자동경로 영구 제외(Tier0)
+    risk: high
+    reversible: false
+    idempotent: false
+    command: >-
+      sudo reboot
 ---
 
 # 런북 — RebootRequiredStale (재부팅 부채가 14일 넘게 방치)
@@ -87,7 +122,14 @@ cat /run/reboot-required.pkgs
    curl -sG localhost:9090/api/v1/query --data-urlencode 'query=keiwi_listening_port_info'
    ```
 3. **정비창 협의 → 대피 안내.** 소유자에게 시각을 통보하고 체크포인트/잡 종료를 요청한다.
-4. **재부팅.** 대상 노드에서 사람이 수행한다.
+4. **재부팅.** 대상 노드에서 **사람이** 수행한다. 1~3을 건너뛰고 여기로 오지 않는다.
+   ```bash
+   uptime                                  # 마지막으로 확인 — 방금 누가 재부팅했을 수도 있다
+   sudo reboot
+   ```
+   > **비가역이다.** 이 명령은 `actions` 화이트리스트에 `risk: high`·`reversible: false`·
+   > `idempotent: false`로 올라가 있고, 그 표기 때문에 어떤 자동 경로에도 등재될 수 없다
+   > (spec §4.5 Tier0 · AC-L3-8). L1은 이 명령을 **보여줄 수는 있어도 실행 버튼을 달 수 없다.**
 5. **사후 검증.**
    ```bash
    curl -sG localhost:9090/api/v1/query --data-urlencode 'query=fleet:node_reboot_required:count'

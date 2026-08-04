@@ -15,6 +15,11 @@
 | `kind` | `alert` \| `procedure` \| `incident`. **생략 시 `alert`로 간주**된다 |
 | `category` | 전 문서 필수. 로그 category 어휘와 맞춘다: `gpu`·`web`·`infra`·`system`·`user-session` |
 | `alerts`·`severity` | `kind: alert`에만 필수. 알림이 아직 없으면 `alerts: []`(게이트는 **WARN**, 통과) |
+| **`tier`** | 전 문서 필수. `0`~`3` — 이 런북의 `actions`가 도달 가능한 **최대** 자율 레벨. **모르겠으면 0**을 적는다(올리는 것은 언제든 되지만, 잘못 올린 것은 사고다) |
+| **`actions`** | 전 문서 필수(빈 목록 허용). 항목마다 6키: `id`(kebab·유일)·`title`·`risk`(`low`\|`medium`\|`high`)·`reversible`·`idempotent`·`command`. 조치가 없으면 **`actions: []` + `tier: 0`**(게이트 A8) |
+| **tier ↔ risk 정합** | `risk: high`나 `reversible: false`가 하나라도 있으면 **tier ≤ 1**, `idempotent: false`면 tier ≤ 2 (게이트 A5). 위험 조치를 숨기지 말고 **정직하게 적어라** — 게이트가 상한을 알아서 내린다 |
+| **명령 근거성** | `command`는 그 런북 **본문 코드블록에 실재**해야 한다(게이트 A7). 화이트리스트는 문서의 사본이지 별도 진실이 아니다 |
+| `last_verified` | `actions`가 비어 있지 않으면 **필수**(게이트 A10). 180일 초과면 WARN |
 | 경로 | 알림의 `runbook_url`은 `https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/<id>.md` |
 | **`<…>` 자리표시자** | **따옴표 안에 둔다** — `ssh -p 764 "<user>@<ip>"`. 벗기면 bash가 `<`를 리다이렉션으로 파싱해 게이트 R10(`bash -n`)이 실패한다 |
 | ` ```bash ` 블록 | **블록마다 독립적으로** `bash -n`을 통과해야 한다(블록 간 변수 이어받기 금지) |
@@ -31,6 +36,15 @@ service: <익스포터·서비스명>
 category: infra
 severity: warning
 last_verified: <YYYY-MM-DD>
+tier: 0                       # 확신이 없으면 0. 올리려면 아래 actions가 4조건을 만족해야 한다
+actions:                      # L1 어시스턴트가 **고를 수 있는 것의 전부**. 없으면 []
+  - id: <kebab-조치-id>
+    title: <사람이 읽는 조치 이름>
+    risk: low                 # low | medium | high — 파괴 동사는 반드시 high
+    reversible: true          # 되돌릴 수 있는가
+    idempotent: true          # 두 번 돌려도 같은가(§16)
+    command: >-               # 본문 코드블록에 **그대로 있는** 명령(게이트 A7)
+      <정확한 실행 명령>
 ---
 
 # 런북 · <사람이 읽는 제목> (<AlertName>)

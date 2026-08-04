@@ -7,6 +7,42 @@ category: infra
 severity: warning
 affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. 이 런북은 **진단·분기**가 본체이고 조치는 사람 판단이 지배한다
+#   (연구자 데이터 이전·모델 캐시 회수·보존정책 단축은 전부 비가역이거나 협의 사안).
+#   spec §1이 DiskUsageHigh를 "L3 후보"로 적은 것은 **화이트리스트 정리에 한정**된 이야기이고,
+#   그 좁은 조치만 따로 [disk-usage-high.md](./disk-usage-high.md)(tier 3)로 분리했다.
+#   여기에 `--purge`(비가역) 조치가 하나라도 있는 한 게이트 A5가 이 런북의 상한을 1로 묶는다.
+tier: 1
+actions:
+  - id: find-top-consumers
+    title: 어느 디렉터리가 먹고 있나 (한 파일시스템 안에서만)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo du -xsh /home /var/lib/docker /var/log /tmp 2>/dev/null | sort -rh | head
+  - id: find-owner-gpu
+    title: GPU 잡 소유자 역추적 (파괴적 조치 전 필수)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info'
+  - id: find-owner-ports
+    title: 서비스 소유자 역추적 (포트→프로세스→계정)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=keiwi_listening_port_info'
+  - id: purge-old-kernels
+    title: 구 커널 이미지 제거 (data01 /boot 전용)
+    # 비가역이다 — 지운 커널로는 다시 부팅할 수 없다. 16.04에서 커널 제거는 사람이 한다.
+    risk: high
+    reversible: false
+    idempotent: true
+    command: >-
+      sudo apt autoremove --purge
 ---
 
 # 런북 · 디스크 압박 (DiskUsageHigh / DiskFillPredicted)
@@ -78,6 +114,10 @@ sudo du -xsh /home /var/lib/docker /var/log /tmp 2>/dev/null | sort -rh | head
 
 ## 4. 조치 (파괴 강도 순 — 되돌릴 수 있는 것부터)
 
+0. **화이트리스트 회수를 먼저 한다** — 재생성되는 캐시만 비우는 절차는
+   [disk-usage-high.md](./disk-usage-high.md)에 분리돼 있다(journal vacuum · apt clean ·
+   dangling 이미지). **연구자 데이터를 건드리지 않고 끝나는 유일한 경로**라 항상 첫 수단이고,
+   그래서 그 절차서만 자동경로 후보(tier 3)다. 여기서 얻는 여유가 부족할 때만 아래로 내려간다.
 1. **먼저 소유자를 찾는다** (파괴적 조치 전 필수 — §11)
    ```bash
    curl -sG localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info'   # GPU 잡 소유자
@@ -96,6 +136,16 @@ sudo du -xsh /home /var/lib/docker /var/log /tmp 2>/dev/null | sort -rh | head
 4. **모델 캐시** — `/data/vllm`(288G)·`/data/ollama`(31G). **누가 쓰는 모델인지 확인 없이 지우지 마라.**
    다시 받으면 되지만 다운로드 시간과 연구 일정이 든다.
 5. **이전(移轉)이 삭제보다 낫다** — data04는 `/data`에 21T가 놀고 있다. 지우기 전에 옮길 곳을 본다.
+6. **구 커널 회수**(data01 `/boot` 전용) — 작은 파티션이라 커널 몇 개면 찬다.
+   ```bash
+   dpkg -l 'linux-image-*' | awk '/^ii/{print $2}'   # 먼저 무엇이 지워질지 눈으로 본다
+   uname -r                                          # 지금 돌고 있는 커널 — 이건 남아야 한다
+   sudo apt autoremove --purge
+   ```
+   > **비가역이다.** 지운 커널로는 다시 부팅할 수 없다. 16.04(data01)는 커널 제거가
+   > 부팅 실패로 이어진 전례가 흔하므로 **정비창에 사람이**, 그리고 현재 커널이 목록에
+   > 없는지 확인한 뒤에만 실행한다. `actions`에서 이 조치만 `risk: high`·`reversible: false`인
+   > 이유이고, 그 표기 하나가 이 런북 전체의 tier 상한을 1로 묶는다(게이트 A5).
 
 **하지 말 것**
 - `/var/log`를 통째로 비우기 — 장애 원인 로그가 거기 있다(journald는 별개지만 앱 로그는 사라진다).

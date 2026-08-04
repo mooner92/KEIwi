@@ -8,6 +8,32 @@ severity: critical
 signature: "No configuration found in the configured sources"
 affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
+# tier — 이 런북의 actions가 도달할 수 있는 최대 자율 레벨(auto-remediation spec §1·§2.3).
+#   3 = L3(사전승인 자동) 후보. 수집기 재시작은 정답형·멱등·가역이고 blast가 관측 평면에
+#   한정된다. **후보일 뿐이다** — 실제 승격은 ADR-0024 + L2 무사고 20회(earned autonomy) 뒤다.
+tier: 3
+actions:
+  - id: inspect-logstash-config-error
+    title: Logstash가 설정을 못 찾는 조용한 실패인지 확인
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo docker logs --tail 60 keiwi-logstash 2>&1 | grep -iE 'error|exception|reload'
+  - id: restart-logstash
+    title: Logstash 컨테이너 재시작 (파이프라인 리로드 복구)
+    risk: medium
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo docker restart keiwi-logstash
+  - id: verify-ingest-resumed
+    title: 인입 재개 검증 (건수가 증가해야 복구)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sleep 30 && curl -s 'localhost:9200/keiwi-logs-*/_count'
 ---
 
 # 런북 · 통합 로그 인입 중단 (silent stop)

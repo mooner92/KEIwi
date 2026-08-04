@@ -8,6 +8,33 @@ severity: critical
 signature: "NVRM: Xid"
 affected_nodes: [data03, data04, data05]
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. spec §1: XID의 처방은 드라이버·재부팅이거나 **연구자 잡 재시작**이고
+#   둘 다 비가역·고blast다(§4.5 Tier0). 더 근본적으로 — **원문 로그를 확보하기 전 재부팅하면
+#   latch 값과 dmesg가 함께 사라져 원인이 영영 미상이 된다.** 조치보다 증거 보전이 먼저인
+#   장애라서 화이트리스트는 전부 읽기다. 무엇을 재시작할지는 §6 조치 트리를 사람이 읽는다.
+tier: 1
+actions:
+  - id: check-xid-code
+    title: 어느 GPU가 무슨 XID 코드인가 (latched 게이지)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=DCGM_FI_DEV_XID_ERRORS'
+  - id: find-gpu-owner
+    title: 그 GPU를 누가 쓰고 있나 (파괴적 조치 전 필수)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info'
+  - id: read-xid-raw-log
+    title: 노드에서 원문 확보 — pid/name은 여기에만 있다
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo dmesg -T | grep -i 'NVRM: Xid' | tail -20
 ---
 
 <!-- alerts의 GpuXidCritical은 아직 배포되지 않았다(hardware-ops spec.md:448, T4-2 예정).
