@@ -34,6 +34,10 @@
 | [observability-alerting](../specs/observability-alerting/sentry.md) | 앱 에러·하트비트 조사 정본(3안 비교) | 📎 조사 |
 | [krds-redesign](../specs/krds-redesign/spec.md) | KRDS 리스킨·디자인 시스템 | 🔄 |
 | [sre-addons](../specs/sre-addons/backlog.md) | SRE 추가 기능 백로그(리서치 — 착수는 선택 후) | 후보 |
+| [fleet-hardening](../specs/fleet-hardening/README.md) | 운영 부채 5축 교정(정합성·SMART·런북·전력·CI) | 🔄 58/83 |
+| [alert-enrichment](../specs/alert-enrichment/README.md) | 알림 보강(현재값·딥링크·LLM 분석·귀속) | ✅ E1·E2 라이브 |
+| [auto-remediation](../specs/auto-remediation/README.md) | 자율 사다리 L0~L4 · 조치 제안 | ✅ L1 · L2~ 게이트 |
+| [external-watchdog](../specs/external-watchdog/README.md) | 사이트 전체 침묵 감시(L4 외부) | 📎 제안(ADR 대기) |
 
 ## 📑 결정 기록 (ADR — `./decisions/`)
 
@@ -89,6 +93,10 @@
 | 메트릭(Prometheus·Grafana) | [infra/monitoring](../infra/monitoring/README.md) |
 | 로그(OpenSearch·Logstash) | [infra/logging](../infra/logging/README.md) |
 | 에이전트 배포(Ansible) | [infra/ansible](../infra/ansible/README.md) |
+| 에러 트래킹(GlitchTip·하트비트) | [infra/error-tracking](../infra/error-tracking/README.md) |
+| 알림 중계(webhook→Slack 스레드·L1 제안) | [infra/alert-relay](../infra/alert-relay/README.md) |
+| 지식그래프 RAG(LightRAG·완전 로컬) | [infra/rag](../infra/rag/README.md) |
+| BMC·SEL(하드웨어 이벤트) | [infra/monitoring/bmc](../infra/monitoring/bmc/README.md) |
 
 ## 🎨 디자인 / ✅ 테스트 / ✍️ 기타
 

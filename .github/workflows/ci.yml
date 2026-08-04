@@ -112,6 +112,8 @@ jobs:
         run: bash scripts/gates/check-alerting-escapes.sh
       - name: 런북 무결성 (runbook_url ↔ 파일)
         run: bash scripts/gates/check-runbooks.sh
+      - name: 문서 색인 무결성 (스펙·인프라·ADR)
+        run: bash scripts/gates/check-doc-index.sh
       # 위 게이트가 "그 알림의 담당 문서가 있는가"를 본다면, 아래는 "그 문서가 약속한 **조치**가
       # 실행 가능하고 위험 라벨이 정직한가"를 본다(auto-remediation §2.3 · AC-L1-1).
       # 자기검증을 별도 스텝으로 두는 이유: 본 실행은 레포가 깨끗하면 조용히 통과하므로,

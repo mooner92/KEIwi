@@ -9,7 +9,7 @@
 
 ## P0 — 게이트 (이걸 안 하면 뒤가 성립하지 않는다)
 
-- [ ] **T0-1** (S) `docs/decisions/0023-auto-remediation-ladder.md` — 자율 사다리 L0~L4 정의 + L1/L2 채택 + **L4 미채택 근거**(벤치마크·5노드·1인). **사용자 승인 필요**(헌장 긴장). **선행: 없음.** 검증: 파일 존재 + README §6 링크 유효
+- [ ] **T0-1** (S) `docs/decisions/0026-auto-remediation-ladder.md` — 자율 사다리 L0~L4 정의 + L1/L2 채택 + **L4 미채택 근거**(벤치마크·5노드·1인). **사용자 승인 필요**(헌장 긴장). **선행: 없음.** 검증: 파일 존재 + README §6 링크 유효
 - [ ] **T0-2** (S) 정답형 인시던트 ↔ 런북 ↔ 티어 매핑표를 spec §1로 확정하고 `alert-rules.yaml`의 실재 alertname과 교차검증. **선행: 없음**
 - [ ] **T0-3** (S) 근거강제·권한분리 원칙(spec §0)을 `assistant`의 기존 서버검증 인용 검증기와 정합 확인 — 재사용 지점 명시. **선행: 없음**
 
@@ -36,7 +36,7 @@
 
 ---
 
-## P2 — L2 승인 후 실행 (ChatOps HITL) — ADR-0023 승인 후
+## P2 — L2 승인 후 실행 (ChatOps HITL) — ADR-0026(신설 예정) 승인 후
 
 - [ ] **T2-1** (M) `infra/remediation/remediation-worker`(결정론·최소권한, port-exporter/node-hygiene 패턴) — `runbook_id`+검증 인자만 수신, `command_ref` 실행, timeout·입력검증·**부분 실패 시 stale 결과 금지**. precondition·dry-run·validate·rollback 훅. **선행: T1-3**
 - [ ] **T2-2** (M) repo 리뷰된 조치 스크립트 + 대칭 rollback 스크립트 작성(`remediation/restart-logstash.sh` + rollback 등). **각 조치는 멱등·가역**(§16). **선행: T2-1**
@@ -50,10 +50,10 @@
 
 ---
 
-## P3 — L3 사전승인 안전조치 자동 — **ADR-0024 승인 후에만** (조건부)
+## P3 — L3 사전승인 안전조치 자동 — **ADR-0027(신설 예정) 승인 후에만** (조건부)
 
 > [!CAUTION]
-> L3는 사람 클릭 없이 라이브를 바꾼다. **ADR-0024 없이는 코드로 존재해서도 안 된다.** 각 후보는
+> L3는 사람 클릭 없이 라이브를 바꾼다. **ADR-0027(신설 예정) 없이는 코드로 존재해서도 안 된다.** 각 후보는
 > L2에서 무사고 20회(policy `requires_earned_runs`) 이후에만 승격. 후보는 LogIngestStalled 재시작·
 > DiskUsageHigh 화이트리스트 정리 2종뿐.
 
