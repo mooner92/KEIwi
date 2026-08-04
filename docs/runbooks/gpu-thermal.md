@@ -7,6 +7,41 @@ category: gpu
 severity: warning
 affected_nodes: [data03, data04, data05]
 last_verified: 2026-08-03
+# tier 0 = 사람 전용. spec §1: GpuTempHigh의 처방은 **부하 조정**이고 그 판단은 연구자 것이다.
+#   유일한 기계적 조치인 파워리밋 변경은 연구 성능을 직접 깎으므로 사전 공지 없이는 금지다
+#   (§11). 온도는 증상이지 장애가 아니라서, 자동화할 "정답"이 애초에 존재하지 않는다.
+tier: 0
+actions:
+  - id: check-sm-clock
+    title: SM 클럭 — 급락했는데 사용률이 유지면 스로틀 의심
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=DCGM_FI_DEV_SM_CLOCK'
+  - id: check-gpu-util
+    title: GPU 사용률 (클럭과 함께 읽어야 판정이 된다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=DCGM_FI_DEV_GPU_UTIL'
+  - id: read-card-thermal-limits
+    title: 카드 자체의 스로틀·셧다운 임계 확인 (해당 노드에서)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      nvidia-smi -q -d TEMPERATURE
+  - id: set-power-limit
+    title: 파워리밋 하향 — 연구 성능에 직접 영향, 사전 공지 필수
+    # 되돌릴 수는 있으나(같은 명령으로 원복) 되돌리기 전까지 남의 잡이 느려진다.
+    # 사람 승인 없이 실행돼선 안 되는 조치라 risk: high로 못 박고 tier를 0에 묶는다.
+    risk: high
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo nvidia-smi -pl "<W>"
 ---
 
 # 런북 · GPU 과열 (GpuTempHigh)
@@ -103,8 +138,12 @@ nvidia-smi -q -d PERFORMANCE | grep -iA6 'Clocks Event Reasons\|Clocks Throttle 
    ```
 2. **부하 조정 협의** — 배치 크기·동시 잡 수를 줄이거나 다른 카드로 분산. **통보 후 사람이 한다**(§11).
 3. **물리 점검**(유휴인데 뜨겁다 / 노드 전체가 뜨겁다) — 흡기구 먼지, 팬 RPM, 랙 흡기 온도.
-4. **파워리밋 조정 `nvidia-smi -pl <W>`** — **연구 성능에 직접 영향**을 준다.
+4. **파워리밋 조정** — **연구 성능에 직접 영향**을 준다.
    **사람 판단 + 사전 공지 필수. 자동화 금지(헌장 §11).** 되돌릴 때도 같은 절차다.
+   ```bash
+   nvidia-smi -q -d POWER | grep -iE 'Power Limit'   # 현재값·허용 범위를 먼저 적어 둔다
+   sudo nvidia-smi -pl "<W>"                          # 되돌릴 때 원래 값으로 같은 명령
+   ```
 
 **하지 말 것**
 - **임계를 92에서 더 올리는 것** — 여유 2°C는 "임계가 낮다"가 아니라 "카드가 한계 근처"라는 뜻이다.

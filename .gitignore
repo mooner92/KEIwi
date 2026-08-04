@@ -26,3 +26,6 @@ infra/logging/filebeat-xenial/filebeat-*-linux-*/
 
 # graphify 지식 그래프 산출물 (로컬 인덱스 — 재생성 가능, 커밋 금지)
 **/graphify-out/
+
+# RAG venv (uv 격리 환경 — requirements.lock로 재현)
+infra/rag/.venv/

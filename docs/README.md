@@ -55,23 +55,32 @@
 > 형식 계약: 모든 런북은 frontmatter(`id`=파일 stem · `kind` · `category`, `kind: alert`는 `alerts`·`severity` 추가)를 갖고
 > **이 표에 한 줄로 링크된다.** 둘 다 `scripts/gates/check-runbooks.sh`가 기계 검증한다(R6·R9).
 > 골격은 [`runbook-template.md`](./runbook-template.md).
+>
+> **조치 계약(`tier`·`actions`)**: 모든 런북은 도달 가능 최대 자율 레벨 `tier`(0~3)와 이름 붙은
+> 조치 화이트리스트 `actions`를 함께 선언한다 — L1 어시스턴트가 **고를 수 있는 것의 전부**가
+> 그 목록이다(자유형 명령 생성 없음, [specs/auto-remediation](../specs/auto-remediation/spec.md) §2.3).
+> `risk: high`·`reversible: false`인 조치가 하나라도 있으면 그 런북의 tier는 1 이하로 **강제**된다
+> — `scripts/gates/check-runbook-actions.sh`(A5)가 판정한다.
+> 아래 tier 열은 **후보 상한**이지 현재 자동화 상태가 아니다(L2는 ADR-0023, L3는 ADR-0024 게이트 뒤).
 
-| 런북 | 언제 | 담당 알림 |
-| --- | --- | --- |
-| [gpu-xid](./runbooks/gpu-xid.md) | GPU XID 에러 — latched 게이지 판별·코드 분기(앱 vs HW) | `GpuXidErrorNew` · `GpuXidCritical`(미배포) |
-| [gpu-thermal](./runbooks/gpu-thermal.md) | GPU 과열(92°C) — 스로틀 대체 판별, 현재 여유 2°C | `GpuTempHigh` |
-| [node-down](./runbooks/node-down.md) | 노드 무응답 — exporter down vs 노드 down 분기(data04 터널 오판) | `NodeDown` |
-| [disk-pressure](./runbooks/disk-pressure.md) | 디스크 사용률·소진 예측 | `DiskUsageHigh` · `DiskFillPredicted` |
-| [memory-pressure](./runbooks/memory-pressure.md) | 메모리 고갈·OOM kill (⚠️ data01은 `oom_kill` 미수집) | `MemoryLow` · `OomKillOccurred` |
-| [smart-health-failed](./runbooks/smart-health-failed.md) | SMART 헬스 실패 — 논리 볼륨 수준 판정(물리 디스크는 아래 런북) | `SmartHealthFailed` |
-| [disk-grown-defects](./runbooks/disk-grown-defects.md) | RAID 뒤 **물리 디스크** 열화 — 시리얼로 특정(인덱스는 베이가 아니다) | `DiskGrownDefectsGrowing` · `DiskUncorrectedErrorsGrowing` · `PhysicalDiskDisappeared` |
-| [node-hygiene-coverage-gap](./runbooks/node-hygiene-coverage-gap.md) | 위생 수집기가 없는 노드 존재 = 탐지 사각지대 | `NodeHygieneCoverageGap` |
-| [node-hygiene-stale](./runbooks/node-hygiene-stale.md) | 위생 수집기가 낡은 `.prom`을 계속 서빙 | `NodeHygieneStale` |
-| [reboot-required-stale](./runbooks/reboot-required-stale.md) | 재부팅 부채 청산 절차(알림은 T1-14에서 승격 — 현재 미배포) | `RebootRequiredStale`(미배포) |
-| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — 하트비트 | `LogIngestStalled` |
-| [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) | — (절차서) |
-| [alert-relay-rollback](./runbooks/alert-relay-rollback.md) | alert-relay 장애 시 알림 경로 복구 — 직송 복귀(파일 1개, <5분) | — (절차서) |
-| [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 | — (종결 인시던트) |
+| 런북 | 언제 | 담당 알림 | tier |
+| --- | --- | --- | --- |
+| [gpu-xid](./runbooks/gpu-xid.md) | GPU XID 에러 — latched 게이지 판별·코드 분기(앱 vs HW) | `GpuXidErrorNew` · `GpuXidCritical`(미배포) | 1 |
+| [gpu-thermal](./runbooks/gpu-thermal.md) | GPU 과열(92°C) — 스로틀 대체 판별, 현재 여유 2°C | `GpuTempHigh` | 0 |
+| [node-down](./runbooks/node-down.md) | 노드 무응답 — exporter down vs 노드 down 분기(data04 터널 오판) | `NodeDown` | 0 |
+| [disk-pressure](./runbooks/disk-pressure.md) | 디스크 사용률·소진 예측 — **진단·분기** | `DiskUsageHigh` · `DiskFillPredicted` | 1 |
+| [disk-usage-high](./runbooks/disk-usage-high.md) | 위 알림의 **화이트리스트 회수 절차**(journal·apt·dangling 이미지만) | ↑ 와 동일(조치 절차서) | **3** |
+| [memory-pressure](./runbooks/memory-pressure.md) | 메모리 고갈·OOM kill (⚠️ data01은 `oom_kill` 미수집) | `MemoryLow` · `OomKillOccurred` | 1 |
+| [smart-health-failed](./runbooks/smart-health-failed.md) | SMART 헬스 실패 — 논리 볼륨 수준 판정(물리 디스크는 아래 런북) | `SmartHealthFailed` | 1 |
+| [disk-grown-defects](./runbooks/disk-grown-defects.md) | RAID 뒤 **물리 디스크** 열화 — 시리얼로 특정(인덱스는 베이가 아니다) | `DiskGrownDefectsGrowing` · `DiskUncorrectedErrorsGrowing` · `PhysicalDiskDisappeared` | 1 |
+| [node-hygiene-coverage-gap](./runbooks/node-hygiene-coverage-gap.md) | 위생 수집기가 없는 노드 존재 = 탐지 사각지대 | `NodeHygieneCoverageGap` | 1 |
+| [node-hygiene-stale](./runbooks/node-hygiene-stale.md) | 위생 수집기가 낡은 `.prom`을 계속 서빙 | `NodeHygieneStale` | **2** |
+| [reboot-required-stale](./runbooks/reboot-required-stale.md) | 재부팅 부채 청산 절차(알림은 T1-14에서 승격 — 현재 미배포) | `RebootRequiredStale`(미배포) | 0 |
+| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(무성 실패) 대응 — 하트비트 | `LogIngestStalled` | **3** |
+| [orphan-port-holder](./runbooks/orphan-port-holder.md) | 고아 프로세스의 포트 점유 — `up=1`이 거짓 초록이 된다(재시작 431,899회) | — (탐지 미배포) | 1 |
+| [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) | — (절차서) | 0 |
+| [alert-relay-rollback](./runbooks/alert-relay-rollback.md) | alert-relay 장애 시 알림 경로 복구 — 직송 복귀(파일 1개, <5분) | — (절차서) | 1 |
+| [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 | — (종결 인시던트) | 1 |
 
 ## 🏗️ 인프라 (`../infra/`)
 

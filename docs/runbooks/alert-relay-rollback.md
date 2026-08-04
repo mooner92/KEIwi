@@ -6,6 +6,43 @@ service: keiwi-alert-relay
 status: active
 first_seen: 2026-08-03
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. **알림 경로 자체를 고치는 런북**이라 자동화가 구조적으로 위험하다 —
+#   자동 조치가 틀리면 그 실패를 알려 줄 채널이 방금 자기가 끊은 그 채널이다
+#   (Facebook 2021: 복구 도구가 사라진 네트워크 안에 있었다 / spec §6). 그래서 상한은 1이고,
+#   실행은 사람이 §0의 "지금 어느 단계인가"를 읽고 판단한 뒤에 한다.
+tier: 1
+actions:
+  - id: check-relay-health
+    title: relay 자체 건강 (db_ok·last_webhook_at·queue_depth)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -s -m 3 localhost:8130/healthz | python3 -m json.tool
+  - id: restart-relay
+    title: relay 재시작 (프로세스가 안 뜰 때)
+    risk: medium
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo systemctl restart keiwi-alert-relay
+  - id: disable-enrichment
+    title: 보강만 끄기 — 1차 알림 전달에는 영향 없음
+    risk: medium
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo sed -i 's/^#\{0,1\}RELAY_ENRICH=.*/RELAY_ENRICH=0/' /data/alert-relay/env
+  - id: rollback-to-direct-slack
+    title: 직송 복귀 — 컷오버 후 알림이 멈췄을 때의 최종 수단
+    # 되돌릴 수는 있다(직전 백업을 같은 자리에 복사). 그러나 라이브 알림 라우팅을
+    # 바꾸는 조치라 잘못 실행되면 알림이 통째로 사라진다 — 사람 판단 전용.
+    risk: high
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo cp infra/monitoring/grafana/rollback/contact-points.fallback.yaml
+      /data/monitoring/grafana/provisioning/alerting/contact-points.yaml
 ---
 
 # 런북 — alert-relay 롤백 / 장애 대응 (알림 경로 복구)

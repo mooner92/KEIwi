@@ -8,6 +8,42 @@ severity: warning
 signature: "keiwi-node-hygiene.timer"
 affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
+# tier 2 = L2(승인 후 실행) 후보. spec §4.1 4조건을 모두 만족하는 두 번째 케이스다:
+#   정답형(타이머가 죽었으면 타이머를 살린다 — 분기가 없다) · 저blast(관측 평면 한정) ·
+#   멱등(enable --now는 몇 번 해도 같다) · 가역(disable로 되돌아간다).
+#   **§4③ role 재적용은 일부러 actions에 없다** — 라이브 설정을 바꾸는 조치라 §12의 경계를
+#   넘고, 그것까지 화이트리스트에 올리면 이 런북의 상한이 정직하지 않아진다.
+tier: 2
+actions:
+  - id: check-hygiene-freshness
+    title: 노드별 마지막 수집 이후 경과 초 (1800 미만이 정상)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=sort_desc(time() -
+      node_hygiene_collector_last_run_timestamp_seconds)'
+  - id: check-timer-status
+    title: 타이머 다음 실행 예정 확인
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      systemctl list-timers keiwi-node-hygiene.timer --no-pager
+  - id: run-hygiene-once
+    title: 수집기 단발 실행 — 실패 원인을 눈으로 본다
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo systemctl start keiwi-node-hygiene.service
+  - id: restart-hygiene-timer
+    title: 타이머 재기동 (enable --now)
+    risk: medium
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo systemctl enable --now keiwi-node-hygiene.timer
 ---
 
 # 런북 — NodeHygieneStale (위생 수집기 정지 = 값이 남아 있는데 낡았다)

@@ -7,6 +7,41 @@ category: infra
 severity: warning
 affected_nodes: [data03, data04, data05]
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. 처방이 물리 교체라 smart-health-failed와 같은 이유로 자동경로가 없다.
+#   유일한 상태 변경 조치인 수집기 킬 스위치는 **관측 사각지대를 만드는 조치**이므로
+#   (끄면 물리 디스크가 다시 안 보인다) 사람이 의도적으로 골라야 한다 — risk: medium.
+tier: 1
+actions:
+  - id: list-growing-defects
+    title: 어느 디스크가 얼마나 늘었나 (시리얼이 물리 식별자다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode
+      'query=increase(node_smart_disk_grown_defect_list[24h]) > 0'
+  - id: check-collector-freshness
+    title: 수집기가 살아 있는가 (낡은 .prom을 현재값으로 오인하지 않기 위해)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=time() -
+      node_smart_collector_last_run_timestamp_seconds'
+  - id: check-disk-count
+    title: 대수가 유지되는가 (LV가 절대 말해주지 않는 사실)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=node_smart_disks'
+  - id: kill-switch-disk-smart
+    title: 수집기 자체가 문제일 때의 킬 스위치 (끄면 사각지대가 돌아온다)
+    risk: medium
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo systemctl disable --now keiwi-disk-smart.timer
 ---
 
 # 런북 · 물리 디스크 열화 (DiskGrownDefectsGrowing · DiskUncorrectedErrorsGrowing · PhysicalDiskDisappeared)
@@ -98,6 +133,15 @@ sudo dmesg -T | grep -iE 'smartpqi|hpsa|cciss|I/O error|medium error' | tail -20
 | 대수 감소인데 시리얼은 그대로 | 프로브 실패(타임아웃) | `node_smart_collector_probe_errors` 확인 → 수집기 §3 |
 | ③이 크고 값이 안 변함 | 수집기 정지 | `systemctl status keiwi-disk-smart.timer`·`journalctl -u keiwi-disk-smart` |
 | 여러 디스크에서 동시에 증가 | 개별 디스크가 아님 | **컨트롤러·백플레인·전원**을 의심한다 |
+
+수집기 자체가 문제라고 판정됐을 때만(위 표의 마지막 두 행) 킬 스위치를 쓴다:
+
+```bash
+sudo systemctl disable --now keiwi-disk-smart.timer
+```
+
+> 읽기 전용 수집이라 끄는 것 자체는 안전하지만, **끄면 RAID 뒤 물리 디스크가 다시
+> 사각지대가 된다.** 되돌리려면 `sudo systemctl enable --now keiwi-disk-smart.timer`.
 
 ## 4. 조치 (파괴 강도 순 · 소유자 확인 게이트)
 

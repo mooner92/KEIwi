@@ -17,12 +17,17 @@
 
 ## P1 — L1 조치 제안 (RAG over runbooks) — 실행 없음, 즉시·안전
 
-- [ ] **T1-1** (S) 런북 frontmatter 스키마 확정(spec §2.3) + `scripts/check-runbook-frontmatter.sh` 작성 — 필수 7키 + `alert_match` 실재성 검증, `npm run verify` 배선. 검증: **AC-L1-1**. **선행: T0-2**
-- [ ] **T1-2** (S) 기존 런북 3종(log-ingestion-stopped·rsyslog-omfile-flood·node-onboarding)에 frontmatter 소급 추가(`last_verified` = 최종 검증일). **선행: T1-1**
-- [ ] **T1-3** (M) 정답형 런북 신규 작성 — `disk-usage-high.md`(화이트리스트 경로 정리: journal vacuum·apt clean, T0-7 실측 인용) · `orphan-port-process.md`(exporter 좀비 kill) · `nvidia-driver-mismatch.md`(진단·재부팅=Tier0 명시) · `oom-kill-occurred.md`(연구자 통보=Tier0) · `smart-health-failed.md`(교체 티켓) · `gpu-xid-error.md`. 각 런북에 탐색 제외 규칙 + 정확한 명령 블록 + `actions`. **선행: T1-1**
-- [ ] **T1-4** (M) 런북 코퍼스 OpenSearch 색인 + L1 분류·검색 파이프(assistant BM25 재사용) — 산출 JSON 스키마(`category/runbook_id/confidence/citations`) 강제. **선행: T1-2, T1-3**
-- [ ] **T1-5** (S) 근거-조치 정합 검증기 — LLM이 고른 `runbook_id`/`action.id`가 인용 런북에 실존하는지 확인, 없으면 제안 폐기. 검증: **AC-L1-2**. **선행: T1-4**
-- [ ] **T1-6** (S) "매뉴얼 없음" 경로 + stale 강등 로직(`last_verified` > 180d). 검증: **AC-L1-3·AC-L1-4**. **선행: T1-4**
+- [x] **T1-1** (S) 런북 frontmatter 스키마 확정(spec §2.3 — 기존 키 재사용 + `tier`·`actions` 추가) + **`scripts/gates/check-runbook-actions.sh`** 작성 — A1~A10(tier↔risk 정합 · 명령 근거성 · tier≥2 실재 alertname), `--self-test` 역증명, `verify-all.sh` 글롭 자동 편입 + `ci.yml` 2스텝 배선. 검증: **AC-L1-1**. **선행: T0-2**
+  > 파일명이 초안(`scripts/check-runbook-frontmatter.sh`)과 다르다 — frontmatter **존재** 검증은 축3의 `check-runbooks.sh`가 이미 한다. 중복 게이트를 만들지 않고 **조치 계약** 게이트로 범위를 좁혔다(spec §2.5 AC-L1-1 주 참조).
+- [x] **T1-2** (S) 기존 런북 **14종 전부**에 `tier`·`actions` 소급 — 초안이 적은 3종은 T0-2 시점 수치이고 실제 코퍼스는 14종이었다. `actions`는 **본문에 이미 있는 명령만** 구조화(게이트 A7이 강제). 명령이 자리표시자뿐인 `node-onboarding`은 `actions: []` + tier 0. **선행: T1-1**
+- [x] **T1-3** (M) 정답형 조치 절차 **2종** 신규 — `disk-usage-high.md`(화이트리스트 회수: journal vacuum·apt clean·dangling 이미지. 실측 회수량 ≈1.2GB와 `/home` 272G 대비를 §1에 명시 · `/tmp`는 내용 미확인이라 화이트리스트 제외) · `orphan-port-holder.md`(고아 포트 점유 — 재시작 431,899회가 어떤 알림도 못 만든 사건). 둘 다 탐색 제외 규칙 + 정확한 명령 블록 + `actions`. **선행: T1-1**
+  > 초안의 나머지 4종(`nvidia-driver-mismatch`·`oom-kill-occurred`·`smart-health-failed`·`gpu-xid-error`)은 **만들지 않았다** — 각각 `reboot-required-stale`·`memory-pressure`·`smart-health-failed`·`gpu-xid`가 이미 그 알림을 담당한다. 같은 알림에 런북이 둘이면 spec §2.4-4의 "다중 후보 상충"을 자초하므로 신설 대신 기존 런북을 보강했다. 파일명도 `orphan-port-process` → `orphan-port-holder`로 정정(점유 주체가 프로세스라는 것이 이름의 요점).
+- [x] **T1-4** (M) L1 분류·검색 파이프 — **`infra/alert-relay/remediation_l1.py`**(stdlib 전용·pip 0, relay가 import 하는 순수 모듈 + 단독 CLI). 산출 JSON 스키마(`category/runbook_id/action_id/confidence/citations`) 강제. **선행: T1-2, T1-3**
+  > **OpenSearch 색인은 하지 않았다**(초안에서 의도적으로 벗어난 지점 — spec §2.1 개정 노트). alertname → frontmatter `alerts` **직매칭이 1순위**이고 BM25는 모듈 안의 순수 함수로 폴백만 한다. 이유 셋: ① `check-runbooks.sh` R5/R8이 이 매핑을 이미 양방향 강제한다 — 계약이 있는 자리에 검색을 쓰면 정확도를 스스로 깎는다 ② 문서 16편은 인덱스 서버가 필요한 규모가 아니고, 색인은 라이브 상태 변경(§12)과 "인덱스가 최신인가"라는 새 실패 모드를 부른다 ③ relay의 pip 0·독립 배포 요건. 결과적으로 **alertname이 매칭되면 분류에 LLM을 부르지 않는다**(GPU 0회·오분류 0).
+- [x] **T1-5** (S) 근거-조치 정합 검증기 — LLM이 고른 `runbook_id`/`action_id`가 인용 런북에 실존하는지 **디스크를 다시 읽어** 확인, 없으면 제안 폐기. 명령 드리프트·인용 행 드리프트·삭제된 런북까지 본다. 검증: **AC-L1-2**. **선행: T1-4**
+- [x] **T1-6** (S) "매뉴얼 없음" 경로 + stale 강등(`last_verified` > 180d → 배지 + `max_tier` 1). 신뢰도는 **강등에만** 쓴다. 검증: **AC-L1-3·AC-L1-4**. **선행: T1-4**
+  > T1-4~T1-6 공통 산출: 유닛 `infra/alert-relay/test_remediation_l1.py`(39건, mock vLLM = 로컬 http.server라 외부 통신 0) + 게이트 `scripts/gates/check-remediation-l1.sh`(L1~L7 · `--self-test` 역증명) + `ci.yml` 2스텝 배선. 게이트가 **실행 권한 0**을 문법 수준에서 강제한다(AC-L1-5).
+  > ⚠️ 구현 중 발견한 결함: frontmatter 미니 파서가 접힘 스칼라(`command: >-`)를 지원하지 않아 **조치를 가진 런북 전부가 조용히 코퍼스에서 빠져 있었다**. 파이프는 에러 없이 "매뉴얼 없음"만 냈다. 파서를 고치고 **PyYAML과의 전편 대조를 게이트로 승격**(AC-L1-7)해 재발을 막았다.
 - [ ] **T1-7** (S) L1 제안을 조사 패키지(`aiops 2-4`)/알림 스레드에 답글로 게시(근거번호 + 명령 블록, 실행 버튼 없음). **선행: T1-5, T1-6**
 
 > [!NOTE]
@@ -66,7 +71,7 @@
 ## 백로그 (게이트 미충족 또는 이력 선행)
 
 - [ ] **B01** DiskUsageHigh 화이트리스트 정리의 L3 승격 — L2 무사고 20회 후. `/opt/conda/pkgs`·`/home`은 **공용/연구자 데이터라 영구 Tier0**(사용자 승인·통보만)
-- [ ] **B02** orphan-port-process kill의 L2→L3 검토 — 오검출(정상 프로세스 오인) 위험 실측 후
+- [ ] **B02** orphan-port-holder kill의 **tier 1→2** 승격 — 선행조건이 둘이다(hardware-ops §3.9): ① 리스닝 프로세스의 실행파일 경로를 기대값과 대조하는 메트릭 ② 유닛 `NRestarts`/`activating` 지속 시리즈. 그 위에서 오검출률을 실측한 뒤 kill의 `risk`를 medium으로 내린다. **지금 tier가 1인 것은 게이트 A5의 판정이고, 그 판정을 우회하지 않는다**
 - [ ] **B03** L1 few-shot 예시 풀 — 해결된 인시던트(알림→진단→조치→결과)를 `keiwi-remediation-*`에 라벨링해 RAG 예시로(aiops 2-2/2-5 연계). 라벨 확보 부담이라 후순위
 - [ ] **B04** 축소판 회귀 벤치 — 5노드 정답형 인시던트 리플레이로 L1 제안 정확도 계기판(AIOpsLab 참조, 완전 자동 아님)
 - [ ] **B05** 근거-조치 정합 검증기를 하이브리드 검색(BM25+k-NN, aiops 2-5)로 업그레이드 — 초기 코퍼스 안착 후
