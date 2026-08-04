@@ -71,9 +71,12 @@ infra/rag/.venv/bin/python infra/rag/visualize.py         # ~/.local/share/keiwi
 
 ## 운영 주의
 
-- **색인 = LLM 다량 호출**: 청크당 추출 + gleaning + 요약. `LLM_MAX_ASYNC=1`(어시스턴트
-  직렬 1 관례)로 라이브 vLLM에 저부하 접근. LLM 캐시가 기본 on이라 실패·중단 시
-  재실행하면 캐시부터 재사용된다.
+- **색인 = LLM 다량 호출**: 청크당 추출 + gleaning + 요약. 코퍼스 ~30만 토큰 기준
+  직렬 1로는 수 시간이 걸려, 색인 배치에 한해 `.env`에서 `LLM_MAX_ASYNC=4`(LightRAG
+  기본값 상한)·`RAG_CHUNK_TOKENS=1800`·`RAG_MAX_GLEANING=0`으로 조정한다 — vLLM은
+  continuous batching이라 동시 4에서도 대기열 없이 소화한다(실측 waiting=0).
+  질의·평시 기본은 직렬 1. LLM 캐시가 기본 on이라 실패·중단 시 재실행하면
+  캐시부터 재사용된다.
 - **서비스 불변(§12)**: vLLM·ollama를 재시작·변경하지 않는다 — 호출만.
 - rerank 모델이 없으므로 질의는 항상 `enable_rerank=False`.
 - 한국어: `addon_params={"language": "Korean"}` — 엔티티·관계·요약이 한국어로 산출된다.

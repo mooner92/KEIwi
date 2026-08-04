@@ -46,8 +46,13 @@ LLM_BINDING_HOST = os.environ.get("LLM_BINDING_HOST", "http://127.0.0.1:8003/v1"
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
 EMBED_HOST = os.environ.get("EMBED_HOST", "http://127.0.0.1:11434")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "bge-m3:latest")
-# 어시스턴트 직렬 1 관례 — 라이브 vLLM에 저부하로 접근(§12).
+# 라이브 vLLM 저부하 접근(§12). 기본 1(어시스턴트 직렬 관례) —
+# 색인처럼 호출이 많은 배치는 .env에서 4(LightRAG 기본)까지만 올린다.
 LLM_MAX_ASYNC = int(os.environ.get("LLM_MAX_ASYNC", "1"))
+# 색인 규모 조절 노브: 청크가 클수록·gleaning이 적을수록 LLM 호출이 줄어든다.
+CHUNK_TOKENS = int(os.environ.get("RAG_CHUNK_TOKENS", "1200"))
+CHUNK_OVERLAP = int(os.environ.get("RAG_CHUNK_OVERLAP", "100"))
+MAX_GLEANING = int(os.environ.get("RAG_MAX_GLEANING", "1"))
 
 
 def _require_model() -> None:
@@ -63,6 +68,12 @@ async def llm_model_func(
 ) -> str:
     from lightrag.llm.openai import openai_complete_if_cache
 
+    # 추출 프롬프트에서 생성이 폭주(반복 루프)하면 호출이 수 분씩 걸린다 —
+    # 상한과 낮은 temperature로 억제(실측: 무제한일 때 480s 워커 타임아웃 발생).
+    kwargs.setdefault("max_tokens", int(os.environ.get("LLM_MAX_TOKENS", "8192")))
+    kwargs.setdefault(
+        "temperature", float(os.environ.get("LLM_TEMPERATURE", "0.3"))
+    )
     return await openai_complete_if_cache(
         model=LLM_MODEL,
         prompt=prompt,
@@ -104,6 +115,9 @@ async def initialize_rag():
         llm_model_name=LLM_MODEL,
         llm_model_max_async=LLM_MAX_ASYNC,
         embedding_func=build_embedding_func(),
+        chunk_token_size=CHUNK_TOKENS,
+        chunk_overlap_token_size=CHUNK_OVERLAP,
+        entity_extract_max_gleaning=MAX_GLEANING,
         addon_params={"language": "Korean"},
     )
     await rag.initialize_storages()  # v1.5.5: pipeline_status 자동 초기화
