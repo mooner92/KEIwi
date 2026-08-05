@@ -10,7 +10,8 @@ affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
 # tier — 이 런북의 actions가 도달할 수 있는 최대 자율 레벨(auto-remediation spec §1·§2.3).
 #   3 = L3(사전승인 자동) 후보. 수집기 재시작은 정답형·멱등·가역이고 blast가 관측 평면에
-#   한정된다. **후보일 뿐이다** — 실제 승격은 ADR-0024 + L2 무사고 20회(earned autonomy) 뒤다.
+#   한정된다. **후보일 뿐이다** — 실제 승격은 ADR-0027(신설 예정) + L2 무사고 20회(earned autonomy) 뒤다.
+#   지금 이 런북은 tier 3이므로 **L2(승인 후 실행) 대상**이다(ADR-0026 · remediation_l2.py).
 tier: 3
 actions:
   - id: inspect-logstash-config-error

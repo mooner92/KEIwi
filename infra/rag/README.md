@@ -30,15 +30,17 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `common.py` | vLLM(OpenAI 호환)·ollama bge-m3 배선, `.env` 로드, LightRAG 팩토리 |
-| `ingest.py` | 코퍼스 수집 → frontmatter를 메타 블록으로 보존 → 색인 → 통계 기록 |
+| `common.py` | vLLM(OpenAI 호환)·ollama bge-m3 배선, `.env` 로드, LightRAG 팩토리, **임베딩 NaN 완화 사다리** |
+| `ingest.py` | 코퍼스 수집 → frontmatter를 메타 블록으로 보존 → 색인 → **완료 검증**(실패 시 rc=1) |
+| `index_health.py` | 색인 건강 상태의 **정본** — doc_status 기반 `ready`·`indexed_files`·`failed_docs` |
 | `query.py` | 질의 CLI — 모드(naive/local/global/hybrid/mix) 노출, References 포함 응답 |
 | `visualize.py` | GraphML → 오프라인 단일 HTML(pyvis, CDN 인라인) |
 | `requirements.lock` | `uv pip freeze` 잠금(재현용) |
 | `.env.example` | 엔드포인트 주형 — 실값은 `.env`(비커밋)에만 |
 
 코퍼스: `docs/runbooks/` · `docs/decisions/` · `specs/*/README.md`·`spec.md` ·
-`README.md` · `infra/*/README.md` (63개, 한국어 마크다운).
+`README.md` · `infra/*/README.md` (2026-08-05 기준 67개, 한국어 마크다운).
+실제 대상은 `ingest.py --dry-run`이 출력한다 — 이 숫자는 문서보다 코드가 정본이다.
 
 색인 산출물은 레포 밖 `~/.local/share/keiwi-rag/`(기본, `KEIWI_RAG_DIR`)에 둔다 —
 **커밋하지 않는다.** 재현은 아래 절차가 담당한다.
@@ -78,9 +80,56 @@ infra/rag/.venv/bin/python infra/rag/visualize.py         # ~/.local/share/keiwi
   질의·평시 기본은 직렬 1. LLM 캐시가 기본 on이라 실패·중단 시 재실행하면
   캐시부터 재사용된다.
 - **서비스 불변(§12)**: vLLM·ollama를 재시작·변경하지 않는다 — 호출만.
+- **색인 성공 판정은 `doc_status`가 정본**: `ingest.py`는 실패가 1건이라도 있으면
+  `rc=1`로 끝나고 실패 문서를 전부 출력한다. `ingest_stats.json`의 `documents`는
+  **성공 수(processed)** 이고 `failed`가 별도로 실린다.
+  2026-08-04에는 `kv_store_full_docs`의 길이(= **투입** 문서 수)를 `documents`로
+  찍어, 64문서 중 50개가 실패한 상태에서 `"documents": 64`를 보고했다 —
+  **거짓 초록**이었다. `scripts/gates/check-rag-index-honesty.sh`가 그 회귀를 막는다.
+- **/healthz를 노출하는 서비스는 `index_health.py`를 써야 한다.** `ready`를 프로세스
+  기동 여부로 판정하면 "색인이 비어도 ready=true"가 된다. 판정 로직은 한 곳뿐이다:
+
+  ```python
+  from index_health import index_health
+  h = index_health()   # ready / indexed_files / failed_docs / pending_docs / failures
+  ```
+
+  `failed_docs > 0`, `indexed_files == 0`, 스토리지 부재는 전부 `ready=False`다.
 - rerank 모델이 없으므로 질의는 항상 `enable_rerank=False`.
 - 한국어: `addon_params={"language": "Korean"}` — 엔티티·관계·요약이 한국어로 산출된다.
 - PUBLIC 레포: 실 엔드포인트·모델 경로는 `.env`(비커밋)로만. venv·색인 산출물 커밋 금지.
+
+## 알려진 런타임 버그 — ollama bge-m3 임베딩 NaN
+
+**증상**: 특정 텍스트에서 ollama가 HTTP 500
+`failed to encode response: json: unsupported value: NaN` 을 낸다. ollama(Go)가
+자기가 만든 NaN 임베딩을 JSON으로 직렬화하지 못해 나는 오류다. LightRAG는 이걸
+`IndexFlushError`로 승격해 **파이프라인 전체를 중단**한다 — 2026-08-04에 불량
+텍스트 8건이 **문서 50개를 죽였다**(processed 14 / failed 50, 78% 실패).
+
+**실측으로 배제한 가설**(전부 재현 시도 후 반증):
+
+| 가설 | 결과 |
+| --- | --- |
+| 빈 문자열·공백만·짧은 텍스트가 NaN을 유발 | **아님** — 단건·배치 모두 정상 |
+| 초장문이 컨텍스트를 넘겨 NaN | **아님** — 26만 자도 정상 |
+| 동시 요청 경합 | **아님** — 순차 재현에서도 같은 배치만 결정적으로 실패 |
+| 요청 옵션(`truncate`·`num_ctx`)으로 회피 | **아님** — 어떤 값도 효과 없음 |
+
+실제 불량 입력은 길이 65~85자의 **평범한 한국어 문장**이었다(예: 관계 설명
+`LV는 Fleet hardening 문서에 따라 상태를 확인함`). 즉 입력 위생 문제가 아니라
+bge-m3(F16, CLS 풀링) 추론의 수치 불안정이며 우리 쪽에서 고칠 수 없다.
+
+**왜 전역 변환이 아니라 사다리인가**: 관계 텍스트 809건 기준 원본은 배치 33·79·80이
+실패한다. `passage: ` 접두를 **전부에** 붙이면 그 3개는 살지만 **배치 16이 새로
+죽는다**. 개행→`. ` 치환은 배치 78을 새로 죽인다. **만능 변환은 없다.**
+
+**대응**(`common.py`의 `resilient_embed`): 배치를 원본 그대로 시도하고, 실패하면
+단건으로 내려가 범인을 격리한 뒤 그 텍스트에만 완화 변환을 차례로 시도한다.
+정상 텍스트는 원본 그대로 임베딩되므로 완화가 전체 벡터 공간을 흔들지 않는다.
+완화 건수는 `ingest_stats.json`의 `embed_health`에 실려 **조용히 고쳐지지 않는다**.
+사다리 전단이 실패하면 0벡터를 채우지 않고 예외를 올린다 — 0벡터는 코사인
+정규화에서 다시 NaN이 되어 스토리지를 오염시키기 때문이다.
 
 ## 시각화
 

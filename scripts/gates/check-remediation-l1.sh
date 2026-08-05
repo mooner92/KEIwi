@@ -20,6 +20,10 @@
 #   L6  pip 0 — stdlib + 같은 디렉터리 keiwi_redaction 밖을 import 하지 않는다        FAIL
 #   L7  인젝션 방어의 **구조**가 실재한다 — 입력 데이터 래핑 + 세탁 호출 + 화이트리스트
 #       대조가 코드에 있다(주석이 아니라 호출로)                                     FAIL
+#   L8  **L2 대리 실행 금지** — L1이 remediation_l2(실행기)를 import 도 참조도 하지
+#       않는다. L2가 생긴 뒤 "실행 능력 0"을 깨는 가장 쉬운 길은 subprocess를 직접
+#       쓰는 것이 아니라 **옆 모듈을 부르는 것**이다. 사다리에서 한 칸 올라가는 일은
+#       파일 경계를 넘는 일이어야 한다(ADR-0026)                                     FAIL
 #
 # 왜 L5가 게이트인가:
 #   런북 frontmatter를 stdlib 미니 파서로 읽는다(relay의 pip 0 계약). 미니 파서는
@@ -38,7 +42,7 @@
 #   · 배포 상태. 이 모듈은 relay가 import 하거나 CLI로 도는 순수 모듈이다.
 #
 # usage:
-#   check-remediation-l1.sh              L1~L7
+#   check-remediation-l1.sh              L1~L8
 #   check-remediation-l1.sh --self-test  역증명 — 아래 탐지기 **본체**를 일부러 위반한
 #                                        픽스처에 태운다(정규식 사본을 따로 두지 않는다)
 # exit: 0 통과(WARN 포함) / 1 정책 위반 / 2 환경 부족(SKIP)
@@ -132,6 +136,14 @@ detect_third_party_import() {
     || true
 }
 
+# L8 — L2(실행기) 대리 호출. 이름이 나오는 것 자체를 막는다 — L1은 옆방에 실행기가
+#   있다는 사실조차 몰라야 한다. 문서 링크(ADR·spec)까지 걸리지 않게 **코드 행**만 본다.
+detect_l2_delegation() {
+  code_lines "$1" | grep -nE \
+    "(^|[^A-Za-z0-9_.])(import[[:space:]]+remediation_l2|from[[:space:]]+remediation_l2[[:space:]]+import)|remediation_l2[[:space:]]*\.[A-Za-z_]" \
+    | sed 's/^[0-9]*://' || true
+}
+
 # L7 — 인젝션 방어의 구조가 실재하는가(있어야 할 것이 없으면 출력한다 = FAIL 신호).
 detect_missing_injection_defense() {
   local f="$1" missing=""
@@ -151,6 +163,8 @@ if [[ "${1:-}" == "--self-test" ]]; then
   cat > "$tmp/bad.py" <<'BADPY'
 import subprocess
 import requests
+import remediation_l2
+remediation_l2.execute_approved("p-1", apply=True)   # 옆 모듈을 통한 대리 실행
 LLM_ALLOWED_KEYS = ("category", "runbook_id", "command", "confidence")
 AUTO_ELIGIBLE = True
 def apply(action):
@@ -200,6 +214,7 @@ GOODPY
   expect_hit  "detect_auto_eligible_flip"     "$(detect_auto_eligible_flip "$tmp/bad.py")"
   expect_hit  "detect_third_party_import"     "$(detect_third_party_import "$tmp/bad.py")"
   expect_hit  "detect_missing_injection_defense" "$(detect_missing_injection_defense "$tmp/bad.py")"
+  expect_hit  "detect_l2_delegation"          "$(detect_l2_delegation "$tmp/bad.py")"
 
   expect_quiet "detect_exec_capability"       "$(detect_exec_capability "$tmp/good.py")"
   expect_quiet "detect_write_capability"      "$(detect_write_capability "$tmp/good.py")"
@@ -208,9 +223,10 @@ GOODPY
   expect_quiet "detect_auto_eligible_flip"    "$(detect_auto_eligible_flip "$tmp/good.py")"
   expect_quiet "detect_third_party_import"    "$(detect_third_party_import "$tmp/good.py")"
   expect_quiet "detect_missing_injection_defense" "$(detect_missing_injection_defense "$tmp/good.py")"
+  expect_quiet "detect_l2_delegation"          "$(detect_l2_delegation "$tmp/good.py")"
 
   if [[ $st_fail -eq 0 ]]; then
-    echo "SELF_TEST_OK (탐지기 7종 — 나쁜 입력 전부 적발 · 정상 입력 오탐 0)"
+    echo "SELF_TEST_OK (탐지기 8종 — 나쁜 입력 전부 적발 · 정상 입력 오탐 0)"
     exit 0
   fi
   exit 1
@@ -341,9 +357,19 @@ else
   echo "L7_OK 데이터 래핑 · 입력 세탁 · 화이트리스트 대조 · 정합 검증기 모두 실재"
 fi
 
+# ── L8 L2 대리 실행 금지 ─────────────────────────────────────────────────────
+hits=$(detect_l2_delegation "$L1_PY")
+if [[ -n "$hits" ]]; then
+  printf '%s\n' "$hits" | sed 's/^/   /'
+  echo "L8_FAIL L1이 L2 실행기를 부른다 — 실행 능력 0이 대리 호출로 우회됐다(ADR-0026)"
+  fail=1
+else
+  echo "L8_OK L1은 실행기(remediation_l2)의 존재를 모른다"
+fi
+
 echo
 if [[ $fail -eq 0 ]]; then
-  echo "REMEDIATION_L1_OK (L1~L7)"
+  echo "REMEDIATION_L1_OK (L1~L8)"
   exit 0
 fi
 echo "REMEDIATION_L1_FAIL"

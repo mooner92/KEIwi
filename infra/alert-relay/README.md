@@ -46,6 +46,9 @@ egress: api.slack.com 하나 그대로. LLM은 로컬 vLLM. 신규 외부 통신
 | `keiwi-alert-relay.service` | systemd 유닛(`Restart=always` + 하드닝) |
 | `env.example` | 환경변수 예시. **실제 값은 `/data/alert-relay/env`(root:root 0600), 레포 밖**(§13) |
 | `provisioning/contact-points.relay.yaml` | Grafana webhook 수신처 — 섀도 배포 때만 복사(디렉터리에 미리 두면 기동 실패 위험) |
+| `remediation_l1.py` | **L1 조치 제안**(분류 → 런북 선택 → 정합 검증 → 제안). **실행 수단이 코드에 없다** — `check-remediation-l1.sh` L2·L8이 문법 수준에서 강제 |
+| `remediation_l2.py` | **L2 승인 후 실행** — 이 레포에서 프로덕션 상태를 바꿀 수 있는 **유일한 파일**. 데몬이 아니라 CLI다([ADR-0026](../../docs/decisions/0026-auto-remediation-ladder.md)) |
+| `test_remediation_l1.py` · `test_remediation_l2.py` | 유닛 47 + 50건. mock vLLM은 로컬 http.server, L2는 tempdir에서 `echo`·`touch`·`sleep` 만 **실제로** 돌린다 — 외부 통신 0 |
 
 ## 검증 (레포에서, 배포 없이)
 
@@ -53,6 +56,10 @@ egress: api.slack.com 하나 그대로. LLM은 로컬 vLLM. 신규 외부 통신
 bash scripts/gates/check-alert-relay.sh              # P1 유닛 · P2 프리셋정합 · P3 반출단일 · P4 raw · P5 stdlib · P6 방어공유+변이
 bash scripts/gates/check-alert-relay.sh --self-test  # 역증명 — **게이트 본체의 탐지기**를 깨진 입력에 태운다
 cd infra/alert-relay && python3 -m unittest test_alert_relay -v
+
+bash scripts/gates/check-remediation-l1.sh           # L1~L8 (실행 권한 0 · 스키마 폐쇄 · 파서 ≡ PyYAML · L2 대리호출 금지)
+bash scripts/gates/check-remediation-l2.sh           # M1~M9 (명령 비인자 · dry-run 기본 · 실행 1지점 · 원장 append-only)
+bash scripts/gates/check-remediation-l2.sh --self-test
 ```
 
 ## 설치 (사람, 헌장 §11 — `[server]` T-E3-6)
@@ -102,6 +109,95 @@ docker exec grafana wget -qO- http://host.docker.internal:8130/healthz || \
 
 > ⚠️ 순서를 지켜라. 수신처가 없는데 라우트를 먼저 켜면 프로비저닝이 실패하고
 > **Grafana가 뜨지 않는다**(inhibitionRules로 이미 겪은 사고 유형).
+
+## L2 설치 (사람, 헌장 §11 — `[server]` T2-10)
+
+> **먼저 읽어라: [ADR-0026](../../docs/decisions/0026-auto-remediation-ladder.md).**
+> 이 절차는 이 플릿에서 **프로덕션 상태를 바꿀 수 있는 유일한 코드**를 설치한다.
+> 에이전트는 여기까지 오지 않는다 — 코드 생성이 에이전트, 설치는 사람이다.
+
+### 0) 무엇이 설치되지 **않는가** (이게 이 컴포넌트의 요점이다)
+
+- **서비스가 아니다.** systemd 유닛이 없고, 포트를 열지 않고, 타이머도 없다.
+  설치란 곧 **파일 3개를 놓고 sudoers 한 줄을 추가하는 것**이 전부다.
+- **자격증명이 없다.** 상주 토큰도 서비스 계정도 없다. 권한은 **명령을 치는 사람의 sudo**다.
+- 그래서 되돌리기는 **파일 삭제 + sudoers 항목 회수**로 끝난다. 중지할 서비스가 없다.
+
+### 1) 코드
+
+```bash
+# relay와 같은 디렉터리다 — remediation_l2 는 remediation_l1 을, l1 은 keiwi_redaction 을
+# **같은 디렉터리에서** import 한다(pip 0 · 경로 조작 0). 셋을 함께 깔아라.
+sudo install -o keiwi -g keiwi -m 0644 \
+  remediation_l1.py remediation_l2.py keiwi_redaction.py /opt/keiwi/alert-relay/
+
+# 런북 코퍼스가 없으면 파이프는 전부 "매뉴얼 없음"으로 끝난다(죽지는 않는다).
+# 레포 체크아웃을 읽게 하거나, 런북만 복사한 뒤 경로를 지정한다.
+echo 'KEIWI_RUNBOOKS_DIR=/opt/keiwi/runbooks' | sudo tee -a /etc/environment
+```
+
+### 2) 감사 원장
+
+```bash
+sudo install -d -o keiwi -g keiwi -m 0700 /var/log/keiwi
+# 파일 자체는 첫 기록 때 0600으로 만들어진다. 원장에는 명령 전문과 출력 꼬리가 들어간다.
+```
+
+- 기본 경로는 `/var/log/keiwi/remediation.jsonl`, `KEIWI_REMEDIATION_LEDGER` 로 바꿀 수 있다.
+- **로테이션에 주의.** `logrotate` 의 `copytruncate` 는 append-only 가정을 깬다.
+  `create` 방식(rename 후 새 파일)만 써라. 원장은 지우지 말고 **옮겨서 보관**한다.
+
+### 3) sudo — 화이트리스트만, 전권 금지
+
+런북 명령 중 `sudo` 가 붙은 것만, **정확한 문자열로** 허용한다. `ALL=(ALL) NOPASSWD: ALL`을
+주면 이 설계의 안전 논증이 통째로 무의미해진다.
+
+```sudoers
+# /etc/sudoers.d/keiwi-remediation  (visudo -f 로 편집)
+# tier≥2 런북의 명령만. 런북이 늘면 여기도 사람이 손으로 늘린다 —
+# 그 마찰이 "무엇이 자동 실행 가능한가"를 사람이 한 번 더 보게 만든다.
+keiwi ALL=(root) NOPASSWD: /usr/bin/docker restart keiwi-logstash
+keiwi ALL=(root) NOPASSWD: /usr/bin/systemctl start keiwi-node-hygiene.service
+keiwi ALL=(root) NOPASSWD: /usr/bin/systemctl enable --now keiwi-node-hygiene.timer
+```
+
+> 여기 없는 명령은 실행 시 rc≠0으로 실패하고 원장에 그대로 남는다. **조용히 성공한 척하지 않는다.**
+
+### 4) OpenSearch 파생 뷰 (선택)
+
+원장의 **쓰기** 경로는 로컬 파일이다(ADR-0026 — 로그 파이프라인을 고치는 조치의 감사를 그
+파이프라인으로 보내지 않는다). 조회 편의를 위해 filebeat 입력을 하나 더한다:
+
+```yaml
+# filebeat.yml — 입력 추가. json 파싱만 하고 가공하지 않는다(원장이 정본).
+- type: log
+  paths: ["/var/log/keiwi/remediation.jsonl"]
+  json.keys_under_root: true
+  fields: {keiwi_index: "keiwi-remediation"}
+```
+
+배송이 끊겨도 원장은 온전하다 — 그것이 이 분리의 목적이다.
+
+### 5) 첫 사용 (dry-run부터)
+
+```bash
+python3 /opt/keiwi/alert-relay/remediation_l2.py propose --alert LogIngestStalled --node data03
+python3 /opt/keiwi/alert-relay/remediation_l2.py list
+python3 /opt/keiwi/alert-relay/remediation_l2.py approve <proposal_id>          # dry-run
+python3 /opt/keiwi/alert-relay/remediation_l2.py approve <proposal_id> --apply  # 실행
+python3 /opt/keiwi/alert-relay/remediation_l2.py ledger --tail 20
+```
+
+- `approve` 는 **인자 없이는 실행하지 않는다.** `--apply` 가 유일한 실행 의사표시다.
+- 제안은 기본 1시간 뒤 만료된다(`KEIWI_REMEDIATION_TTL`). 만료된 제안은 다시 받아라 —
+  3일 전 제안을 오늘 승인하는 것은 승인이 아니라 추측이다.
+- 편의상 `remctl` 로 심볼릭 링크를 걸어도 된다. 링크는 이름일 뿐 권한을 바꾸지 않는다.
+
+### 6) 배치 — control plane은 관제 대상 밖 (§C4)
+
+data05 터널을 고치는 런북을 data05에서 실행하면, 그 터널이 죽었을 때 승인도 실행도 못 한다
+(Facebook 2021). L2를 어느 노드에 두든 **"이 노드가 죽어도 승인 경로가 남는가"**를 먼저 답하라.
+현재 승인 경로가 **SSH 셸**이므로, 답은 곧 "그 노드에 SSH가 되는가"다.
 
 ## E3 ↔ E4 인터페이스 (수집기 계약)
 

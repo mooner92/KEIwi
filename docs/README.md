@@ -53,6 +53,7 @@
 | [0008](./decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./decisions/0017-node-onboarding-standard.md) | 노드 온보딩 표준 |
 | [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip) |
 | [0023](./decisions/0023-ci-pipeline.md) | CI 파이프라인 | [0024](./decisions/0024-physical-disk-smart-collection.md) | 물리 디스크 SMART 수집(textfile) |
+| [0025](./decisions/0025-alert-relay-webhook.md) | 웹훅 중계(alert-relay) | [0026](./decisions/0026-auto-remediation-ladder.md) | 자동 조치 사다리(L1 제안·L2 승인실행·L4 미채택) |
 
 ## 🛠️ 런북 (`./runbooks/`)
 
@@ -65,7 +66,9 @@
 > 그 목록이다(자유형 명령 생성 없음, [specs/auto-remediation](../specs/auto-remediation/spec.md) §2.3).
 > `risk: high`·`reversible: false`인 조치가 하나라도 있으면 그 런북의 tier는 1 이하로 **강제**된다
 > — `scripts/gates/check-runbook-actions.sh`(A5)가 판정한다.
-> 아래 tier 열은 **후보 상한**이지 현재 자동화 상태가 아니다(L2는 ADR-0023, L3는 ADR-0024 게이트 뒤).
+> 아래 tier 열은 **후보 상한**이지 현재 자동화 상태가 아니다 — L2는 [ADR-0026](./decisions/0026-auto-remediation-ladder.md)
+> (채택 · `infra/alert-relay/remediation_l2.py`), L3는 **ADR-0027(신설 예정)** 게이트 뒤다.
+> 즉 tier 2·3 런북만이 L2 승인 실행의 대상이고, 나머지는 제안까지다.
 
 | 런북 | 언제 | 담당 알림 | tier |
 | --- | --- | --- | --- |
