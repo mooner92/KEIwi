@@ -53,6 +53,7 @@
 | [0008](./decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./decisions/0017-node-onboarding-standard.md) | 노드 온보딩 표준 |
 | [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip) |
 | [0023](./decisions/0023-ci-pipeline.md) | CI 파이프라인 | [0024](./decisions/0024-physical-disk-smart-collection.md) | 물리 디스크 SMART 수집(textfile) |
+| [0025](./decisions/0025-alert-relay-webhook.md) | 알림 중계(webhook→Slack) | [0026](./decisions/0026-rag-assistant-retrieval-service.md) | 어시스턴트 문서 RAG(검색 전용 서비스) |
 
 ## 🛠️ 런북 (`./runbooks/`)
 

@@ -94,6 +94,8 @@ BASE=http://127.0.0.1:3199 node scripts/embed-host-test.mjs       # 임베드 ho
 | [0007](./docs/decisions/0007-brand-color-strategy.md) | 브랜드↔KRDS 색 전략 | [0016](./docs/decisions/0016-gpu-drilldown-dcgm.md) | GPU 드릴다운 DCGM 분리 |
 | [0008](./docs/decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./docs/decisions/0017-node-onboarding-standard.md) | **노드 온보딩 표준** |
 | [0009](./docs/decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./docs/decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip 자체호스팅) |
+| [0023](./docs/decisions/0023-ci-pipeline.md) | CI 파이프라인 | [0024](./docs/decisions/0024-physical-disk-smart-collection.md) | 물리 디스크 SMART 수집(textfile) |
+| [0025](./docs/decisions/0025-alert-relay-webhook.md) | 알림 중계(webhook→Slack 스레드) | [0026](./docs/decisions/0026-rag-assistant-retrieval-service.md) | 어시스턴트 문서 RAG(검색 전용 서비스) |
 
 ## ⛔ 안전 규칙 (요약 — 상세는 헌장)
 

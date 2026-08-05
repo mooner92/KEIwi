@@ -143,3 +143,18 @@ export function getGlitchTipDsn(): string | undefined {
   const r = urlString.safeParse(process.env.GLITCHTIP_DSN);
   return r.success ? r.data : undefined;
 }
+
+/**
+ * RAG_URL — 문서 지식그래프 검색 서비스(ADR-0026, `infra/rag/rag_service.py`).
+ * 서버 전용. 예) http://127.0.0.1:8131
+ *
+ * ⚠️ GLITCHTIP_DSN과 같은 이유로 **절대 throw하지 않는다**(undefined 반환).
+ * 문서 RAG는 어시스턴트의 **보강**이지 필수 경로가 아니다 — 로그 근거(BM25)는
+ * 이것 없이도 완결된다. 미설정이면 문서 검색만 조용히 비활성되고 어시스턴트는
+ * 기존 경로로 정상 응답한다(실패 격리). 부가 기능의 env 하나가 콘솔 전체를
+ * 내리는 실패는 이미 측정됐다(Grafana, 2026-07-30).
+ */
+export function getRagUrl(): string | undefined {
+  const r = urlString.safeParse(process.env.RAG_URL);
+  return r.success ? r.data : undefined;
+}

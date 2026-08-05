@@ -7,8 +7,17 @@ import { getFacets } from "@/lib/facets";
 export const dynamic = "force-dynamic";
 
 // GPU 자기경합 방지(ADR-0014): on-demand + 동시 1요청. 백그라운드 폴링 없음.
+// 이 게이트가 문서 RAG(:8131)의 **상류 게이트**이기도 하다 — 서비스 쪽 세마포어 2는
+// 이중 안전일 뿐이고, 라이브 vLLM에 대한 실제 동시성 상한은 여기 1이다(§12).
 let inFlight = 0;
 const MAX_CONCURRENT = 1;
+
+// 응답 형태(가산 확장, ADR-0026):
+//   evidence     — 로그 근거. **여기 형태를 바꾸지 마라.** alert-relay가
+//                  `render_assistant_reply()`에서 이 배열로 Slack 근거줄을 렌더하고
+//                  0건이면 답글을 생략한다(AC-E3-7).
+//   docEvidence  — 문서 근거(런북·ADR). 새 필드라 기존 소비자는 무시한다.
+//   ragStatus    — ok|skipped|error. RAG가 죽어도 answer/evidence는 정상이다.
 
 export async function POST(req: NextRequest) {
   let ctx: ErrorContext;

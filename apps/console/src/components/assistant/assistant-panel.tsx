@@ -11,11 +11,15 @@ type Plan = {
   levels?: string[];
   from?: string;
 };
+/** 서버가 검증한 문서 근거(런북·ADR·스펙) — 경로는 레포 실존이 확인된 값만 온다. */
+type DocRef = { path: string; excerpt: string };
 type Result = {
   answer: string;
   evidence: LogDoc[];
   runbook: RunbookRef | null;
   plan?: Plan;
+  docEvidence?: DocRef[];
+  ragStatus?: "ok" | "skipped" | "error";
 };
 export type AssistantInitial = {
   service?: string;
@@ -176,6 +180,7 @@ function Answer({
   result: Result;
   onEvidenceFocus?: (doc: LogDoc) => void;
 }) {
+  const docs = result.docEvidence ?? [];
   return (
     <div className="flex flex-col gap-3">
       {/* 답변은 이 화면에서 유일하게 "읽는" 텍스트 — 14px/1.5(text-base)로 본문 가독성을 확보 */}
@@ -225,6 +230,37 @@ function Answer({
           ))}
         </ul>
       </details>
+
+      {/* 문서 근거는 로그 근거와 **다른 목록**이다 — 로그는 "무슨 일이 일어났나",
+          문서는 "매뉴얼이 뭐라 하나". 번호도 [n] / [D n]으로 분리돼 있어서
+          한 목록에 합치면 답변 본문의 인용을 눈으로 못 맞춘다. */}
+      {docs.length > 0 ? (
+        <details className="rounded-md border border-border">
+          <summary className="cursor-pointer px-3 py-1.5 text-sm font-medium text-ink-muted">
+            문서 근거 <span className="tnum">{docs.length}</span>건 (런북·ADR — 서버 검증)
+          </summary>
+          <ul className="divide-y divide-border-subtle border-t border-border">
+            {docs.map((d, i) => (
+              <li key={`${d.path}-${i}`} className="px-3 py-1.5">
+                <span className="tnum block truncate text-2xs text-ink-subtle">
+                  <span className="text-ink">[D{i + 1}]</span> {d.path}
+                </span>
+                <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap text-sm text-ink-muted">
+                  {d.excerpt}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      {/* RAG 장애는 조용히 알린다 — 답변은 이미 로그 근거로 성립했다(실패 격리).
+          경고 색을 쓰지 않는 이유: 사용자가 할 일이 없고, 답변 자체는 유효하다. */}
+      {result.ragStatus === "error" ? (
+        <p className="text-xs text-ink-subtle">
+          문서 검색을 건너뛰었습니다 — 로그 근거로만 답했습니다.
+        </p>
+      ) : null}
     </div>
   );
 }

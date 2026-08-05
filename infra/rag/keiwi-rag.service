@@ -1,0 +1,84 @@
+# KEIwi RAG 검색 서비스 — systemd 유닛 (ADR-0026)
+#
+# 에이전트 생성, **사람 적용**(헌장 §11). 설치 절차는 infra/rag/README.md.
+#   # 색인 산출물·venv는 이미 있는 사용자 홈에 있다(재현 절차는 README).
+#   sudo install -d -m 0755 /opt/keiwi/rag
+#   sudo install -m 0644 infra/rag/rag_service.py /opt/keiwi/rag/
+#   sudo install -m 0644 infra/rag/common.py      /opt/keiwi/rag/   # ← 필수(배선 모듈)
+#   sudo install -m 0640 infra/rag/.env           /opt/keiwi/rag/   # 실값, 비커밋(§13)
+#   sudo install -m 0644 infra/rag/keiwi-rag.service /etc/systemd/system/
+#   # User/Group/venv/색인 경로는 아래 자리표시자를 실제 값으로 바꾼다.
+#   sudo systemctl daemon-reload && sudo systemctl enable --now keiwi-rag
+#   curl -s localhost:8131/healthz | python3 -m json.tool
+#
+# ⚠️ 이 서비스는 **검색 전용**이다. 색인(ingest.py)은 이 유닛이 하지 않는다 —
+#    문서가 바뀌면 사람이 ingest.py를 돌리고 `systemctl restart keiwi-rag`(~0.7s)
+#    한다. "재색인 트리거" 엔드포인트를 추가하지 마라(§11·§14).
+#
+# ⚠️ 이 서비스가 죽어도 콘솔 어시스턴트는 **정상 동작한다**(로그 BM25 경로).
+#    그래서 Restart=always는 붙이되 external-watchdog 감시 대상은 아니다 —
+#    없어도 되는 것을 감시하면 알림 노이즈만 는다(§15).
+
+[Unit]
+Description=KEIwi RAG retrieval service (LightRAG document graph, retrieval-only)
+Documentation=https://github.com/mooner92/KEIwi/blob/main/infra/rag/README.md
+# ollama(임베딩)·vLLM은 로컬이지만 부팅 순서를 강제하지 않는다 — 준비 안 됐으면
+# 질의가 실패할 뿐이고, 그 실패는 콘솔에서 '문서 근거 없음'으로 흡수된다.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 자리표시자 — 색인 산출물(~/.local/share/keiwi-rag)을 읽을 수 있는 계정으로 바꾼다.
+# (alert-relay와 달리 전용 시스템 계정을 만들지 않는 이유: 색인이 사람의 홈에
+#  있고 그 소유자만 읽을 수 있다. 색인을 /data 아래로 옮기는 날 전용 계정으로 간다.)
+User=REPLACE_ME
+Group=REPLACE_ME
+
+WorkingDirectory=/opt/keiwi/rag
+# 엔드포인트·모델 id는 레포 밖(§13). common.py가 같은 디렉터리의 .env를 읽는다.
+Environment=RAG_SERVICE_HOST=127.0.0.1
+Environment=RAG_SERVICE_PORT=8131
+# venv 인터프리터 경로 — 체크아웃 위치에 맞춰 바꾼다.
+ExecStart=/REPLACE/ME/infra/rag/.venv/bin/python /opt/keiwi/rag/rag_service.py
+
+Restart=always
+RestartSec=5
+# 부팅에 LightRAG 스토리지 로드가 들어간다(실측 0.7~1.1s). 재기동 폭주 방지.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# ── 하드닝 (alert-relay 유닛과 동형) ─────────────────────────────────────────
+# 이 서비스가 필요한 것은 색인 디렉터리 **읽기**와 로컬 HTTP 두 개뿐이다.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+# 로컬 vLLM·ollama 호출(AF_INET) + 유닉스 소켓. 그 밖은 없다.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# ⚠️ ProtectHome=read-only 다 — 색인 산출물이 사용자 홈(~/.local/share/keiwi-rag)에
+#    있고 이 서비스는 그것을 **읽기만** 하면 되기 때문이다. read-only 로 두면
+#    "검색 전용"이 파일시스템 권한으로도 강제된다(코드가 배신해도 못 쓴다).
+#    색인 산출물을 /data 아래로 옮기면 ProtectHome=true + ReadOnlyPaths 로 바꾼다.
+ProtectHome=read-only
+# LightRAG가 쓰기를 시도할 경로는 없어야 정상이다. 필요해지면 그 자체가 신호다.
+ReadWritePaths=
+
+# 색인 로드분(실측 RSS ~278MB) + 여유. 이 상한을 넘으면 코퍼스가 커진 것이니
+# 사람이 청크 설정을 다시 본다 — 조용히 스왑으로 흘러가지 않게 한다.
+MemoryMax=1G
+TasksMax=64
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=keiwi-rag
+
+[Install]
+WantedBy=multi-user.target

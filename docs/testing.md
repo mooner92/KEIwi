@@ -78,6 +78,23 @@ SCREENSHOT_THEME=dark \
 BASE=http://127.0.0.1:3199 node scripts/assistant-func-test.mjs   # 실패 시 종료코드 1
 ```
 
+## 기능 테스트 — 문서 RAG 근거 ([ADR-0026](./decisions/0026-rag-assistant-retrieval-service.md))
+
+[`apps/console/scripts/rag-smoke.mjs`](../apps/console/scripts/rag-smoke.mjs): `/logs` 어시스턴트에 질의 →
+**문서 근거 `[D n]` 섹션이 실제 런북 경로를 가리키는지** + **로그 근거는 `[n]` 그대로인지** 검증.
+후자가 회귀 가드다 — 로그 번호는 alert-relay가 Slack 근거줄로 렌더·판정하는 계약이라
+`[L n]` 같은 것으로 바뀌면 알림 스레드에서 본문 인용과 근거 목록이 어긋난다.
+
+`RAG_URL`이 없거나 RAG 서비스가 죽어 있으면 문서 근거는 0건이 되고 어시스턴트는 로그
+근거로만 답한다(**실패 격리** — 그 자체는 정상 동작이다). 그때 이 스크립트는 FAIL로
+"문서 근거가 안 붙었다"는 사실을 드러낸다.
+
+```bash
+# 사전: infra/rag/.venv/bin/python infra/rag/rag_service.py --port 8131
+#       그리고 콘솔 .env.local 에 RAG_URL=http://127.0.0.1:8131
+BASE=http://127.0.0.1:3199 OUT=/tmp/rag-assistant.png node scripts/rag-smoke.mjs
+```
+
 ## 기능 테스트 — 로그 워크벤치
 
 [`apps/console/scripts/logs-workbench-test.mjs`](../apps/console/scripts/logs-workbench-test.mjs): `/logs` 워크벤치의 수용 기준([specs/logs-assistant](../specs/logs-assistant/spec.md) AC1~AC5)을 검증 — 드로어 표시·신호 클릭 인플레이스 분석(vLLM 실호출)·근거 "이 시점 →" iframe 시간창 딥링크·리셋·토글(Ctrl+I·헤더 버튼·localStorage 지속)·심화 링크 + Overview 탭 순서(시스템·GPU·모델·서비스).
