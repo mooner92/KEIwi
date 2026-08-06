@@ -50,7 +50,7 @@ M3(여유 리소스, ADR-0012로 Overview 흡수)가 "이 서버에 여유가 �
 |---|---|---|
 | 어떤 모델이 떠 있나 | gpu-model-exporter `:9836/:9837`(모델↔GPU↔pid↔user) | 이미 라이브. ollama는 프로세스로 잡힘 — 모델명은 v1에서 ollama API(`/api/ps`) 보강 |
 | GPU별 VRAM 여유 | DCGM `DCGM_FI_DEV_FB_FREE/USED` + `gpu_vram_total_bytes` | ADR-0013과 동일 소스 |
-| 설치된 모델·크기 | 콘솔 BFF가 노드별 모델 디렉토리 스캔 | v1 data05=로컬 fs. 원격 노드는 v1.5(§Q4) — inventory에 `model_dir` 필드 추가 |
+| 설치된 모델·크기 | **각 노드의 model-catalog textfile 수집기**(`keiwi_installed_model_size_bytes{name,format,source}` — 디렉터리 스캔 + ollama list, `roles/model-catalog`) | 신규 포트·scrape job 0(node-hygiene 배관 재사용). 스캔 루트는 inventory 변수 `model_catalog_dirs`. 접근 불가는 `keiwi_model_catalog_dir_ok=0`으로 정직 표기. 수집기 미배포 전환기엔 data05만 콘솔 로컬 스캔 폴백 |
 | 유닛 상태(active/failed) | v1: BFF가 `systemctl show`(읽기, 무권한) · 원격은 port-exporter 간접 확인 | hardware-ops T6-13(유닛 NRestarts 메트릭)과 합류 예정 |
 
 ## 5. VRAM 사전판정 — 핵심 로직

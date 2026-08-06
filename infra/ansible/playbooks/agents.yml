@@ -70,3 +70,14 @@
   tags: [disk-smart]
   roles:
     - disk-smart-textfile
+
+# 설치 모델 전수조사(textfile) — 콘솔 /models의 노드별 VRAM 사전판정 데이터원.
+# 신규 포트·scrape job·ufw 규칙 0 — node-hygiene이 검증한 textfile 배관에 생산자 하나를 더 놓는다.
+# 스캔 루트는 inventory에서 노드별 선언(model_catalog_dirs). specs/model-ops §4.
+- name: 설치 모델 카탈로그 수집기 (node-exporter textfile, 전 노드)
+  hosts: nodes
+  become: true
+  gather_facts: false
+  tags: [model-catalog]
+  roles:
+    - model-catalog
