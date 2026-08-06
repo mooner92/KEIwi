@@ -851,7 +851,7 @@ groups:
 | # | 검증 | 명령 / 기대 |
 |---|---|---|
 | **AC-3-1** | 드리프트 시리즈 존재 | `q 'fleet:gpu_driver_versions:count'` → 숫자(현재 `2`), `q 'fleet:kernel_releases:count'` → `4` |
-| **AC-3-2** | 유저스페이스 불일치 탐지 | `q 'node_nvidia_version_mismatch'` → G0-1 수복 **전** `1`, **후** `0`. 두 값이 시계열에 모두 남아야 한다 |
+| **AC-3-2** | 유저스페이스 불일치 탐지 | `q 'node_nvidia_version_mismatch'` → G0-1 수복 **전** `1`, **후** `0`. 두 값이 시계열에 모두 남아야 한다. ⚠️ **2026-08-06 개정**: T0-1 배포 전에 재부팅(T0-4)이 먼저 일어나 "전 `1`" 시계열은 확보 불가 — 본 AC는 **재발 시** 검증 항목으로 유지하고, 현행 통과 기준은 전 GPU 노드 `0` 상시 |
 | **AC-3-3** | smi 헬스 | `q 'min(node_nvidia_smi_ok)'` → `1` |
 | **AC-3-4** | 표준화 완료 | 표준화 후 `q 'fleet:gpu_driver_versions:count'` → `1`(data01은 legacy 예외라 DCGM 미수집이므로 분모에 없다) |
 | **AC-3-5** | DCGM csv 확장 | `q 'count(count by (xid) (DCGM_EXP_XID_ERRORS_COUNT))'` → `≥ 1`, `q 'count(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL)'` → `≥ 6` |
@@ -863,7 +863,7 @@ groups:
 | **AC-3-11** | 증설 트리거 시리즈 | `q 'fleet:no_room:ratio7d'` → `0 ≤ x ≤ 1`, `q 'fleet:gpu_hours_busy:1d / fleet:gpu_hours_capacity:1d'` → `0 ≤ x ≤ 1` |
 | **AC-3-12** | 서브쿼리 비용 | `q 'max(prometheus_rule_group_last_duration_seconds{rule_group=~".*capacity_slow.*"})'` → `< 30` |
 | **AC-3-13** | 벤치 role 안전 기본값 | `grep -q 'bench_enabled: false' infra/ansible/roles/gpu-benchmark/defaults/main.yml` → exit 0 (명시적 옵트인 없이 GPU를 점유하지 않는다) |
-| **AC-3-14** | inventory 드라이버 교정 | `yq '.nodes[] \| select(.gpu != null) \| .driver' docs/inventory.yaml`이 실측 4값(418.39 / 595.71.05-open / 535.309.01 / 595.71.05)과 일치 |
+| **AC-3-14** | inventory 드라이버 교정 | `yq '.nodes[] \| select(.gpu != null) \| .driver' docs/inventory.yaml`이 실측 4값(418.39 / 595.71.05 open / 535.309.01 / **595.84**)과 일치 — data05는 2026-08-06 재부팅 후 595.84로 정합(원안의 595.71.05는 재부팅 전 커널 모듈 값) |
 
 ---
 

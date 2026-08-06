@@ -15,7 +15,7 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 
 | 항목 | 값 | 확인 |
 | --- | --- | --- |
-| Prometheus 스크랩 타깃 | 21개 중 **20 up** (down 1 = vLLM `:8010`, T0-4 대기 중 의도적 정지) | `curl -s 'localhost:9090/api/v1/query?query=sum(up)'` · 분모는 `count(up)` |
+| Prometheus 스크랩 타깃 | 21개 중 **20 up** (down 1 = vLLM `:8010` — MineSweeper OCR, disabled·필요 시 수동 기동) | `curl -s 'localhost:9090/api/v1/query?query=sum(up)'` · 분모는 `count(up)` |
 | 활성 시계열 | **16,633** | `count({__name__!=""})` |
 | recording rules | **24개 / 7그룹** ([`infra/monitoring/rules/`](./infra/monitoring/rules)) | `curl -s localhost:9090/api/v1/rules` |
 | **alert 규칙** | **9개 — 전부 `inactive`+`ok`(발화 0)** | `localhost:3000/api/prometheus/grafana/api/v1/rules` |
@@ -54,7 +54,7 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 | **로그가 안 들어온다**(대시보드는 "에러 0건" 초록) | `curl -s 'localhost:9200/keiwi-logs-*/_count'; sleep 20; curl -s 'localhost:9200/keiwi-logs-*/_count'` — 안 늘면 정지 | [log-ingestion-stopped](./docs/runbooks/log-ingestion-stopped.md) §1 판독표 → 전 노드 정지면 수신측(§2), 일부만이면 그 노드 Filebeat(§3) |
 | **Grafana 임베드가 비거나 로그인 루프** | `BASE=http://127.0.0.1:3199 node scripts/embed-host-test.mjs` (접속 host 분기 회귀 가드) | 익명 뷰어 403이면 대시보드 개별 권한 → [infra/monitoring](./infra/monitoring/README.md) "Grafana 익명 뷰어" |
 | **노드가 no-data** | `sum(up)` 감소 · `localhost:9090/api/v1/targets` 에서 해당 job 확인 | `instance` 라벨이 [`inventory.yaml`](./docs/inventory.yaml)과 정확히 같아야 매칭된다 → [node-onboarding](./docs/runbooks/node-onboarding.md) |
-| **GPU 여유가 "판정불가"** | `count by(instance)(gpu_vram_total_bytes)` 에 그 노드가 없음 | gpu-model-exporter 결손. 현재 **data05가 이 상태**(드라이버 mismatch) → [hardware-ops tasks T0-4](./specs/hardware-ops/tasks.md) · 판정 규칙 [ADR-0013](./docs/decisions/0013-capacity-judgment-policy.md) |
+| **GPU 여유가 "판정불가"** | `count by(instance)(gpu_vram_total_bytes)` 에 그 노드가 없음 | gpu-model-exporter 결손 또는 드라이버 mismatch. 직전 사례 data05는 **2026-08-06 재부팅으로 해소** → [nvidia-driver-mismatch](./docs/runbooks/nvidia-driver-mismatch.md) · 판정 규칙 [ADR-0013](./docs/decisions/0013-capacity-judgment-policy.md) |
 | **디스크가 급증** | `df -h /data` · `_cat/indices` 로 특정 일자 인덱스 급증 확인 | rsyslog 폭주면 [rsyslog-omfile-flood](./docs/runbooks/rsyslog-omfile-flood.md). 보존은 ISM 365d |
 | **Slack 알림이 안 온다** | `journalctl -u keiwi-log-heartbeat -n 5` · Grafana 규칙 health 확인 | ⚠️ 이 망은 **`slack.com`을 SNI 차단**한다(TCP는 열리는데 TLS 리셋). Grafana는 `endpointUrl`로 `api.slack.com` 우회, GlitchTip은 `hooks.slack.com`(원래 열림) 사용 — [specs/alerting](./specs/alerting/spec.md) |
 | **알림이 너무 많다** | 2주 발화 집계 → 조치율 낮은 규칙 식별 | 임계는 **자체 30일 분포 p99** 기준으로 정한다. 업계 기본값은 우리 baseline에서 상시 발화한다(실증: 디스크 80%·메모리 10%·GPU 85°C 셋 다) → [specs/alerting §1](./specs/alerting/spec.md) |
@@ -69,7 +69,7 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 | **data02** `.102` | ❌ | ❌ | Windows. `windows_exporter`·winlogbeat role 부재 — 백로그 |
 | **data03** `.103` | node · DCGM · gpu-model · port · smartctl (**직접**) | ✅ | Quadro RTX 6000 ×2 (2026-07-03 온보딩) |
 | **data04** `.104` | node · DCGM · gpu-model · port (**SSH 터널** `:764`) | ✅ | Quadro RTX 6000 ×2. smartctl은 터널 미배선(포트 충돌 — `prometheus.yml`에 주석으로 대기) |
-| **data05** `.105` | node · DCGM · port · smartctl · **glitchtip** | ✅ | A40 ×2 · 관제 스택 호스트 + 개발. smartctl은 ufw 브리지 규칙 추가로 복구(2026-07-31). `gpu_vram_total_bytes` 결손은 드라이버 mismatch(T0-4) |
+| **data05** `.105` | node · DCGM · port · smartctl · **glitchtip** | ✅ | A40 ×2 · 관제 스택 호스트 + 개발. smartctl은 ufw 브리지 규칙 추가로 복구(2026-07-31). 드라이버 mismatch는 **2026-08-06 재부팅으로 해소**(595.84 정합 — [런북](./docs/runbooks/nvidia-driver-mismatch.md)) |
 
 **아직 한 건도 수집되지 않는 것:** BMC/iLO(팬·PSU·인렛 온도)·하드웨어 이벤트 로그(SEL)·Windows(data02). 플릿은 HPE ProLiant DL380 4대이고 BMC가 4노드 전부에 있다 — 실측 근거와 도입 설계는 [`specs/hardware-ops/`](./specs/hardware-ops/README.md)(게이트 통과 후 착수).
 
@@ -192,7 +192,7 @@ node scripts/assistant-func-test.mjs                              # 신호별로
 | 헌장(최우선 권위) · 에이전트 목차 · ADR 색인 | [Constitution.md](./Constitution.md) · [AGENTS.md](./AGENTS.md) |
 | 플릿 SoT — 노드·GPU·exporters | [docs/inventory.yaml](./docs/inventory.yaml) |
 | ADR **17건** — 모든 기술 선택 근거(§8) | [docs/decisions/](./docs/decisions) |
-| 런북 **3건** — 로그 인입 중단 · 노드 온보딩 · rsyslog 폭주 | [docs/runbooks/](./docs/runbooks) |
+| 런북 **4건** — 로그 인입 중단 · 노드 온보딩 · rsyslog 폭주 · NVIDIA 드라이버 mismatch | [docs/runbooks/](./docs/runbooks) |
 | 스펙 **12건** — M1-console·M2-logs·M3-resources·assistant·logs-assistant·service-map·ownership-attribution·alerting·hardware-ops·design·krds-redesign·sre-addons | [specs/](./specs) |
 | 디자인 v3 "Quiet Console" — **이유**는 spec, **값**은 CSS | [specs/design/](./specs/design/README.md) · [globals.css](./apps/console/src/app/globals.css) |
 | 인프라 — Prometheus·Grafana / OpenSearch·Logstash / Ansible role 5종 | [monitoring](./infra/monitoring/README.md) · [logging](./infra/logging/README.md) · [ansible](./infra/ansible/README.md) |

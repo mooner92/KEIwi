@@ -49,6 +49,8 @@
 | --- | --- |
 | [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) |
 | [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 |
+| [log-ingestion-stopped](./runbooks/log-ingestion-stopped.md) | 로그 인입 중단(대시보드는 초록인데 인입 0) 판독·복구 |
+| [nvidia-driver-mismatch](./runbooks/nvidia-driver-mismatch.md) | NVIDIA 커널↔유저스페이스 불일치(nvidia-smi exit 18 → 재부팅) |
 
 ## 🏗️ 인프라 (`../infra/`)
 
