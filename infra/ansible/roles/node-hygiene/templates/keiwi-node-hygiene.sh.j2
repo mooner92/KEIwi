@@ -5,6 +5,8 @@
 #   (a) apt 대기/보안 업데이트 개수      node_apt_upgrades_pending / node_apt_security_upgrades_pending
 #   (b) reboot-required 여부             node_reboot_required
 #   (c) 마지막 ansible 적용(변경) 시각    node_ansible_last_apply_timestamp_seconds
+#   (d) NVIDIA 드라이버 정합성(GPU 노드만) node_nvidia_smi_ok / node_nvidia_kernel_module_version
+#                                          node_nvidia_userspace_version / node_nvidia_version_mismatch
 # 읽기 전용 점검 — 시스템을 변경하지 않는다(apt-get -s 시뮬레이션·락 없음).
 # 참고: prometheus-community/node-exporter-textfile-collector-scripts (자체 경량 구현).
 set -euo pipefail
@@ -39,6 +41,34 @@ if [ -e "${MARKER}" ]; then
   apply_ts="$(stat -c %Y "${MARKER}" 2>/dev/null || echo 0)"
 fi
 
+# (d) NVIDIA 드라이버 정합성 — 커널 모듈 vs 유저스페이스(NVML) 버전 (G0-1 재발 감시, 런북 nvidia-driver-mismatch)
+# mismatch 상태에선 nvidia-smi 자체가 실패(exit 18)하므로 버전은 smi가 아니라 파일에서 읽는다.
+has_nvidia=0
+smi_ok=0
+kmod_ver=""
+user_ver=""
+mismatch=0
+if [ -e /proc/driver/nvidia/version ] || command -v nvidia-smi >/dev/null 2>&1; then
+  has_nvidia=1
+  if [ -r /proc/driver/nvidia/version ]; then
+    kmod_ver="$(grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' /proc/driver/nvidia/version | head -n1 || true)"
+  fi
+  nvml="$(readlink -f /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 2>/dev/null || true)"
+  if [ -z "${nvml}" ] || [ ! -e "${nvml}" ]; then
+    nvml="$(ldconfig -p 2>/dev/null | awk '/libnvidia-ml\.so\.1/ {print $NF; exit}')"
+    nvml="$(readlink -f "${nvml}" 2>/dev/null || true)"
+  fi
+  case "${nvml}" in
+    *.so.*) user_ver="${nvml##*.so.}" ;;
+  esac
+  if timeout 10 nvidia-smi -L >/dev/null 2>&1; then
+    smi_ok=1
+  fi
+  if [ -n "${kmod_ver}" ] && [ -n "${user_ver}" ] && [ "${kmod_ver}" != "${user_ver}" ]; then
+    mismatch=1
+  fi
+fi
+
 now="$(date +%s)"
 
 {
@@ -54,6 +84,20 @@ now="$(date +%s)"
   echo '# HELP node_ansible_last_apply_timestamp_seconds node-hygiene role 마지막 적용(변경) 시각(unix epoch).'
   echo '# TYPE node_ansible_last_apply_timestamp_seconds gauge'
   echo "node_ansible_last_apply_timestamp_seconds ${apply_ts}"
+  if [ "${has_nvidia}" = "1" ]; then
+    echo '# HELP node_nvidia_smi_ok nvidia-smi 실행 성공 여부(1=정상, 0=실패 — 예: 드라이버 mismatch 시 exit 18).'
+    echo '# TYPE node_nvidia_smi_ok gauge'
+    echo "node_nvidia_smi_ok ${smi_ok}"
+    echo '# HELP node_nvidia_kernel_module_version 로드된 NVIDIA 커널 모듈 버전(version 라벨). 값은 항상 1.'
+    echo '# TYPE node_nvidia_kernel_module_version gauge'
+    echo "node_nvidia_kernel_module_version{version=\"${kmod_ver}\"} 1"
+    echo '# HELP node_nvidia_userspace_version NVML(libnvidia-ml) 유저스페이스 버전(version 라벨). 값은 항상 1.'
+    echo '# TYPE node_nvidia_userspace_version gauge'
+    echo "node_nvidia_userspace_version{version=\"${user_ver}\"} 1"
+    echo '# HELP node_nvidia_version_mismatch 커널 모듈↔유저스페이스 버전 불일치(1=불일치, 재부팅 필요 — 런북 nvidia-driver-mismatch).'
+    echo '# TYPE node_nvidia_version_mismatch gauge'
+    echo "node_nvidia_version_mismatch ${mismatch}"
+  fi
   echo '# HELP node_hygiene_collector_last_run_timestamp_seconds 이 수집 스크립트의 마지막 실행 시각(unix epoch).'
   echo '# TYPE node_hygiene_collector_last_run_timestamp_seconds gauge'
   echo "node_hygiene_collector_last_run_timestamp_seconds ${now}"
