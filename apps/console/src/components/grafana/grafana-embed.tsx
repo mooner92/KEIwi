@@ -16,11 +16,14 @@ export async function GrafanaEmbed({
   selectedNodeName,
   selectedDcgm,
   servicePanel,
+  activeTab,
 }: {
   selectedInstance?: string;
   selectedNodeName?: string;
   selectedDcgm?: string;
   servicePanel?: ReactNode;
+  /** `?tab=<key>` — 탭을 URL로 구동(JS 없이 동작). grafana-tabs.tsx activeKey 주석 참조. */
+  activeTab?: string;
 }) {
   // 데이터 취득만 try/catch (JSX 렌더는 밖에서 — 렌더 에러를 try로 못 잡으므로)
   let grafana: ReturnType<typeof getGrafana> | null = null;
@@ -51,10 +54,12 @@ export async function GrafanaEmbed({
   // (2026-08-04 회귀 방지), 다크 사용자의 Grafana 이중 로드도 사라진다. use-theme.ts 주석 참조.
   const initialTheme = (await cookies()).get("keiwi-theme")?.value === "dark" ? "dark" : "light";
 
-  // selectedInstance 변경 시 remount → 활성 탭이 시스템 탭으로 재설정되어 드릴다운이 즉시 반영.
+  // selectedInstance 변경 시 remount → 임베드가 새 노드로 확실히 다시 로드된다.
+  // (활성 탭은 이제 URL이 소유하므로 remount로 초기화되지 않는다 — 노드를 바꿔도 보던 탭 유지.)
   return (
     <GrafanaTabs
       key={selectedInstance ?? "__all__"}
+      activeKey={activeTab ?? ""}
       baseUrl={resolveGrafanaBase(grafana.url, host)}
       dashboards={grafana.dashboards}
       selectedInstance={selectedInstance}
