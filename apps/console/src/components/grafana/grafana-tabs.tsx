@@ -1,10 +1,25 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useTheme } from "@/lib/use-theme";
 
 type Dashboard = { uid: string; label: string };
 type Tab = { key: string; label: string; kind: "service" | "grafana"; dash?: Dashboard };
+
+/**
+ * `?tab=` 에 쓸 짧고 안정적인 슬러그. env의 대시보드 항목은
+ * "uid/slug?orgId=1&from=…" 형태라 그대로 URL에 실으면 주소가 지저분해지고,
+ * 대시보드 쿼리를 바꾸는 순간 링크가 깨진다 → **Grafana uid 부분만** 쓴다.
+ */
+function tabSlug(t: Tab): string {
+  if (t.kind === "service") return "service";
+  const e = t.dash?.uid ?? "";
+  const dIdx = e.indexOf("/d/");
+  const path = (dIdx === -1 ? e : e.slice(dIdx + 3)).replace(/^\/+/, "");
+  return (path.split("?")[0] ?? "").split("/")[0] ?? "";
+}
 
 /**
  * 시간창/변수 강제 지정 — 어시스턴트 근거 로그 "이 시점 →" 딥링크(specs/logs-assistant AC3)
@@ -88,6 +103,7 @@ export function GrafanaTabs({
   servicePanel,
   timeOverride,
   initialTheme = "light",
+  activeKey,
 }: {
   baseUrl: string;
   dashboards: Dashboard[];
@@ -100,6 +116,17 @@ export function GrafanaTabs({
   timeOverride?: EmbedTimeOverride | null;
   /** SSR 시 쓸 테마 — 서버가 `keiwi-theme` 쿠키에서 읽어 준다(use-theme.ts 주석 참조). */
   initialTheme?: "light" | "dark";
+  /**
+   * URL 기반 탭(`?tab=<key>`) 활성화 — 지정하면 탭이 **버튼이 아니라 링크**가 된다.
+   *
+   * 왜: 탭이 useState만으로 동작하면 **하이드레이션이 실패한 브라우저에서 완전히 죽는다**
+   * (클릭해도 아무 반응 없음 — SSR HTML은 멀쩡해서 원인 파악도 어렵다). 이 파일은 이미
+   * 같은 계열의 회귀를 겪었다(2026-08-04: 임베드를 하이드레이션 뒤로 미뤘더니 Grafana가
+   * 아예 안 떴다 → "부재가 잘못된 상태보다 나쁜 실패"). 임베드에 적용한 그 교훈을 탭에도
+   * 적용한다 — 링크는 JS 없이도 동작하고, 딥링크·뒤로가기·공유까지 덤으로 얻는다.
+   * 미지정(로그 워크벤치)이면 기존 클라이언트 상태 방식 그대로.
+   */
+  activeKey?: string;
 }) {
   // ── 테마 동기화 ─────────────────────────────────────────────────────────
   // 서버는 DOM이 없어 테마를 모르므로 **쿠키에서 읽은 값(initialTheme)을 주입**받는다
@@ -117,8 +144,21 @@ export function GrafanaTabs({
     ...(servicePanel ? [{ key: "__svc__", label: "서비스", kind: "service" as const }] : []),
   ];
   // 기본 활성 = 첫 탭(시스템). 노드 드릴다운도 remount(key=instance)로 시스템부터.
-  const [active, setActive] = useState(0);
+  const [localActive, setLocalActive] = useState(0);
+  // URL 모드면 활성 탭이 서버가 준 activeKey에서 나온다(하이드레이션 불필요).
+  const linked = activeKey !== undefined;
+  const keyed = tabs.findIndex((t) => tabSlug(t) === activeKey);
+  const active = linked ? (keyed === -1 ? 0 : keyed) : localActive;
   const cur = tabs[active] ?? tabs[0];
+
+  // 링크 모드에서 현재 쿼리(?node= 등)를 보존한 채 tab만 바꾼 href를 만든다.
+  // SSR에서도 실행되므로 생성된 <a href>가 HTML에 그대로 담긴다 = JS 없이 동작.
+  const search = useSearchParams();
+  const hrefFor = (key: string) => {
+    const p = new URLSearchParams(search?.toString() ?? "");
+    p.set("tab", key);
+    return `?${p.toString()}`;
+  };
 
   const onService = cur?.kind === "service";
   const onSystem = cur?.kind === "grafana" && /시스템|system|node/i.test(cur.label);
@@ -147,22 +187,14 @@ export function GrafanaTabs({
             <div role="tablist" aria-label="대시보드" className="flex flex-wrap">
               {tabs.map((t, i) => {
                 const selected = i === active;
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={selected}
-                    onClick={() => setActive(i)}
-                    className={[
-                      // 활성 신호는 1.5px 초록 언더라인 하나 — 글자까지 초록으로 칠하지 않는다
-                      // (초록 예산제). 위계는 잉크 계조 + 굵기로만 만든다.
-                      "relative -mb-px px-3 py-1.5 text-sm transition-colors",
-                      selected
-                        ? "font-semibold text-ink"
-                        : "font-medium text-ink-muted hover:text-ink",
-                    ].join(" ")}
-                  >
+                // 활성 신호는 1.5px 초록 언더라인 하나 — 글자까지 초록으로 칠하지 않는다
+                // (초록 예산제). 위계는 잉크 계조 + 굵기로만 만든다.
+                const cls = [
+                  "relative -mb-px px-3 py-1.5 text-sm transition-colors",
+                  selected ? "font-semibold text-ink" : "font-medium text-ink-muted hover:text-ink",
+                ].join(" ");
+                const inner = (
+                  <>
                     {t.label}
                     {selected && (
                       <span
@@ -170,6 +202,31 @@ export function GrafanaTabs({
                         className="absolute inset-x-0 -bottom-px h-[1.5px] bg-accent-line"
                       />
                     )}
+                  </>
+                );
+                // 링크 모드 = JS 없이도 동작(하이드레이션 실패 내성). scroll=false로
+                // 탭 전환 시 페이지가 위로 튀지 않게 한다.
+                return linked ? (
+                  <Link
+                    key={t.key}
+                    href={hrefFor(tabSlug(t))}
+                    scroll={false}
+                    role="tab"
+                    aria-selected={selected}
+                    className={cls}
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setLocalActive(i)}
+                    className={cls}
+                  >
+                    {inner}
                   </button>
                 );
               })}
