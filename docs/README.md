@@ -38,6 +38,7 @@
 | [alert-enrichment](../specs/alert-enrichment/README.md) | 알림 보강(현재값·딥링크·LLM 분석·귀속) | ✅ E1·E2 라이브 |
 | [auto-remediation](../specs/auto-remediation/README.md) | 자율 사다리 L0~L4 · 조치 제안 | ✅ L1 · L2~ 게이트 |
 | [external-watchdog](../specs/external-watchdog/README.md) | 사이트 전체 침묵 감시(L4 외부) | 📎 제안(ADR 대기) |
+| [model-ops](../specs/model-ops/spec.md) | 모델 서빙 가시화 · VRAM 사전판정 · 기동/정지 | 📎 초안(Q1~Q4 대기) |
 
 ## 📑 결정 기록 (ADR — `./decisions/`)
 
@@ -77,6 +78,7 @@
 | [node-down](./runbooks/node-down.md) | 노드 무응답 — exporter down vs 노드 down 분기(data04 터널 오판) | `NodeDown` | 0 |
 | [disk-pressure](./runbooks/disk-pressure.md) | 디스크 사용률·소진 예측 — **진단·분기** | `DiskUsageHigh` · `DiskFillPredicted` | 1 |
 | [disk-usage-high](./runbooks/disk-usage-high.md) | 위 알림의 **화이트리스트 회수 절차**(journal·apt·dangling 이미지만) | ↑ 와 동일(조치 절차서) | **3** |
+| [home-migration-to-data](./runbooks/home-migration-to-data.md) | `/home`을 RAID6 배열(`/data`)로 이전 — 근본 원인 제거(사용자별 bind mount) | ↑ 의 근본 원인 | 0 |
 | [memory-pressure](./runbooks/memory-pressure.md) | 메모리 고갈·OOM kill (⚠️ data01은 `oom_kill` 미수집) | `MemoryLow` · `OomKillOccurred` | 1 |
 | [smart-health-failed](./runbooks/smart-health-failed.md) | SMART 헬스 실패 — 논리 볼륨 수준 판정(물리 디스크는 아래 런북) | `SmartHealthFailed` | 1 |
 | [disk-grown-defects](./runbooks/disk-grown-defects.md) | RAID 뒤 **물리 디스크** 열화 — 시리얼로 특정(인덱스는 베이가 아니다) | `DiskGrownDefectsGrowing` · `DiskUncorrectedErrorsGrowing` · `PhysicalDiskDisappeared` | 1 |
