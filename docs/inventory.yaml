@@ -12,6 +12,8 @@ nodes:
     os: ubuntu                 # 16.04 xenial(EOL) — py3.6, glibc 2.23. filebeat는 8.x apt 불가 → 7.17 벤더링
     role: target
     gpu: "Tesla M4 x1"         # 4GB, 드라이버 418 → DCGM 불가(gpu-model-exporter만·카드 배지는 gpu-model 폴백)
+    driver: "418.39"           # 실측(T0-9) — legacy 예외(ADR-0020 예정), DCGM 불가
+    kernel_module: proprietary
     exporters:                 # dcgm 없음(드라이버 418). 로그: filebeat 7.17 벤더링(infra/logging/filebeat-xenial).
       node: "192.168.1.101:9100"
       # 로그 수집: journald → data05 Logstash(2026-07-24, fleet_node=data01). [logging] 그룹 미포함(apt role은 xenial 불가).
@@ -31,6 +33,8 @@ nodes:
     os: ubuntu
     role: target
     gpu: "Quadro RTX 6000 x2"    # lspci TU102GL x2 확인(2026-07-03) — 드라이버 설치 후 dcgm 활성
+    driver: "595.71.05"          # 실측(T0-9) — open 커널 모듈
+    kernel_module: open
     exporters:
       node: "192.168.1.103:9100"
       dcgm: "192.168.1.103:9400"   # 직접 스크랩(터널 불필요) — data03 ufw .105→9400 허용
@@ -41,6 +45,8 @@ nodes:
     os: ubuntu
     role: target
     gpu: "Quadro RTX 6000 x2"    # 각 24GB (nvidia-smi 확인)
+    driver: "535.309.01"         # 실측(T0-9) — 표준화(595.x) 대상: T6-3
+    kernel_module: proprietary
     exporters:
       node: "192.168.1.104:9100"
       dcgm: "192.168.1.104:9400"   # DCGM exporter — data04에 설치 필요(아래 서버 단계) + 터널 9404
@@ -51,6 +57,8 @@ nodes:
     os: ubuntu
     role: stack-host           # 개발(Claude Code) + 관제 스택 호스트
     gpu: "A40 x2"
+    driver: "595.84"             # 실측 2026-08-06 — 재부팅으로 커널↔유저스페이스 정합(T0-4). modinfo license=NVIDIA
+    kernel_module: proprietary   # ⚠️ data03(open)과 플레이버 상이 — 표준 플레이버는 ADR-0020(T6-1)에서 확정
     exporters:
       node: "192.168.1.105:9100"
       dcgm: "192.168.1.105:9400"

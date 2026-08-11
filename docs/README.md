@@ -85,6 +85,7 @@
 | [node-onboarding](./runbooks/node-onboarding.md) | 노드 추가/삭제/변경 표준 절차(메트릭·로그) | — (절차서) | 0 |
 | [alert-relay-rollback](./runbooks/alert-relay-rollback.md) | alert-relay 장애 시 알림 경로 복구 — 직송 복귀(파일 1개, <5분) | — (절차서) | 1 |
 | [rsyslog-omfile-flood](./runbooks/rsyslog-omfile-flood.md) | rsyslog 로그 폭주 대응 | — (종결 인시던트) | 1 |
+| [nvidia-driver-mismatch](./runbooks/nvidia-driver-mismatch.md) | NVIDIA 커널↔유저스페이스 불일치(`nvidia-smi` exit 18 → 재부팅) | — (절차서, 탐지는 `node_nvidia_version_mismatch`) | 0 |
 
 ## 🏗️ 인프라 (`../infra/`)
 
