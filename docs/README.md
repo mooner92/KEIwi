@@ -38,6 +38,7 @@
 | [alert-enrichment](../specs/alert-enrichment/README.md) | 알림 보강(현재값·딥링크·LLM 분석·귀속) | ✅ E1·E2 라이브 |
 | [auto-remediation](../specs/auto-remediation/README.md) | 자율 사다리 L0~L4 · 조치 제안 | ✅ L1 · L2~ 게이트 |
 | [external-watchdog](../specs/external-watchdog/README.md) | 사이트 전체 침묵 감시(L4 외부) | 📎 제안(ADR 대기) |
+| [model-ops](../specs/model-ops/spec.md) | 모델 서빙 가시화 · VRAM 사전판정 · 기동/정지 | 📎 초안(Q1~Q4 대기) |
 
 ## 📑 결정 기록 (ADR — `./decisions/`)
 
@@ -53,6 +54,7 @@
 | [0008](./decisions/0008-log-pipeline.md) | 로그 파이프라인 | [0017](./decisions/0017-node-onboarding-standard.md) | 노드 온보딩 표준 |
 | [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip) |
 | [0023](./decisions/0023-ci-pipeline.md) | CI 파이프라인 | [0024](./decisions/0024-physical-disk-smart-collection.md) | 물리 디스크 SMART 수집(textfile) |
+| [0025](./decisions/0025-alert-relay-webhook.md) | 웹훅 중계(alert-relay) | [0026](./decisions/0026-auto-remediation-ladder.md) | 자동 조치 사다리(L1 제안·L2 승인실행·L4 미채택) |
 
 ## 🛠️ 런북 (`./runbooks/`)
 
@@ -65,7 +67,9 @@
 > 그 목록이다(자유형 명령 생성 없음, [specs/auto-remediation](../specs/auto-remediation/spec.md) §2.3).
 > `risk: high`·`reversible: false`인 조치가 하나라도 있으면 그 런북의 tier는 1 이하로 **강제**된다
 > — `scripts/gates/check-runbook-actions.sh`(A5)가 판정한다.
-> 아래 tier 열은 **후보 상한**이지 현재 자동화 상태가 아니다(L2는 ADR-0023, L3는 ADR-0024 게이트 뒤).
+> 아래 tier 열은 **후보 상한**이지 현재 자동화 상태가 아니다 — L2는 [ADR-0026](./decisions/0026-auto-remediation-ladder.md)
+> (채택 · `infra/alert-relay/remediation_l2.py`), L3는 **ADR-0027(신설 예정)** 게이트 뒤다.
+> 즉 tier 2·3 런북만이 L2 승인 실행의 대상이고, 나머지는 제안까지다.
 
 | 런북 | 언제 | 담당 알림 | tier |
 | --- | --- | --- | --- |
@@ -74,6 +78,7 @@
 | [node-down](./runbooks/node-down.md) | 노드 무응답 — exporter down vs 노드 down 분기(data04 터널 오판) | `NodeDown` | 0 |
 | [disk-pressure](./runbooks/disk-pressure.md) | 디스크 사용률·소진 예측 — **진단·분기** | `DiskUsageHigh` · `DiskFillPredicted` | 1 |
 | [disk-usage-high](./runbooks/disk-usage-high.md) | 위 알림의 **화이트리스트 회수 절차**(journal·apt·dangling 이미지만) | ↑ 와 동일(조치 절차서) | **3** |
+| [home-migration-to-data](./runbooks/home-migration-to-data.md) | `/home`을 RAID6 배열(`/data`)로 이전 — 근본 원인 제거(사용자별 bind mount) | ↑ 의 근본 원인 | 0 |
 | [memory-pressure](./runbooks/memory-pressure.md) | 메모리 고갈·OOM kill (⚠️ data01은 `oom_kill` 미수집) | `MemoryLow` · `OomKillOccurred` | 1 |
 | [smart-health-failed](./runbooks/smart-health-failed.md) | SMART 헬스 실패 — 논리 볼륨 수준 판정(물리 디스크는 아래 런북) | `SmartHealthFailed` | 1 |
 | [disk-grown-defects](./runbooks/disk-grown-defects.md) | RAID 뒤 **물리 디스크** 열화 — 시리얼로 특정(인덱스는 베이가 아니다) | `DiskGrownDefectsGrowing` · `DiskUncorrectedErrorsGrowing` · `PhysicalDiskDisappeared` | 1 |

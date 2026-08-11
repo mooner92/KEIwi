@@ -189,3 +189,30 @@ export async function queryCapacity(): Promise<CapacityRaw> {
     gpuModelTotalBytes: nodeGpuSamples(gpuModelTotal),
   };
 }
+
+export type InstalledModelSample = {
+  /** node-exporter instance(ip:9100) — 호출부가 inventory ip로 노드 id에 매핑 */
+  instance: string;
+  name: string;
+  format: string;
+  source: string;
+  sizeBytes: number;
+};
+
+/**
+ * 설치 모델 카탈로그 질의 (서버 전용 — model-ops). 각 노드의 keiwi-model-catalog 수집기가
+ * node-exporter textfile로 노출한 keiwi_installed_model_size_bytes를 읽는다(specs/model-ops §4).
+ * 실패는 throw → 호출부가 로컬 스캔 폴백/빈 목록으로 안전 귀결.
+ */
+export async function queryInstalledModelCatalog(): Promise<InstalledModelSample[]> {
+  const rows = await promQuery(`keiwi_installed_model_size_bytes`);
+  return rows
+    .map((r) => ({
+      instance: r.metric.instance ?? "",
+      name: r.metric.name ?? "unknown",
+      format: r.metric.format ?? "unknown",
+      source: r.metric.source ?? "dir",
+      sizeBytes: r.value,
+    }))
+    .filter((m) => m.instance !== "");
+}

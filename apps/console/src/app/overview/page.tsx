@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ node?: string }>;
+  searchParams: Promise<{ node?: string; tab?: string }>;
 }) {
   const [nodes, capacity, params] = await Promise.all([
     getFleetStatus(),
@@ -42,6 +42,7 @@ export default async function OverviewPage({
         capacity={capacity}
         selectedNodeId={selectedNode?.id}
         selectedNode={selectedNode ?? undefined}
+        activeTab={params.tab}
       />
 
       <section
@@ -53,6 +54,7 @@ export default async function OverviewPage({
           selectedNodeName={selectedNode?.nodeName}
           selectedDcgm={selectedNode?.nodeDcgm}
           servicePanel={<ServiceTable node={selectedNode?.id} />}
+          activeTab={params.tab}
         />
       </section>
     </div>

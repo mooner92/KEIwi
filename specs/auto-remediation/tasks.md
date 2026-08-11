@@ -1,6 +1,6 @@
 # 자동 조치 — Tasks
 
-> 권위: [spec.md](./spec.md) / [README](./README.md). `[x]`=완료, `[ ]`=잔여.
+> 권위: [spec.md](./spec.md) / [README](./README.md). `[x]`=완료, `[ ]`=잔여, `[~]`=**의도적으로 안 함**(사유 필수).
 > **`[server]` = 사람이 적용(§11).** 표시 없는 항목은 에이전트가 레포에 산출물을 **생성**하는 것까지다.
 > 크기: **S**=반나절 이내 · **M**=1~3일 · **L**=1주+.
 > 순서 원칙: **L1(제안)이 가장 먼저·가장 안전** — 실행 기능이 없어 헌장·안전 위험 0. L2/L3는 ADR 게이트 뒤.
@@ -9,7 +9,8 @@
 
 ## P0 — 게이트 (이걸 안 하면 뒤가 성립하지 않는다)
 
-- [ ] **T0-1** (S) `docs/decisions/0026-auto-remediation-ladder.md` — 자율 사다리 L0~L4 정의 + L1/L2 채택 + **L4 미채택 근거**(벤치마크·5노드·1인). **사용자 승인 필요**(헌장 긴장). **선행: 없음.** 검증: 파일 존재 + README §6 링크 유효
+- [x] **T0-1** (S) `docs/decisions/0026-auto-remediation-ladder.md` — 자율 사다리 L0~L4 정의 + L1/L2 채택 + **L4 미채택 근거**(벤치마크·5노드·1인). **사용자 승인 필요**(헌장 긴장). **선행: 없음.** 검증: `check-doc-index.sh` D3·D4·D5 통과 + README §6 링크 유효
+  > 스펙을 **뒤집은 판단 3건**을 ADR에 함께 실었다(spec §3.6): ① Slack 버튼 → **CLI 단일**(공개 인바운드 기각) ② 감사 = OpenSearch → **로컬 append-only 원장**(파이프라인 자기모순) ③ 대칭 롤백 필수 → **롤백 필드 필수 + 미선언 명시**(대칭 롤백은 L3 조건). 번호 충돌(0023·0024는 CI·SMART가 선점)도 여기서 0026/0027로 정리했다.
 - [ ] **T0-2** (S) 정답형 인시던트 ↔ 런북 ↔ 티어 매핑표를 spec §1로 확정하고 `alert-rules.yaml`의 실재 alertname과 교차검증. **선행: 없음**
 - [ ] **T0-3** (S) 근거강제·권한분리 원칙(spec §0)을 `assistant`의 기존 서버검증 인용 검증기와 정합 확인 — 재사용 지점 명시. **선행: 없음**
 
@@ -36,17 +37,25 @@
 
 ---
 
-## P2 — L2 승인 후 실행 (ChatOps HITL) — ADR-0026(신설 예정) 승인 후
+## P2 — L2 승인 후 실행 — [ADR-0026](../../docs/decisions/0026-auto-remediation-ladder.md) 채택(2026-08-05)
 
-- [ ] **T2-1** (M) `infra/remediation/remediation-worker`(결정론·최소권한, port-exporter/node-hygiene 패턴) — `runbook_id`+검증 인자만 수신, `command_ref` 실행, timeout·입력검증·**부분 실패 시 stale 결과 금지**. precondition·dry-run·validate·rollback 훅. **선행: T1-3**
-- [ ] **T2-2** (M) repo 리뷰된 조치 스크립트 + 대칭 rollback 스크립트 작성(`remediation/restart-logstash.sh` + rollback 등). **각 조치는 멱등·가역**(§16). **선행: T2-1**
-- [ ] **T2-3** (S) 승인 카드 5필드 강제(무엇/왜/영향/롤백/dry-run diff) — 누락 시 게시 실패. 검증: **AC-L2-2**. **선행: T2-1**
-- [ ] **T2-4** (M) Slack 인터랙티브 [승인]/[거부] 버튼 → 승인 이벤트 → 워커 트리거. **유출 필드 화이트리스트**(alertname/severity/node/runbook_id만). 검증: **AC-L2-5**. **선행: T2-3.** 사용자 승인(egress, §C3)
-- [ ] **T2-5** (S) **CLI 폴백 승인**(`remctl approve <id>`) — Slack 장애 시에도 실행 가능. 검증: **AC-L2-3**. **선행: T2-1**
-- [ ] **T2-6** (S) 감사 인덱스 `keiwi-remediation-*` 배선 — proposal_id·approver·runbook·result·rollback. 검증: **AC-L2-4**. **선행: T2-1**
-- [ ] **T2-7** (S) 승인 없이는 실행 0 게이트. 검증: **AC-L2-1**. **선행: T2-1**
-- [ ] **T2-8** `[server]` (S) control plane 아웃오브밴드 배치 확인 — data05 터널 관리 런북을 data05에서 실행하지 않도록 워커 노드 배치(§C4). **선행: T2-1**
-- [ ] **T2-9** `[server]` (M) L2 파일럿 — LogIngestStalled 재시작을 **섀도(제안+수동실행)로 먼저**, 이후 버튼 승인 실행. `keiwi-remediation-*`에 무사고 실행 이력 축적 시작(L3 earned-autonomy 근거). **선행: T2-4, T2-6**
+> 산출물은 **한 파일**이다: `infra/alert-relay/remediation_l2.py`(+ `test_remediation_l2.py` 50건 +
+> `scripts/gates/check-remediation-l2.sh` M1~M9 + `ci.yml` 2스텝). 초안이 그린 `infra/remediation/`
+> 별도 워커 디렉터리는 만들지 않았다 — 이유는 T2-1 주석.
+
+- [x] **T2-1** (M) 결정론 실행기 — **`infra/alert-relay/remediation_l2.py`**(stdlib 전용·pip 0). `proposal_id`만 수신하고 **명령 문자열은 인자로 받지 않는다** — 런북 파일에서 다시 읽는다. 실행 전 재검증(런북 SHA-256·조치 지문·명령 일치·tier·risk·가역·멱등·파괴동사·명령치환·본문 근거성), timeout·rc 기록, **부분 실패에서 정지**. 검증: 게이트 M2·M4·M5. **선행: T1-3**
+  > **`infra/remediation/` 를 새로 파지 않았다.** ① 실행기는 L1 제안 결과를 그대로 먹으므로 같은 디렉터리에 있어야 import 한 줄로 끝난다(pip 0·경로 조작 0) ② relay와 배포 단위가 같다(`/opt/keiwi/alert-relay/`) ③ **디렉터리를 나누면 게이트도 나뉘고, 나뉜 게이트는 한쪽만 늙는다.** 대신 **파일**은 반드시 나눴다 — L1의 '실행 능력 0'이 주석이 아니라 게이트로 남으려면 경계가 파일이어야 한다(`check-remediation-l1.sh` L8이 L1→L2 대리 호출을 막는다).
+  > **데몬이 아니다.** 워커 큐·리스너·타이머가 없다. 사람이 셸에 치지 않으면 실행을 기다리는 프로세스 자체가 없고, 그것이 §11 논증의 뼈대다(ADR-0026 §C1 · 게이트 M6).
+- [~] **T2-2** (M) ~~repo 리뷰된 조치 스크립트 + 대칭 rollback 스크립트~~ → **스크립트를 만들지 않는다.** 조치의 정본은 이미 런북 `actions[].command`이고 게이트 A7이 "본문 코드블록에 실존하는가"까지 강제한다. 별도 스크립트를 두면 **문서·스크립트·화이트리스트 셋이 서로 다르게 늙는다.** 대칭 rollback은 §4.1의 **L3 조건**이라 T3에서 다룬다(spec §3.6-3). **잔여**: tier≥2 조치 7개에 선택적 `rollback:` 키를 채우는 일(있으면 카드에 실린다).
+- [x] **T2-3** (S) 승인 카드 5필드 강제(무엇/왜/영향/롤백/dry-run) — 누락 시 `CardError`로 카드 생성 실패 = 승인 불가. 검증: **AC-L2-2**(`TestApprovalCard`). **선행: T2-1**
+- [~] **T2-4** (M) ~~Slack 인터랙티브 버튼~~ → **기각**(ADR-0026). Slack 버튼은 **Slack이 우리에게 POST할 공개 엔드포인트**를 요구하는데, 승인은 한 달에 몇 번이고 엔드포인트는 24시간 노출된다. 게다가 승인 권한이 **사외 신원 체계**로 나가고(§14), 버튼의 무마찰이 §3.2 방어(읽게 만드는 마찰)를 함께 없앤다. Socket Mode는 인바운드만 풀고 나머지는 그대로라 함께 기각 — 다만 **재검토 시 첫 후보**로 기록. **유출 필드 화이트리스트는 살아 있다**: `slack_fields()` 1함수 + 계약 테스트. 검증: **AC-L2-5**(`TestEgressFields`)
+- [x] **T2-5** (S) **CLI 승인 — 폴백이 아니라 유일 경로**: `remediation_l2.py approve <id>`(dry-run 기본) / `--apply`(실행). Slack 없이 전 생애주기가 완결된다. 검증: **AC-L2-3**. **선행: T2-1**
+- [x] **T2-6** (S) 감사 원장 — **로컬 append-only JSONL**(O_APPEND+fsync·0600·수정 API 없음)에 proposal_id·approver·approved_at·runbook·runbook_sha256·result(rc)·rollback·outcome. 검증: **AC-L2-4**(`TestLedger`) + 게이트 M7. **선행: T2-1**
+  > `keiwi-remediation-*` 인덱스는 **파생 뷰**로 남긴다. 쓰기 경로를 OpenSearch에 두면 `LogIngestStalled`(로그 인입 중단)를 고치는 조치의 감사 기록을 **그 파이프라인으로** 보내게 된다 — ADR-0025가 "게시 전 sqlite 예약"을 기각한 것과 같은 논리(spec §3.6-2). filebeat 배선은 `[server]`(T2-10).
+- [x] **T2-7** (S) 승인 없이는 실행 0 — 원장에 승인 이벤트가 없으면 `--apply` 도 거부. 게이트 `scripts/gates/check-remediation-l2.sh`(M1~M9) + `check-remediation-l1.sh` **L8**(L1→L2 대리 호출 금지) + `ci.yml` 2스텝. 검증: **AC-L2-1**(`TestApprovalGate`). **선행: T2-1**
+- [ ] **T2-8** `[server]` (S) control plane 아웃오브밴드 배치 확인 — data05 터널 관리 런북을 data05에서 실행하지 않도록 배치(§C4). 승인이 **셸 로그인**이 됐으므로 확인 대상은 "어느 노드에 설치하는가"와 "그 노드가 죽어도 승인 가능한가"다. **선행: T2-1**
+- [ ] **T2-9** `[server]` (M) L2 파일럿 — LogIngestStalled 재시작을 **dry-run만 먼저**(원장에 계획 이력 축적), 이후 `--apply`. 무사고 실행 이력 축적 시작(L3 earned-autonomy 근거). **선행: T2-6, T2-10**
+- [ ] **T2-10** `[server]` (S) 설치 — sudoers 화이트리스트(런북 명령만) · 원장 디렉터리(`/var/log/keiwi/` 0700) · filebeat 입력 추가(`keiwi-remediation-*` 파생 뷰). 절차는 `infra/alert-relay/README.md` §L2. **선행: T2-1**
 
 ---
 

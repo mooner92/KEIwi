@@ -1,0 +1,65 @@
+---
+# roles/model-catalog/tasks/main.yml — 설치 모델 전수조사 textfile 수집기 배포.
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 라이브 직접수정 금지(§12). 시크릿 없음(§13).
+# 대상: node-exporter textfile 배관이 있는 모든 노드 — node-hygiene이 먼저 깔린 노드라면
+#   배관 검증(소비처 실증)은 이미 통과한 상태다. 이 role은 생산자 하나를 더 놓을 뿐이다.
+# 신규 포트·scrape job·ufw 규칙 0 (specs/model-ops §4).
+
+- name: 소비처 선언 강제(node-hygiene과 동일 규약 — 미선언 노드에 생산자만 깔리는 것 방지)
+  ansible.builtin.assert:
+    that: model_catalog_consumer | default('') in ['host', 'container']
+    fail_msg: >-
+      model_catalog_consumer(=node_hygiene_consumer) 미선언({{ inventory_hostname }}).
+      inventory.ini에 host 또는 container를 선언하라 — roles/node-hygiene/defaults 참조.
+
+- name: textfile 디렉터리 존재 확인(배관 없는 노드에 생산자를 깔지 않는다)
+  ansible.builtin.stat:
+    path: "{{ model_catalog_textfile_dir }}"
+  register: _mc_textdir
+  check_mode: false
+
+- name: textfile 디렉터리 부재 시 이 노드는 건너뛴다(사유를 남기고)
+  ansible.builtin.debug:
+    msg: >-
+      SKIP {{ inventory_hostname }}: {{ model_catalog_textfile_dir }} 부재 —
+      node-hygiene role(배관 생성)을 먼저 적용하라.
+  when: not _mc_textdir.stat.exists
+
+- name: 수집 스크립트 설치
+  ansible.builtin.template:
+    src: keiwi-model-catalog.sh.j2
+    dest: "{{ model_catalog_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: _mc_textdir.stat.exists
+  notify: run model-catalog once
+
+- name: systemd service 설치
+  ansible.builtin.template:
+    src: keiwi-model-catalog.service.j2
+    dest: /etc/systemd/system/keiwi-model-catalog.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: _mc_textdir.stat.exists
+  notify: run model-catalog once
+
+- name: systemd timer 설치·활성화
+  ansible.builtin.template:
+    src: keiwi-model-catalog.timer.j2
+    dest: /etc/systemd/system/keiwi-model-catalog.timer
+    owner: root
+    group: root
+    mode: "0644"
+  when: _mc_textdir.stat.exists
+  register: _mc_timer
+
+- name: timer enable + start
+  ansible.builtin.systemd:
+    name: keiwi-model-catalog.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: _mc_textdir.stat.exists and not ansible_check_mode

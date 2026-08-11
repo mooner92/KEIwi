@@ -25,7 +25,14 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import RAG_HOME, REPO_ROOT, WORKING_DIR, initialize_rag  # noqa: E402
+from common import (  # noqa: E402
+    EMBED_HEALTH,
+    RAG_HOME,
+    REPO_ROOT,
+    WORKING_DIR,
+    initialize_rag,
+)
+from index_health import format_report, index_health  # noqa: E402
 
 CORPUS_GLOBS = [
     "docs/runbooks/*.md",
@@ -77,10 +84,10 @@ def render_doc(path: Path) -> str:
 
 def graph_stats() -> dict:
     stats: dict = {}
-    full_docs = WORKING_DIR / "kv_store_full_docs.json"
     chunks = WORKING_DIR / "kv_store_text_chunks.json"
-    if full_docs.exists():
-        stats["documents"] = len(json.loads(full_docs.read_text()))
+    # 'documents'는 여기서 세지 않는다. kv_store_full_docs는 **투입** 문서라
+    # 색인이 실패해도 줄지 않는다 — 2026-08-04에 이 값이 64를 찍는 동안 실제
+    # 검색 가능 문서는 14개였다(거짓 초록). 성공 수는 doc_status가 정본이다.
     if chunks.exists():
         stats["chunks"] = len(json.loads(chunks.read_text()))
     graphml = WORKING_DIR / "graph_chunk_entity_relation.graphml"
@@ -111,17 +118,57 @@ async def main() -> None:
 
     rag = await initialize_rag()
     start = time.monotonic()
+    insert_error: Exception | None = None
     try:
         await rag.ainsert(texts, file_paths=file_paths)
+    except Exception as exc:  # noqa: BLE001 — 기록해 보고한 뒤 rc=1로 끝낸다.
+        # KeyboardInterrupt·CancelledError는 잡지 않는다(그대로 전파 = non-zero).
+        # 여기서 삼키면 '중단됐는데 초록'이 만들어진다.
+        insert_error = exc
     finally:
         await rag.finalize_storages()
     elapsed = time.monotonic() - start
 
-    stats = {"elapsed_sec": round(elapsed, 1), **graph_stats()}
+    # ── 완료 검증 ───────────────────────────────────────────────────────────
+    # 투입 수가 아니라 doc_status를 읽는다. 부분 성공을 초록으로 부르지 않는다.
+    health = index_health()
+    stats = {
+        "elapsed_sec": round(elapsed, 1),
+        "corpus_files": len(paths),
+        "documents": health["indexed_files"],  # = processed. 투입 수가 아니다.
+        "failed": health["failed_docs"],
+        "pending": health["pending_docs"],
+        "ready": health["ready"],
+        "embed_health": {
+            k: v for k, v in EMBED_HEALTH.items() if k != "samples"
+        },
+        **graph_stats(),
+    }
     stats_path = RAG_HOME / "ingest_stats.json"
     stats_path.write_text(json.dumps(stats, ensure_ascii=False, indent=2))
-    print(f"[ingest] 완료 {elapsed:.0f}s — {stats}")
+    print(f"[ingest] 소요 {elapsed:.0f}s — {stats}")
     print(f"[ingest] 통계 기록: {stats_path}")
+    print("[ingest] " + format_report(health).replace("\n", "\n[ingest] "))
+
+    if EMBED_HEALTH["mitigated"]:
+        print(
+            f"[ingest] 주의: 임베딩 완화 {EMBED_HEALTH['mitigated']}건 적용됨 "
+            f"({EMBED_HEALTH['mitigations_used']}) — ollama bge-m3 NaN 회피. "
+            "해당 벡터는 변형된 텍스트로 임베딩됐다(common.py 주석 참조)."
+        )
+
+    if insert_error is not None:
+        print(f"[ingest] 삽입 중 예외: {type(insert_error).__name__}: {insert_error}")
+
+    # 실패가 1건이라도 있으면 non-zero. '거짓 초록' 원천 차단.
+    if not health["ready"] or insert_error is not None:
+        print(
+            f"[ingest] 실패 — 색인 가능 {health['indexed_files']}/{len(paths)}, "
+            f"실패 {health['failed_docs']}, 미완 {health['pending_docs']}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    print(f"[ingest] 성공 — {health['indexed_files']}/{len(paths)} 문서 색인")
 
 
 if __name__ == "__main__":
