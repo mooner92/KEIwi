@@ -8,6 +8,30 @@
 - 카테고리: Added(추가) / Changed(변경) / Fixed(수정) / Removed(제거) / Security(보안).
 - "라이브"는 실제 가동·검증된 것, "1차/미완"은 도입만 되고 후속이 남은 것을 뜻한다.
 
+## [0.3.0] - 2026-08-11
+
+L2 승인 실행기 · 모델 운영(model-ops) v1 · Overview 탭 회귀 수정. feat/l2-approval → dev(PR #18) → main(PR #19).
+
+### Added
+- **L2 승인 실행기(구현 완료·파일럿 전)** — 알림→L1 제안을 사람이 CLI로 승인해 실행하는 결정론 실행기(`infra/alert-relay/remediation_l2.py`, ADR-0026). 상태를 바꾸는 지점은 이 파일의 `subprocess.run` **정확히 1회**뿐이고 게이트가 그것을 강제한다. dry-run 기본 · 실행 전 7단계 재검증(승인 이벤트·런북 SHA·명령 근거성·정책) · append-only 감사 원장(`/var/log/keiwi/remediation.jsonl`). fail-open 3건(무기록 실행·손상 원장·TOCTOU) 차단.
+- **모델 운영(model-ops) v1** — `/models` 탭: 노드×GPU 서빙 현황(모델·포트·소유자·VRAM) + 설치 모델 카탈로그 + **VRAM 사전판정 4단**(가능/빠듯/불가/판정불가). vLLM이 가중치가 아니라 `--gpu-memory-utilization`만큼 예약하는 특성을 반영한 2겹 판정식이고, "빠듯"에는 권장 util을 수치로 제시한다. 메트릭 결손은 "판정불가"로 정직 표기(ADR-0013 계승).
+- **모델 카탈로그 전수조사 수집기** — `roles/model-catalog`가 각 노드에서 디스크 스캔 + `ollama list`를 `keiwi_installed_model_size_bytes`로 노출한다. **신규 포트·scrape job·ufw 규칙 0**(node-hygiene이 검증한 textfile 배관 재사용). 스캔 루트 접근 실패는 `keiwi_model_catalog_dir_ok=0`으로 "모델 0개"와 구분.
+- **런북 2건** — `home-migration-to-data`(`/home`을 RAID6 배열로 이전하는 사용자별 bind mount 절차) · `nvidia-driver-mismatch`(커널↔유저스페이스 불일치 판별·수복).
+- **specs** — model-ops(서빙 가시화·판정·기동/정지, Q1~Q4 미결) · auto-remediation 사다리 L0~L4 · fleet-hardening · external-watchdog.
+
+### Fixed
+- **Overview 탭 무반응** — 시스템·GPU·모델·서비스 탭이 `useState`에만 의존해 **하이드레이션이 실패하면 통째로 죽었다**(SSR HTML은 정상이라 원인 파악도 어렵다). 활성 상태를 `?tab=` URL로 옮겨 탭을 `<Link>`로 만들었다 — JS OFF에서도 전환·iframe 교체가 동작함을 회귀 테스트로 확인. 노드를 선택하면 탭이 시스템으로 튕기던 문제도 같이 해소(딥링크·뒤로가기 부수 효과).
+- **VRAM 판정 오판** — 가중치가 GPU 총량을 넘는 모델(61 GiB)이 유휴 44 GiB GPU에서 "가능"으로 나오던 검사 순서 결함. 시각 QA가 잡았고 회귀 테스트 2건 추가.
+- **모델 카탈로그 수집기 shellcheck SC2043** — 스캔 루트가 1개인 노드에서 렌더된 루프가 정적으로 판정되던 문제, 배열 수신으로 교정.
+
+### Changed
+- **NVIDIA 정합성 메트릭 일원화** — hardware-ops T0-1의 자체 구현안을 폐기하고 fleet-hardening T1-3 산출물(6종: 위 4종 + `node_nvidia_probe_ok`·`node_nvidia_smi_exit_code`, 유저스페이스 경로를 `readlink -f`로 해석)을 인수했다. 자체안을 넣었다면 data01 legacy에서 깨지는 회귀였다.
+- **inventory 드라이버 실측 반영** — `driver`·`kernel_module` 필드 신설(418.39 / 595.71.05 open / 535.309.01 / 595.84). data05가 proprietary로 로드돼 data03(open)과 플레이버가 갈린 상태 — 표준은 ADR-0020(신설 예정)에서 확정한다.
+- **AC-3-2 개정(정직성)** — data05 재부팅(T0-4)이 탐지 배포·증거 보존보다 **먼저** 일어나 `node_nvidia_version_mismatch`의 1→0 전이가 시계열에 남지 않았다. 스펙이 "되돌릴 수 없는 순서 제약"으로 경고한 그 위반이 실제로 발생했고, 해당 AC는 재발 시 검증 항목으로 전환했다. 현재의 `= 0`은 "고쳤다"가 아니라 "현재 정합"만 뜻한다.
+
+### Security
+- **PUBLIC 레포 안전** — 이전 런북 초안이 연구자 실계정·홈 상세 경로를 담고 있던 것을 게이트(`check-public-safety` P3)가 차단, 익명 대체본(user1~user6)으로 교정하고 실제 대상은 작업 시점 명령으로 뽑도록 절차화했다.
+
 ## [0.2.0] - 2026-07-31
 
 디자인 v3 + 관측 3계층(알림·에러 트래킹·하트비트). feat/design-v3 → dev(PR #3) → main.
