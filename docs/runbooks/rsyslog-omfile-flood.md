@@ -11,6 +11,45 @@ occurrences: 1
 status: resolved
 fix_kind: root-cause
 detection_query: '{"query":{"term":{"service":"rsyslog.service"}}}'
+last_verified: 2026-06-28   # 처방을 data04에 실제로 적용해 검증한 날(= 인시던트 종결일)
+# tier 1 = L1 제안까지. 두 조치 모두 blast가 로컬을 넘는다:
+#   disable-rsyslog는 **시스템 로깅 데몬을 끄는 것**이라 `/var/log/syslog`에 의존하는 도구가
+#   있으면 조용히 깨지고, purge-flood-docs는 **비가역 삭제**다(지운 문서는 안 돌아온다).
+#   둘 다 "이 노드에 rsyslog 파일 출력이 정말 불필요한가"라는 사람의 판단이 선행해야 한다.
+tier: 1
+actions:
+  - id: count-flood-by-node
+    title: 어느 노드가 도배 중인가
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -s 'localhost:9200/keiwi-logs-*/_search?size=0' -H 'Content-Type: application/json'
+      -d '{"query":{"term":{"service":"rsyslog.service"}},"aggs":{"n":{"terms":{"field":"fleet_node"}}}}'
+  - id: read-rsyslog-real-reason
+    title: 진짜 이유는 suspended 메시지 **앞**에 있다
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo journalctl -u rsyslog -n 80 --no-pager | grep -ivE 'suspended|retry' | tail -25
+  - id: disable-rsyslog
+    title: rsyslog 비활성 — journald+Filebeat와 중복일 때만
+    # 되돌릴 수는 있다(enable --now). 그러나 `/var/log/syslog`를 읽는 도구가 있으면
+    # 그 도구가 조용히 깨진다 — 되돌리기 전까지 무엇이 깨졌는지도 모른다.
+    risk: high
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo systemctl disable --now rsyslog
+  - id: purge-flood-docs
+    title: 기존 도배 문서 삭제 — **먼저 유입을 멈춘 뒤에만**
+    risk: high
+    reversible: false
+    idempotent: true
+    command: >-
+      curl -s -X POST 'localhost:9200/keiwi-logs-*/_delete_by_query?conflicts=proceed&wait_for_completion=false'
+      -H 'Content-Type: application/json' -d '{"query":{"term":{"service":"rsyslog.service"}}}'
 ---
 
 # 런북 — rsyslog `omfile suspended` 로그 도배

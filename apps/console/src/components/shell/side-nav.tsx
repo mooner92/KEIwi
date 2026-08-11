@@ -65,6 +65,12 @@ export function SideNav() {
         >
           소개
         </Link>
+        <Link
+          href="/changelog"
+          className="w-fit text-ink-muted underline underline-offset-2 hover:text-ink"
+        >
+          패치노트
+        </Link>
         <div>
           <p className="tnum">환경 · data05</p>
           <p>KEIwi · M1</p>

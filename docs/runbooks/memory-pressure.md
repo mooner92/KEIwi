@@ -7,6 +7,43 @@ category: system
 severity: warning
 affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. spec §1: OomKillOccurred·MemoryLow의 원인 프로세스는 **연구자 것**이고
+#   재현 불가능한 데이터가 걸려 있다(§4.5 Tier0 고정 항목). 그래서 이 런북의 화이트리스트에는
+#   **kill이 없다** — 있으면 안 되는 것이 아니라, 올리는 순간 LLM이 고를 수 있게 되기 때문이다.
+#   조치는 전부 읽기이고, 실제 처방(배치 축소·이전·통보)은 사람 협의 사안이라 명령이 아니다.
+tier: 1
+actions:
+  - id: check-mem-available
+    title: 노드별 여유 메모리 (MemAvailable 기준 — MemFree가 아니다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=100 *
+      node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes'
+  - id: check-oom-history
+    title: 최근 24시간 OOM kill 발생 여부 (data01은 시리즈 자체가 없다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode
+      'query=increase(node_vmstat_oom_kill[24h])'
+  - id: read-kernel-oom-log
+    title: 무엇이 죽었나 — 커널 로그가 유일한 증거
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo journalctl -k --since '-24h' --no-pager | grep -iE 'out of memory|oom-kill|killed
+      process' | tail -20
+  - id: find-top-rss
+    title: 지금 누가 먹고 있나 (RSS 상위)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      ps -eo pid,user,rss,comm --sort=-rss | head -15
 ---
 
 # 런북 · 메모리 압박 (MemoryLow / OomKillOccurred)

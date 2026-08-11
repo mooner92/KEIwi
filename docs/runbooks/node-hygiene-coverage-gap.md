@@ -8,6 +8,50 @@ severity: warning
 signature: "fleet:node_hygiene_coverage:gap"
 affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. 자매 런북 node-hygiene-stale(tier 2)과 갈리는 지점이 여기다 —
+#   저쪽은 "타이머를 살린다"는 **단일 정답**이지만, 이쪽은 §3 분기표가 다섯 갈래고 그중
+#   §4④(유닛 파일 수기 수정)는 명령으로 표현되지도 않는다. **정답형이 아니면 L2 이상이 아니다**
+#   (spec §4.1 조건1). 애초에 알림이 "어느 노드인지"조차 말하지 않아 §2 뺄셈이 선행한다.
+tier: 1
+actions:
+  - id: list-live-exporters
+    title: 살아 있는 node-exporter 목록 (뺄셈의 왼쪽)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=up{job="node-exporter"} == 1'
+  - id: list-hygiene-producers
+    title: 위생 메트릭을 내는 노드 목록 (뺄셈의 오른쪽)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode
+      'query=node_hygiene_collector_last_run_timestamp_seconds'
+  - id: check-textfile-consumer
+    title: node-exporter가 textfile 디렉터리를 읽고 있는가 (소비처 확인)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode
+      'query=node_scrape_collector_success{collector="textfile"}'
+  - id: run-hygiene-once
+    title: 대상 노드에서 수집기 단발 실행
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo systemctl start keiwi-node-hygiene.service
+  - id: reapply-hygiene-role-dryrun
+    title: role 재적용 드라이런 (실적용 전 필수)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      ansible-playbook -i inventory.ini playbooks/agents.yml --tags node-hygiene --check --diff
+      --limit "$NODE"
 ---
 
 # 런북 — NodeHygieneCoverageGap (위생 수집기 커버리지 구멍)

@@ -7,6 +7,33 @@ category: infra
 severity: critical
 affected_nodes: [data01, data03, data04, data05]
 last_verified: 2026-08-03
+# tier 0 = 사람 전용. spec §1: NodeDown의 원인은 물리·전원·네트워크이고 blast가 최고다.
+#   게다가 이 알림은 세 상태(노드 down / exporter down / 경로 down)를 구분하지 못한다 —
+#   **분기 자체가 사람의 판정**이라 어떤 자동 조치도 첫 단계에서 틀릴 수 있다.
+#   아래 actions는 전부 읽기 전용 판별이고, 복구 명령은 판정이 끝난 뒤 각 분기 런북이 맡는다.
+tier: 0
+actions:
+  - id: check-all-targets
+    title: 전체 스크랩 타깃 상태 (한 노드의 여러 job 동시 down이 핵심 단서)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=up'
+  - id: check-tunnel-data04
+    title: data04 SSH 터널 생존 확인 (터널 죽음이 NodeDown으로 보인다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      systemctl status keiwi-tunnel-data04 --no-pager | head -5
+  - id: check-tunnel-ports
+    title: 터널 4포트가 모두 떠 있는가
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      ss -tlnp | grep -E '172.18.0.1:(9104|9404|9837|9987)'
 ---
 
 # 런북 · 노드 다운 (NodeDown)

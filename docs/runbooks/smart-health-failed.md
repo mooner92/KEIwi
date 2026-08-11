@@ -7,6 +7,40 @@ category: infra
 severity: critical
 affected_nodes: [data03, data05]
 last_verified: 2026-08-03
+# tier 1 = L1 제안까지. spec §1: 처방이 **물리 디스크 교체**라 소프트웨어로 도달할 수 없다.
+#   자동화할 조치가 없는 것이지 자동화를 참는 것이 아니다. 화이트리스트는 판별용 읽기뿐이고,
+#   그중 exporter 생존 확인(check-exporter-up)이 가장 중요하다 — noDataState:NoData 때문에
+#   **exporter가 죽은 것과 디스크가 건강한 것이 겉보기에 같기** 때문이다(§2).
+tier: 1
+actions:
+  - id: check-smart-status
+    title: 어느 장치가 실패 보고인가 (1=PASSED, 0=FAILED)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=smartctl_device_smart_status'
+  - id: check-exporter-up
+    title: 익스포터 생존 확인 (NoData와 FAILED를 혼동하지 않기 위해)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      curl -sG localhost:9090/api/v1/query --data-urlencode 'query=up{job="smartctl-exporter"}'
+  - id: probe-physical-disk
+    title: RAID 컨트롤러 뒤 물리 디스크 개별 확인 (인덱스는 0부터 늘려간다)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo smartctl -d cciss,0 -H -i /dev/sg2
+  - id: read-controller-errors
+    title: 커널이 본 I/O·medium error (진짜 실패인지의 확증)
+    risk: low
+    reversible: true
+    idempotent: true
+    command: >-
+      sudo dmesg -T | grep -iE 'hpsa|cciss|I/O error|medium error' | tail -20
 ---
 
 # 런북 · SMART 헬스 실패 (SmartHealthFailed)

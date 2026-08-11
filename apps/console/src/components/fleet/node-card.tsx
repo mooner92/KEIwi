@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { FleetNodeStatus, NodeStatus, NodeCapacity } from "@/types/fleet";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import { CapacityBadge } from "@/components/ui/capacity-badge";
+import { DEFAULT_CAPACITY_POLICY } from "@/config/capacity-policy";
 
 // 좌측 상태 바 — "문제인 카드"만 표식을 갖는다(v3 §1: 정상에는 표식조차 낭비다).
 // 정상은 투명 바로 자리만 차지해 카드마다 좌측 들여쓰기가 흔들리지 않게 한다.
@@ -37,6 +38,20 @@ export function NodeCard({
         ? `${Math.round((gpu.vramUsedBytes ?? 0) / GIB)}/${Math.round((gpu.vramTotalBytes ?? 0) / GIB)} GiB`
         : `VRAM ${Math.round(gpu.bestVramFreePct)}%`
       : undefined;
+  // 일반(CPU·메모리) 배지도 GPU와 같은 문법으로 — **판정 근거 수치**를 보여준다.
+  // 예전엔 GPU는 수치만("1/48 GiB"), 일반은 단어만("바쁨")이라 두 칩이 한 문장처럼 읽혀
+  // "GPU 1GiB인데 바쁨?"이라는 오독을 만들었다[2026-08-04 사용자 리포트 — 실제로 data03은
+  // GPU가 아니라 CPU 51%(임계 50 초과)로 busy였다]. 판정을 만든 축의 수치를 직접 보여주면
+  // 칩이 자기 설명이 된다: 바쁨의 이유가 CPU면 "CPU 51%", 메모리면 "멤 가용 12%".
+  const generalDetail = (() => {
+    if (!general || general.verdict === "unknown") return undefined;
+    const cpu = Math.round(general.cpuBusyPct ?? 0);
+    const mem = Math.round(general.memAvailPct ?? 0);
+    // free가 아닐 때: 원인이 된 축을 우선 표기(정책 임계와 동일한 순서 — capacity.ts judgeGeneral).
+    if (general.verdict !== "free" && (general.memAvailPct ?? 100) < DEFAULT_CAPACITY_POLICY.memAvailFreePct)
+      return `멤 가용 ${mem}%`;
+    return `CPU ${cpu}%`;
+  })();
   const body = (
     <>
       <span
@@ -72,6 +87,8 @@ export function NodeCard({
               <CapacityBadge
                 axis="일반"
                 verdict={general.verdict}
+                detail={generalDetail}
+                hideVerdictLabel={general.verdict !== "unknown"}
                 title={
                   general.verdict === "unknown"
                     ? "CPU/메모리 메트릭 없음"
