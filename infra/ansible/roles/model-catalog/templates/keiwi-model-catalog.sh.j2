@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# KEIwi 설치 모델 카탈로그 수집기 (Ansible 관리 — 대상에서 직접 편집 금지)
+# node-exporter textfile로 "이 노드 디스크에 어떤 모델이 있는가"를 노출한다.
+# 메트릭:
+#   keiwi_installed_model_size_bytes{name,format,source,dir}   모델 크기(바이트)
+#   keiwi_model_catalog_dir_ok{dir}                            스캔 루트 접근 가능 여부(0=못 봄 ≠ 모델 0개)
+#   keiwi_model_catalog_last_run_timestamp_seconds             마지막 실행 시각
+# 읽기 전용 — 시스템을 변경하지 않는다. specs/model-ops §4.
+set -euo pipefail
+
+TEXTFILE_DIR="{{ model_catalog_textfile_dir }}"
+OUT="${TEXTFILE_DIR}/keiwi_model_catalog.prom"
+TMP="$(mktemp "${TEXTFILE_DIR}/.keiwi_model_catalog.XXXXXX")"
+trap 'rm -f "${TMP}"' EXIT
+
+# 라벨 값 이스케이프(prometheus 텍스트 포맷: \ 와 " )
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+{
+  echo '# HELP keiwi_installed_model_size_bytes 디스크에 설치된 모델 크기(바이트). source=dir|ollama.'
+  echo '# TYPE keiwi_installed_model_size_bytes gauge'
+  echo '# HELP keiwi_model_catalog_dir_ok 스캔 루트 접근 가능 여부(1=읽음, 0=부재/권한 없음 — "모델 0개"와 구분).'
+  echo '# TYPE keiwi_model_catalog_dir_ok gauge'
+} > "${TMP}"
+
+# ── (a) 디렉터리 스캔 — 1뎁스 = 모델 1개, 가중치 파일 있는 디렉터리만 ──────────
+DENY='hub|xet|lost\+found'
+# 스캔 루트는 배열로 받는다 — 항목이 1개인 노드에서도 루프 형태가 유지된다(shellcheck SC2043).
+ROOTS=({% for d in model_catalog_dirs %}"{{ d }}" {% endfor %})
+{% raw %}
+for root in "${ROOTS[@]}"; do
+  if [ ! -d "${root}" ] || [ ! -r "${root}" ]; then
+    echo "keiwi_model_catalog_dir_ok{dir=\"$(esc "${root}")\"} 0" >> "${TMP}"
+    continue
+  fi
+  echo "keiwi_model_catalog_dir_ok{dir=\"$(esc "${root}")\"} 1" >> "${TMP}"
+  for d in "${root}"/*/; do
+    [ -d "${d}" ] || continue
+    name="$(basename "${d}")"
+    case "${name}" in .*) continue ;; esac
+    if printf '%s' "${name}" | grep -qE "^(${DENY})$"; then continue; fi
+    # 형식 판별: safetensors > gguf > 기타 가중치. 가중치 파일이 없으면 모델이 아니다.
+    fmt=""
+    if find "${d}" -maxdepth 3 -type f -name '*.safetensors' -print -quit 2>/dev/null | grep -q .; then
+      fmt="safetensors"
+    elif find "${d}" -maxdepth 3 -type f -name '*.gguf' -print -quit 2>/dev/null | grep -q .; then
+      fmt="gguf"
+    elif find "${d}" -maxdepth 3 -type f \( -name '*.bin' -o -name '*.pt' \) -print -quit 2>/dev/null | grep -q .; then
+      fmt="unknown"
+    else
+      continue
+    fi
+    size="$(find "${d}" -maxdepth 3 -type f -printf '%s\n' 2>/dev/null | awk '{s+=$1} END{printf "%.0f", s+0}')"
+    echo "keiwi_installed_model_size_bytes{name=\"$(esc "${name}")\",format=\"${fmt}\",source=\"dir\",dir=\"$(esc "${root}")\"} ${size:-0}" >> "${TMP}"
+  done
+done
+{% endraw %}
+
+# ── (b) ollama 카탈로그 — 데몬이 응답할 때만(부재는 조용히 생략) ──────────────
+{% if model_catalog_include_ollama %}
+if command -v ollama >/dev/null 2>&1; then
+  # `ollama list` 열: NAME ID SIZE(값+단위) MODIFIED… — 실패(데몬 다운 등)해도 수집기는 계속.
+  timeout 10 ollama list 2>/dev/null | awk 'NR>1 && NF>=4 {
+    name=$1; val=$3; unit=$4;
+    mult = (unit=="GB") ? 1e9 : (unit=="MB") ? 1e6 : (unit=="KB") ? 1e3 : (unit=="B") ? 1 : 0;
+    if (mult > 0) {
+      gsub(/\\/, "\\\\", name); gsub(/"/, "\\\"", name);
+      printf "keiwi_installed_model_size_bytes{name=\"%s\",format=\"gguf\",source=\"ollama\",dir=\"ollama\"} %.0f\n", name, val*mult;
+    }
+  }' >> "${TMP}" || true
+fi
+{% endif %}
+
+{
+  echo '# HELP keiwi_model_catalog_last_run_timestamp_seconds 이 수집 스크립트의 마지막 실행 시각(unix epoch).'
+  echo '# TYPE keiwi_model_catalog_last_run_timestamp_seconds gauge'
+  echo "keiwi_model_catalog_last_run_timestamp_seconds $(date +%s)"
+} >> "${TMP}"
+
+# 원자적 교체 — node-exporter가 반쯤 쓰인 파일을 읽지 않도록 mv로 갈아끼운다.
+chmod 0644 "${TMP}"
+mv -f "${TMP}" "${OUT}"
+trap - EXIT

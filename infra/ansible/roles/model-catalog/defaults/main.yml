@@ -1,0 +1,28 @@
+---
+# roles/model-catalog/defaults/main.yml — 설치 모델 전수조사 textfile 수집기 기본값
+#
+# 에이전트 생성, 사람 적용(헌장 §11). 시크릿 없음(§13).
+# 목표: 각 노드에 "어떤 모델이 디스크에 있는가"(이름·크기·형식·출처)를
+#       keiwi_installed_model_* 메트릭으로 노출 → 콘솔 /models가 노드별 VRAM 사전판정.
+#       (specs/model-ops §4 — 신규 포트·scrape job·ufw 규칙 0: node-exporter textfile 재사용)
+
+# 소비처 선언은 node-hygiene과 같은 노드 속성이다 — inventory의 선언을 그대로 물려받는다.
+#   host      — node-exporter가 --collector.textfile.directory로 직접 읽음(data01·03·04)
+#   container — compose 바인드마운트로 읽음(data05)
+model_catalog_consumer: "{{ node_hygiene_consumer | default('host') }}"
+
+# textfile 디렉터리 — node-hygiene과 동일 경로를 공유한다(생산자만 다르고 배관은 같다).
+model_catalog_textfile_dir: "{{ node_hygiene_textfile_dir | default('/var/lib/node_exporter/textfile') }}"
+
+# 스캔 루트 목록 — 노드별로 inventory에서 덮어쓴다. 디렉터리 부재는 오류가 아니라
+# keiwi_model_catalog_dir_ok=0으로 **정직하게** 노출된다("모델 0개"와 "못 봄"을 구분).
+model_catalog_dirs:
+  - /data/vllm/models
+
+# ollama 카탈로그 포함 여부 — ollama 바이너리가 있고 데몬이 응답할 때만 수집된다.
+model_catalog_include_ollama: true
+
+model_catalog_script_path: /usr/local/bin/keiwi-model-catalog.sh
+# 모델 반입은 드문 사건이다 — 30분이면 충분하고 디스크 walk 비용도 낮게 유지된다.
+model_catalog_timer_interval: "30min"
+model_catalog_boot_delay: "4min"

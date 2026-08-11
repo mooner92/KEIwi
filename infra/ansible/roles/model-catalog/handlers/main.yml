@@ -1,0 +1,10 @@
+---
+# roles/model-catalog/handlers/main.yml — 변경 시에만 반응(멱등).
+
+- name: run model-catalog once
+  # 배포 직후 .prom을 즉시 1회 생성(타이머 첫 tick 대기 없이 콘솔 /models가 채워진다).
+  ansible.builtin.systemd:
+    name: keiwi-model-catalog.service
+    state: started
+    daemon_reload: true
+  when: not ansible_check_mode
