@@ -143,3 +143,12 @@ export function getGlitchTipDsn(): string | undefined {
   const r = urlString.safeParse(process.env.GLITCHTIP_DSN);
   return r.success ? r.data : undefined;
 }
+
+/**
+ * MODEL_OPS_DIR — 설치 모델 카탈로그 스캔 루트(specs/model-ops §4). 비밀 아님.
+ * 기본값 /data/vllm/models (data05 로컬). 디렉터리 부재 시 카탈로그가 빈 목록으로
+ * 정직 표기될 뿐 콘솔은 정상 동작한다 — throw하지 않는다.
+ */
+export function getModelOpsDir(): string {
+  return z.string().min(1).default("/data/vllm/models").parse(process.env.MODEL_OPS_DIR);
+}

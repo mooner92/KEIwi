@@ -41,7 +41,7 @@ M3(여유 리소스, ADR-0012로 Overview 흡수)가 "이 서버에 여유가 �
 - **모델 다운로드/설치** — 카탈로그는 디스크에 이미 있는 것만. 반입은 사람.
 - **멀티 GPU 텐서 병렬(TP>1) 판정** — 현 플릿 운영은 TP=1(hardware-ops T6-8이 수치로 사후 정당화 예정). v1 판정은 단일 GPU 기준.
 - **ollama 조작** — v1은 표시만(§Q2). 조작은 vLLM(systemd 유닛)부터.
-- **자동 롤백·사후 헬스체크 기반 자동 조치** — L3 영역(ADR-0027 이후).
+- **자동 롤백·사후 헬스체크 기반 자동 조치** — L3 영역(ADR-0027 **신설 예정** 이후).
 - **드래그&드롭 배치 UX** — v2 후보(§9). v1은 클릭+확인.
 
 ## 4. 데이터원 (신규 수집 0)
@@ -50,7 +50,7 @@ M3(여유 리소스, ADR-0012로 Overview 흡수)가 "이 서버에 여유가 �
 |---|---|---|
 | 어떤 모델이 떠 있나 | gpu-model-exporter `:9836/:9837`(모델↔GPU↔pid↔user) | 이미 라이브. ollama는 프로세스로 잡힘 — 모델명은 v1에서 ollama API(`/api/ps`) 보강 |
 | GPU별 VRAM 여유 | DCGM `DCGM_FI_DEV_FB_FREE/USED` + `gpu_vram_total_bytes` | ADR-0013과 동일 소스 |
-| 설치된 모델·크기 | 콘솔 BFF가 노드별 모델 디렉토리 스캔 | v1 data05=로컬 fs. 원격 노드는 v1.5(§Q4) — inventory에 `model_dir` 필드 추가 |
+| 설치된 모델·크기 | **각 노드의 model-catalog textfile 수집기**(`keiwi_installed_model_size_bytes{name,format,source}` — 디렉터리 스캔 + ollama list, `roles/model-catalog`) | 신규 포트·scrape job 0(node-hygiene 배관 재사용). 스캔 루트는 inventory 변수 `model_catalog_dirs`. 접근 불가는 `keiwi_model_catalog_dir_ok=0`으로 정직 표기. 수집기 미배포 전환기엔 data05만 콘솔 로컬 스캔 폴백 |
 | 유닛 상태(active/failed) | v1: BFF가 `systemctl show`(읽기, 무권한) · 원격은 port-exporter 간접 확인 | hardware-ops T6-13(유닛 NRestarts 메트릭)과 합류 예정 |
 
 ## 5. VRAM 사전판정 — 핵심 로직
@@ -97,7 +97,7 @@ free_gb      = DCGM 실측 여유 VRAM
 **해소안 — 2단계 승격**:
 
 - **v1 (즉시)**: 콘솔은 **판정 카드 + 제안 생성까지**. 실행은 L2 CLI 복붙(`remediation_l2.py approve <id> --apply`) — ADR-0026 무수정, 오늘 착수 가능. 카드에 복붙 한 줄을 그대로 노출한다.
-- **v1.5 (ADR-0027 승인 후)**: 콘솔 버튼 실행. 안전장치 4종을 조건으로 — ① Cloudflare Access 신원을 원장 `approver`에 기록 ② 확인 마찰(모델 slug 타이핑) ③ 대상은 `vllm-*` 유닛 화이트리스트만(범용 명령 실행기 금지 — ADR-0026 기각 사유 계승) ④ 실행 주체는 콘솔이 아니라 **로컬 실행기 소켓**(콘솔 프로세스에 sudo를 주지 않는다).
+- **v1.5 (ADR-0027 — 신설 예정 — 승인 후)**: 콘솔 버튼 실행. 안전장치 4종을 조건으로 — ① Cloudflare Access 신원을 원장 `approver`에 기록 ② 확인 마찰(모델 slug 타이핑) ③ 대상은 `vllm-*` 유닛 화이트리스트만(범용 명령 실행기 금지 — ADR-0026 기각 사유 계승) ④ 실행 주체는 콘솔이 아니라 **로컬 실행기 소켓**(콘솔 프로세스에 sudo를 주지 않는다).
 
 L2 실행기에 추가할 모델 전용 확장(탐색 실측 기반): GPU 선행조건 체크(free VRAM·온도) · GPU별 flock(`/run/lock/keiwi-gpu-<n>.lock`) · 모델별 `timeout_sec` frontmatter · 실행 후 헬스 표시(판정만, 자동 롤백 없음).
 
@@ -122,7 +122,7 @@ L2 실행기에 추가할 모델 전용 확장(탐색 실측 기반): GPU 선행
 
 ## 10. 미해결 질문 (사용자 결정 필요)
 
-- **Q1 (v1.5 게이트)**: 콘솔 버튼 실행(ADR-0027)을 승인할 것인가, v1 복붙 방식을 유지할 것인가? — §7 안전장치 4종이 전제.
+- **Q1 (v1.5 게이트)**: 콘솔 버튼 실행(ADR-0027 신설 예정)을 승인할 것인가, v1 복붙 방식을 유지할 것인가? — §7 안전장치 4종이 전제.
 - **Q2**: ollama를 v1 조작 대상에 포함할 것인가? (현재 qwen3.5:9B는 사용자 개인 용도 — 콘솔이 건드리지 않는 게 맞는지)
 - **Q3**: `hermes-gateway.service`의 `Wants=vllm-qwen25-coder-32b` 제거를 승인하는가? (제거 없이는 콘솔에서 내려도 hermes 재시작 시 되살아난다)
 - **Q4**: 어시스턴트 기본 모델 정책 — 8003 상시 서빙을 포기하고 "필요할 때 model-ops로 띄우는" 온디맨드로 갈 것인가? (GPU0 39GB 상시 해방 vs 어시스턴트 첫 응답 지연 +모델 로드 시간)
@@ -132,6 +132,6 @@ L2 실행기에 추가할 모델 전용 확장(탐색 실측 기반): GPU 선행
 | ADR | 관계 |
 |---|---|
 | [ADR-0013](../../docs/decisions/0013-capacity-judgment-policy.md) | 판정 4단·정직성 원칙·임계 상수 재사용 |
-| [ADR-0026](../../docs/decisions/0026-remediation-l2-approval.md) | 실행기·원장·승인 카드·보안 규칙 재사용. §7의 긴장 해소는 ADR-0027로 |
+| [ADR-0026](../../docs/decisions/0026-remediation-l2-approval.md) | 실행기·원장·승인 카드·보안 규칙 재사용. §7의 긴장 해소는 ADR-0027(신설 예정)로 |
 | ADR-0027 (신설 예정) | 콘솔 개시 조치의 신원·마찰·화이트리스트 — Q1 승인 시 작성 |
 | [ADR-0016](../../docs/decisions/0016-gpu-drilldown-dcgm.md) · [ownership-attribution](../ownership-attribution/spec.md) | 모델↔GPU↔소유자 데이터 계보 |

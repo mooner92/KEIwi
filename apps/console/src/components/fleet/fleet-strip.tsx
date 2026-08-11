@@ -19,13 +19,23 @@ export function FleetStrip({
   capacity,
   selectedNodeId,
   selectedNode,
+  activeTab,
 }: {
   nodes: FleetNodeStatus[];
   capacity?: NodeCapacity[];
   selectedNodeId?: string;
   /** 드릴다운 중인 노드 — 툴바 우측 "노드 메트릭 · 전체 보기" 안내(기능 보존). */
   selectedNode?: FleetNodeStatus;
+  /** 현재 `?tab=` — 노드를 바꿔도 보던 탭을 유지한다(노드 클릭이 탭을 되돌리지 않게). */
+  activeTab?: string;
 }) {
+  // 노드 링크에 탭을 함께 실어 보낸다. 탭이 URL 소유라(grafana-tabs activeKey) 빠뜨리면
+  // 노드를 고를 때마다 시스템 탭으로 튕긴다.
+  const withTab = (path: string) => {
+    if (!activeTab) return path;
+    const sep = path.includes("?") ? "&" : "?";
+    return `${path}${sep}tab=${encodeURIComponent(activeTab)}`;
+  };
   const up = count(nodes, "up");
   const down = count(nodes, "down");
   const noData = count(nodes, "no-data");
@@ -55,7 +65,7 @@ export function FleetStrip({
               <span className="tnum font-medium text-ink">{selectedNode.id}</span>{" "}
               노드 메트릭 ·{" "}
               <Link
-                href="/overview"
+                href={withTab("/overview")}
                 className="text-ink-muted underline underline-offset-2"
               >
                 전체 보기
@@ -77,8 +87,8 @@ export function FleetStrip({
             const selected = drillable && node.id === selectedNodeId;
             const href = drillable
               ? selected
-                ? "/overview" // 선택된 카드 재클릭 → 전체(선택 해제)
-                : `/overview?node=${encodeURIComponent(node.id)}`
+                ? withTab("/overview") // 선택된 카드 재클릭 → 전체(선택 해제)
+                : withTab(`/overview?node=${encodeURIComponent(node.id)}`)
               : undefined;
             return (
               <NodeCard

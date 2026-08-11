@@ -4,6 +4,7 @@ export type NavItem = { href: string; label: string; soon?: string };
 export const NAV_ITEMS: NavItem[] = [
   { href: "/overview", label: "Overview" },
   { href: "/logs", label: "Logs" },
+  { href: "/models", label: "Models" },
   { href: "/resources", label: "Resources", soon: "M3" },
   // "어시스턴트"(/incidents)는 내비에서 제거 — 어시스턴트는 통합 로그(/logs)로 일원화
   // (2026-07-04 사용자 지시). 라우트 자체는 워크벤치 "전체 화면에서 계속" 딥링크 대상으로 유지.

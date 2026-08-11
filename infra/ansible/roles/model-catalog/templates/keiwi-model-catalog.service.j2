@@ -1,0 +1,16 @@
+# KEIwi 모델 카탈로그 수집기 — oneshot (Ansible 관리 — 대상에서 직접 편집 금지)
+# 타이머(keiwi-model-catalog.timer)가 주기적으로 트리거. textfile .prom을 생성.
+[Unit]
+Description=KEIwi 설치 모델 카탈로그 수집(디스크 스캔·ollama -> node-exporter textfile)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ model_catalog_script_path }}
+# 백그라운드 디스크 walk — 우선순위 낮게(연구 워크로드 방해 금지).
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+# 모델 디렉터리가 /data 등 어디에 있을지 노드마다 다르다 — ProtectHome은 쓰지 않는다
+# (홈 아래 모델 디렉터리를 스캔 루트로 선언하는 노드가 있을 수 있다).
