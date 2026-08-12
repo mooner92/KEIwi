@@ -56,6 +56,25 @@ cd /KEIwi && git worktree remove /tmp/keiwi-qa --force   # 정리
 > [!NOTE]
 > `next dev`(turbopack)는 헤드리스 Chromium에서 **HMR WebSocket 실패 → 하이드레이션 불완전**으로 클라이언트 동작(useEffect 등)이 안 도는 경우가 있습니다. 그래서 기능/시각 검증은 **`next build` + `next start`(프로덕션)**로 합니다.
 
+> [!CAUTION]
+> **dev 서버를 LAN IP로 열면 클릭·토글이 전부 무반응이 된다** — 사람이 브라우저로 볼 때도 같다.
+> 원인은 `allowedDevOrigins`다: Next 15.2+는 dev에서 교차 출처를 막는데 기본 허용이 사실상
+> localhost뿐이라, `192.168.x.x:3106` 같은 주소로 열면 `webpack-hmr` WebSocket이 거부되고
+> **하이드레이션이 통째로 죽는다.** SSR HTML은 정상이라 화면은 멀쩡하고, 서버 API도 정상
+> 응답하므로 원인이 어디에도 드러나지 않는다(유일한 단서는 브라우저 콘솔의 WebSocket 실패).
+>
+> **조치**: `apps/console/.env.local`에 접속 주소를 넣고 dev 서버를 재시작한다.
+> `.env.local`은 커밋되지 않으므로 **새 워크트리·새 머신마다 다시 넣어야 한다**(미설정이면
+> dev 기동 로그에 경고가 뜬다).
+>
+> ```bash
+> echo 'KEIWI_DEV_ORIGINS=192.0.2.10' >> apps/console/.env.local   # 실제 접속 IP·도메인
+> ```
+>
+> 실측 2026-08-12: 같은 빌드가 `127.0.0.1:3105`(프로덕션)에서는 정상, `192.168.x.x:3106`
+> (dev)에서는 테마 토글·분석 버튼·탭이 전부 무반응. **프로덕션(`next start`)은 HMR이 없어
+> 영향받지 않는다** — 이 함정은 dev 서버 전용이다.
+
 ## 시각 QA — `npm run screenshot`
 
 [`apps/console/scripts/screenshot.mjs`](../apps/console/scripts/screenshot.mjs): Playwright(chromium)로 **desktop(1440×900)·laptop(1366×768)·mobile(390×844)** 뷰포트별 스크린샷 + **세로 스크롤 여부**를 검증.

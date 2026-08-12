@@ -1,6 +1,24 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
+const extraDevOrigins = (process.env.KEIWI_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+// 미설정이면 **기동 시점에 경고한다.** 이 설정이 빠졌을 때의 증상은 "클릭·토글이 전부 무반응"
+// 인데, SSR HTML도 콘솔 로그도 멀쩡해서 원인이 화면에 드러나지 않는다(실측 2026-08-12:
+// LAN IP로 연 dev 서버에서 테마 토글·분석 버튼·탭이 모두 죽었고, 유일한 단서는 브라우저
+// 콘솔의 webpack-hmr WebSocket 핸드셰이크 실패였다). 진단 비용이 큰 실패라 침묵시키지 않는다.
+// `.env.local`은 커밋되지 않으므로 새 워크트리·새 머신에서 반드시 재발한다.
+if (process.env.NODE_ENV === "development" && extraDevOrigins.length === 0) {
+  console.warn(
+    "[keiwi] KEIWI_DEV_ORIGINS 미설정 — localhost/127.0.0.1 외의 주소(LAN IP 등)로 이 dev 서버를 " +
+      "열면 HMR WebSocket이 거부되고 하이드레이션이 죽어 클릭·토글이 전부 무반응이 됩니다. " +
+      "원격에서 볼 계획이면 apps/console/.env.local 에 KEIWI_DEV_ORIGINS=<접속 주소> 를 넣으세요.",
+  );
+}
+
 const nextConfig: NextConfig = {
   // OpenTelemetry는 Sentry SDK가 서버 계측에 쓴다. 번들링하면 런타임에 깨진다.
   serverExternalPackages: ["@opentelemetry/api"],
@@ -33,11 +51,7 @@ const nextConfig: NextConfig = {
   // (쉼표 구분). 기본값에는 어느 배포에서나 같은 127.0.0.1·localhost 만 남긴다:
   // 이 둘이 빠지면 위 하이드레이션 사고가 그대로 재현되므로 env로 덮지 않고 **항상 더한다**.
   //   예) KEIWI_DEV_ORIGINS="192.0.2.10,*.example.com"   (실값은 .env.local 에만, §13)
-  allowedDevOrigins: (process.env.KEIWI_DEV_ORIGINS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .concat(["127.0.0.1", "localhost"]),
+  allowedDevOrigins: extraDevOrigins.concat(["127.0.0.1", "localhost"]),
 };
 
 // Sentry 빌드 플러그인 래핑 (specs/error-tracking §5).
