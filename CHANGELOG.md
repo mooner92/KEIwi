@@ -8,6 +8,23 @@
 - 카테고리: Added(추가) / Changed(변경) / Fixed(수정) / Removed(제거) / Security(보안).
 - "라이브"는 실제 가동·검증된 것, "1차/미완"은 도입만 되고 후속이 남은 것을 뜻한다.
 
+## [Unreleased]
+
+### Added
+- **코드 그래프 `/graph`** — graphify(`extract --code-only`) AST 산출물을 파일 단위 의존 그래프로 시각화. LLM 호출 0·egress 0·신규 npm 의존성 0, 서버 렌더 SVG라 JS 없이도 보인다. 배치는 해바라기(연결 많은 파일이 중심) — 커뮤니티 원형 배치는 이 레포 규모에서 커뮤니티가 80개로 쪼개져 그림이 뭉개져 폐기했다.
+- **어시스턴트 ollama 백엔드** — `VLLM_BACKEND`(openai|ollama). ollama의 OpenAI 호환 레이어는 thinking을 끌 수 없어 reasoning 모델 응답이 빈 채로 잘린다(실측) → 네이티브 `/api/chat` + `think:false`만 동작.
+- **서버 fetch 타임아웃** — `lib/http.ts`에 데이터원별 상한(Prometheus 5s·OpenSearch 10s·LLM 180s). 상한이 없어 어시스턴트가 전역 429로 잠길 수 있었다(동시 1요청 제한).
+
+### Fixed
+- **거짓 초록 3건** — ① 서비스 탭이 GPU 수집 실패를 "프로세스 없음"으로 표시(data03이 17 GiB 쓰는 중에 노는 서버로 읽힘) ② 현재 신호 패널·③ 로그 워크벤치가 OpenSearch 조회 실패를 "지금 신호 없음(정상)"으로 접음 — 인시던트 탐지의 1차 진입점이다. 전부 "판정불가"로 분기하고 근거·런북을 함께 노출.
+- **LAN IP 접속 시 하이드레이션 사망** — dev 서버를 LAN IP로 열면 `allowedDevOrigins`가 HMR WebSocket을 거부해 모든 클릭·토글이 무반응이 된다("탭·테마·분석 버튼" 신고 3건의 공통 원인). 값 주입으로 해소하고, `.env.local`이 커밋되지 않아 재발하므로 dev 기동 시 경고 + docs/testing.md에 증상→원인→조치.
+- **GPU 수집 실패 판정 스코프** — 노드 단위 임계에 플릿 합계를 먹여 카드가 여러 장이면 상시 오탐, 동시에 노드별 실패는 미탐이던 것을 노드별 판정으로 교정.
+- **PromQL 노드 살균 fail-open** — 살균 결과가 비면 셀렉터가 사라져 플릿 전체가 반환되던 것을 fail-closed로.
+
+### Changed
+- `loadInventory()`에 `React.cache` — Overview 1회 렌더에 3회 실행되던 파일 읽기+YAML 파싱+zod 검증.
+- 콘솔 패치노트(`/changelog`)에 2026-08-05~12 항목 9건 추가.
+
 ## [0.3.0] - 2026-08-11
 
 L2 승인 실행기 · 모델 운영(model-ops) v1 · Overview 탭 회귀 수정. feat/l2-approval → dev(PR #18) → main(PR #19).

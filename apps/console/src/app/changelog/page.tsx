@@ -59,6 +59,9 @@ function groupByDateDesc(entries: ChangelogEntry[]): [string, ChangelogEntry[]][
 export default function ChangelogPage() {
   const groups = groupByDateDesc(CHANGELOG);
   const first = CHANGELOG[0]?.date ?? "";
+  // 범위 끝은 **데이터에서** 계산한다. 스냅샷 날짜를 쓰면 이후 릴리스 항목을 추가할 때마다
+  // 헤더만 과거에 멈춰(항목은 최신인데 기간은 08-03) 화면이 스스로 모순된다.
+  const last = CHANGELOG[CHANGELOG.length - 1]?.date ?? first;
   const typeCounts = TYPE_ORDER.map(
     (t) => [t, CHANGELOG.filter((e) => e.type === t).length] as const,
   ).filter(([, n]) => n > 0);
@@ -79,7 +82,7 @@ export default function ChangelogPage() {
         className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-border bg-surface px-3.5 py-2.5"
       >
         <p className="tnum text-sm text-ink">
-          {first} ~ {CHANGELOG_META.snapshotDate}
+          {first} ~ {last}
         </p>
         <p className="tnum text-sm text-ink-muted">
           커밋 {CHANGELOG_META.surveyedCommits}건 · 항목 {CHANGELOG.length}건
