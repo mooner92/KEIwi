@@ -31,20 +31,28 @@
   --text-2xs: 0.6875rem;    /* 11 — 섹션 캡션·유닛·범례. 한글 하한(10px은 자소 뭉갬) */
   --text-2xs--line-height: 1.45;
   --text-2xs--font-weight: 500;
+  --text-2xs--letter-spacing: 0.004em;   /* 소형은 살짝 벌려야 읽힌다 */
   --text-xs: 0.75rem;       /* 12 — 배지·메타·툴팁 */
   --text-xs--line-height: 1.5;
+  --text-xs--letter-spacing: 0;
   --text-sm: 0.8125rem;     /* 13 — 사이드바·표 셀·칩·탭 */
   --text-sm--line-height: 1.5;
+  --text-sm--letter-spacing: -0.003em;
   --text-base: 0.875rem;    /* 14 — ★ 본문 기본 */
   --text-base--line-height: 1.5;
+  --text-base--letter-spacing: -0.006em; /* 한글 자소 하한 — 본문은 여기서 더 조이지 않는다 */
   --text-md: 0.9375rem;     /* 15 — 카드 제목·강조 본문 */
   --text-md--line-height: 1.47;
+  --text-md--letter-spacing: -0.009em;
   --text-lg: 1.0625rem;     /* 17 — 패널/섹션 타이틀(구 본문 크기가 여기로 승격) */
   --text-lg--line-height: 1.41;
+  --text-lg--letter-spacing: -0.013em;
   --text-xl: 1.25rem;       /* 20 — 페이지 타이틀 */
   --text-xl--line-height: 1.4;
+  --text-xl--letter-spacing: -0.017em;
   --text-2xl: 1.5rem;       /* 24 — 최대. 32/40px 헤딩 폐기 */
   --text-2xl--line-height: 1.33;
+  --text-2xl--letter-spacing: -0.021em;  /* 디스플레이 — Apple의 -0.02em 대역 */
 
   /* ── 반경 ─────────────────────────────────────────────────────────
      4 / 6 / 8 / full 네 개뿐. "8보다 큰 반경은 존재하지 않는다."
@@ -194,7 +202,11 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 0.875rem; /* 14px */
   line-height: 1.5;
-  letter-spacing: -0.006em; /* 한글 자소가 무너지지 않는 하한 */
+  letter-spacing: var(--text-base--letter-spacing);
+  /* 트래킹은 **크기마다 다르다**(옵티컬 사이징): 큰 글자는 조이고 작은 글자는 벌린다.
+     전 크기 한 값은 큰 제목을 헐겁게, 작은 캡션을 답답하게 만든다.
+     ⚠️ 한글 하한: Pretendard 한글 자소는 -0.006em보다 조이면 무너진다 — 본문 이하 크기에는
+     라틴 디스플레이용 -0.02em을 그대로 쓰지 않는다. 조이는 것은 lg(17px) 이상만. */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -216,6 +228,46 @@ body {
     0 0 0 2px var(--color-surface),
     0 0 0 4px var(--color-accent-line);
   border-radius: var(--radius-sm);
+}
+
+/* ── 재질(material) — 떠 있는 표면만 반투명 ─────────────────────
+   Apple의 재질 규칙: 위계는 그림자가 아니라 **투명도와 흐림**으로 만든다. 아래 내용이
+   비쳐 보이면 그 표면이 "위에 떠 있다"는 것이 형태로 드러나고, 콘텐츠를 가리지 않는다.
+   v3 불변식 3(그림자는 실제로 떠 있는 것만)과 같은 원리라 충돌하지 않는다 —
+   **고정 크롬(탑바)과 오버레이에만** 쓰고, 카드·패널은 지금처럼 불투명하게 둔다.
+   backdrop-filter 미지원 브라우저는 불투명 배경으로 자연 폴백된다(@supports). */
+.material-chrome {
+  background: var(--color-chrome);
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .material-chrome {
+    background: color-mix(in oklab, var(--color-chrome) 72%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+  /* 투명도를 줄이라는 사용자 설정을 존중한다(접근성) */
+  @media (prefers-reduced-transparency: reduce) {
+    .material-chrome {
+      background: var(--color-chrome);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+}
+
+/* ── 누름 피드백 — 릴리스가 아니라 누르는 순간 반응한다 ──────────
+   Apple: 직접 조작의 핵심은 **pointer-down 즉시** 반응하는 것이다. 지금 이 콘솔은
+   클릭에 아무 물리적 응답이 없어 "눌렸나?"를 결과로만 확인해야 한다.
+   불변식 4(hover에 transform 금지)와 충돌하지 않는다 — 그 규칙이 막는 것은 **마우스를
+   올렸을 때 카드가 들썩이는 소음**이고, 여기서 움직이는 것은 사용자가 실제로 누른
+   순간뿐이다. 크기도 0.98로 얕게(0.97은 밀집 관제 화면에서 과하다). */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled):active,
+  a[role="tab"]:active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: scale(0.98);
+    transition: transform 100ms ease-out;
+  }
 }
 
 /* ── 인터랙션: 움직이지 않는다 ───────────────────────────────────

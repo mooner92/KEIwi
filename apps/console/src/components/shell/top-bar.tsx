@@ -5,7 +5,7 @@ import { UtilBar } from "./util-bar";
 // 그림자 없음: 콘텐츠와의 분리는 1px 보더 하나로 충분하다(v3 §깊이).
 export function TopBar() {
   return (
-    <header className="border-b border-border bg-chrome text-ink">
+    <header className="material-chrome sticky top-0 z-20 border-b border-border text-ink">
       <div className="flex h-12 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <BrandMark className="h-6 w-6 shrink-0" />
