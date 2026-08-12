@@ -181,29 +181,23 @@ export function GrafanaTabs({
   return (
     <div className="flex h-full flex-col gap-2">
       {(tabs.length > 1 || src) && (
-        <div className="flex shrink-0 flex-wrap items-center border-b border-border">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {/* 링크는 tablist 밖이 정석 — role은 탭 버튼 wrapper에만 부여(접근성) */}
           {tabs.length > 1 && (
-            <div role="tablist" aria-label="대시보드" className="flex flex-wrap">
+            <div role="tablist" aria-label="대시보드" className="inline-flex flex-wrap items-center gap-0.5 rounded-lg bg-surface-2 p-0.5">
               {tabs.map((t, i) => {
                 const selected = i === active;
-                // 활성 신호는 1.5px 초록 언더라인 하나 — 글자까지 초록으로 칠하지 않는다
-                // (초록 예산제). 위계는 잉크 계조 + 굵기로만 만든다.
+                // 세그먼티드 컨트롤(macOS) — 활성은 색이 아니라 **면 계조**로 떠오른다:
+                // 트랙(surface-2) 위에 활성 세그먼트만 surface+보더. 초록 예산 0.
+                // (구 언더라인 방식은 탭이 4개뿐인 이 화면에서 존재감이 없어 "탭인지 몰랐다"는
+                // 피드백의 원인이었다 — 세그먼트는 조작 가능한 영역이 형태로 드러난다.)
                 const cls = [
-                  "relative -mb-px px-3 py-1.5 text-sm transition-colors",
-                  selected ? "font-semibold text-ink" : "font-medium text-ink-muted hover:text-ink",
+                  "rounded-md px-3 py-1 text-sm transition-colors",
+                  selected
+                    ? "border border-border bg-surface font-semibold text-ink"
+                    : "border border-transparent font-medium text-ink-muted hover:text-ink",
                 ].join(" ");
-                const inner = (
-                  <>
-                    {t.label}
-                    {selected && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-x-0 -bottom-px h-[1.5px] bg-accent-line"
-                      />
-                    )}
-                  </>
-                );
+                const inner = t.label;
                 // 링크 모드 = JS 없이도 동작(하이드레이션 실패 내성). scroll=false로
                 // 탭 전환 시 페이지가 위로 튀지 않게 한다.
                 return linked ? (
@@ -239,7 +233,7 @@ export function GrafanaTabs({
               target="_blank"
               rel="noopener noreferrer"
               title="대시보드가 비어 보이면 새 탭에서 여세요 — 인증이 필요할 수 있습니다"
-              className="ml-auto pb-1.5 pl-3 text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
+              className="ml-auto pl-3 text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
             >
               새 탭에서 열기 ↗
             </a>

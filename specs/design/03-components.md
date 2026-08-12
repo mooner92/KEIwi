@@ -138,16 +138,20 @@
 - **노드 카드 규격**(초콤팩트, 약 56px): 1행 = 제목 13px semibold + `StatusIndicator compact` /
   2행 = `CapacityBadge` 1~2개. ip·os는 행을 늘리지 말고 `title` 툴팁으로.
 
-## 6. Tab
+## 6. Tab — 세그먼티드 컨트롤 (v3.1 개정)
 
 | 속성 | 값 |
 |---|---|
-| 트랙 | 컨테이너 `border-b border-border`. 탭바 자체 배경·그림자 없음 |
-| 버튼 | `px-3.5 py-2` · 13px |
-| 비활성 | `text-ink-muted` 500 → hover `text-ink` |
-| **활성** | `text-ink` **600** + 하단 **2~3px `accent-line`** 언더라인 (`-mb-px`로 트랙 위에 얹음) |
+| 트랙 | `inline-flex rounded-lg bg-surface-2 p-0.5 gap-0.5` — 조작 가능한 영역이 면으로 드러난다 |
+| 세그먼트 | `rounded-md px-3 py-1` · 13px |
+| 비활성 | `border-transparent text-ink-muted` 500 → hover `text-ink` |
+| **활성** | `bg-surface border-border text-ink` **600** — 트랙 위로 **면 계조만으로** 떠오른다 |
 
-- **활성 탭 텍스트를 초록으로 칠하지 않는다.** 언더라인 하나로 충분하고, 텍스트까지 초록이면 예산 초과다.
+- **v3.1에서 언더라인 → 세그먼트로 개정한 이유**: 언더라인 방식은 탭이 3~4개뿐인 이 콘솔에서
+  존재감이 없어 "탭인지 몰랐다"는 피드백의 원인이었다. 세그먼티드 컨트롤(macOS 문법)은
+  조작 가능한 영역이 형태로 드러나고, **초록 예산을 0으로** 줄인다(언더라인은 accent-line을
+  썼다). 활성의 위계는 색이 아니라 면(surface-2 트랙 vs surface 세그먼트)이 만든다.
+- **활성 탭 텍스트를 초록으로 칠하지 않는다** — 이 원칙은 그대로다.
 - 접근성: `role="tablist"` + `role="tab"` + `aria-selected`. 링크(예 "새 탭에서 열기")는 tablist **밖**에 둔다.
 - 탭 개수가 1개면 탭바를 렌더하지 않는다(빈 크롬 금지).
 
