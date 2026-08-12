@@ -14,6 +14,7 @@ const LEVEL: Record<string, { dot: string; ink: string; label: string }> = {
  */
 export async function CurrentSignals() {
   let signals: LogDoc[] = [];
+  let probeError: string | null = null;
   try {
     // 노이즈(rsyslog 자기로그·UFW 방화벽) 제외를 쿼리단에서 — top-N이 진짜 신호로 채워짐(ADR-0015).
     signals = await searchLogs({
@@ -22,8 +23,11 @@ export async function CurrentSignals() {
       excludeNoise: true,
       size: 12,
     });
-  } catch {
-    signals = [];
+  } catch (e) {
+    // 검색 실패를 빈 목록으로 접으면 "신호 없음(정상)"으로 읽힌다 — 인시던트 탐지의
+    // 1차 진입점에서 벌어지는 거짓 초록이다. 실패를 **상태로 승격**해 구분한다
+    // (GPU 프로세스 패널에서 같은 실패모드를 고친 것과 같은 처리).
+    probeError = e instanceof Error ? e.message : String(e);
   }
 
   return (
@@ -38,9 +42,17 @@ export async function CurrentSignals() {
           <span className="font-normal text-ink-muted">· 최근 24시간 error·warn (노이즈 제외)</span>
         </h2>
       </header>
-      {signals.length === 0 ? (
+      {probeError ? (
+        <div className="px-3 py-6 text-center">
+          <p className="text-base font-medium text-warn-ink">판정불가 — 로그 검색 실패</p>
+          <p className="mt-1 text-sm leading-6 text-ink-subtle">
+            OpenSearch를 조회하지 못했습니다. <b>신호가 없는 것이 아니라 못 본 것</b>입니다 —
+            이 상태에서 &quot;정상&quot;으로 판단하지 마세요.
+          </p>
+        </div>
+      ) : signals.length === 0 ? (
         <p className="px-3 py-6 text-center text-base text-ink-muted">
-          지금 신호 없음(정상) 또는 데이터 없음
+          최근 24시간 신호 없음 — 검색은 정상 동작했습니다
         </p>
       ) : (
         <ul className="divide-y divide-border-subtle overflow-y-auto">

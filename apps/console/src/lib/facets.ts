@@ -1,4 +1,5 @@
 import { getOpenSearchUrl } from "@/config/env";
+import { fetchWithTimeout, TIMEOUT_MS } from "@/lib/http";
 
 /** 질의계획 그라운딩용 실제 어휘(노드·서비스·카테고리). 환각 차단: 계획은 이 집합으로만 검증. */
 export type Facets = { nodes: string[]; services: string[]; categories: string[] };
@@ -35,12 +36,11 @@ export async function getFacets(): Promise<Facets> {
   };
 
   try {
-    const res = await fetch(`${base}/keiwi-logs-*/_search`, {
+    const res = await fetchWithTimeout(`${base}/keiwi-logs-*/_search`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      cache: "no-store",
-    });
+    }, TIMEOUT_MS.opensearch);
     if (!res.ok) return EMPTY;
     const json: {
       aggregations?: {

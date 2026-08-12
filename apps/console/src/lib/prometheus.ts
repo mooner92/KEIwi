@@ -1,5 +1,6 @@
 import { getPrometheusUrl } from "@/config/env";
 import type { UpSeries, CapacityRaw } from "@/types/fleet";
+import { fetchWithTimeout, TIMEOUT_MS } from "@/lib/http";
 
 type PromResult = { metric?: { instance?: string }; value?: [number, string] };
 
@@ -7,9 +8,11 @@ type PromResult = { metric?: { instance?: string }; value?: [number, string] };
 type PromSample = { metric: Record<string, string>; value: number };
 async function promQuery(promql: string): Promise<PromSample[]> {
   const base = getPrometheusUrl().replace(/\/+$/, "");
-  const res = await fetch(`${base}/api/v1/query?query=${encodeURIComponent(promql)}`, {
-    cache: "no-store",
-  });
+  const res = await fetchWithTimeout(
+    `${base}/api/v1/query?query=${encodeURIComponent(promql)}`,
+    {},
+    TIMEOUT_MS.prometheus,
+  );
   if (!res.ok) throw new Error(`[prometheus] HTTP ${res.status}`);
   const json: { data?: { result?: { metric?: Record<string, string>; value?: [number, string] }[] } } =
     await res.json();
@@ -24,7 +27,7 @@ async function promQuery(promql: string): Promise<PromSample[]> {
  */
 export async function queryUp(): Promise<UpSeries[]> {
   const base = getPrometheusUrl().replace(/\/+$/, "");
-  const res = await fetch(`${base}/api/v1/query?query=up`, { cache: "no-store" });
+  const res = await fetchWithTimeout(`${base}/api/v1/query?query=up`, {}, TIMEOUT_MS.prometheus);
   if (!res.ok) throw new Error(`[prometheus] HTTP ${res.status}`);
   const json: { data?: { result?: PromResult[] } } = await res.json();
   return (json.data?.result ?? [])
@@ -55,6 +58,9 @@ export type GpuModel = {
 export async function queryGpuModels(node?: string): Promise<GpuModel[]> {
   // node는 내부(inventory id)지만 PromQL 주입 방지로 영숫자/하이픈만 허용.
   const safe = (node ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  // 살균 결과가 비면 셀렉터가 사라져 **플릿 전체**가 반환된다 — 지정 실패의 안전한 방향은
+  // "아무것도 안 주는 것"이지 "전부 주는 것"이 아니다(fail-closed).
+  if (node !== undefined && safe === "") return [];
   const sel = safe ? `{node="${safe}"}` : "";
   const rows = await promQuery(`gpu_model_vram_bytes${sel}`);
   return rows.map((r) => ({
@@ -85,6 +91,9 @@ export type ListeningPort = {
  */
 export async function queryListeningPorts(node?: string): Promise<ListeningPort[]> {
   const safe = (node ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  // 살균 결과가 비면 셀렉터가 사라져 **플릿 전체**가 반환된다 — 지정 실패의 안전한 방향은
+  // "아무것도 안 주는 것"이지 "전부 주는 것"이 아니다(fail-closed).
+  if (node !== undefined && safe === "") return [];
   const sel = safe ? `{node="${safe}"}` : "";
   const rows = await promQuery(`keiwi_listening_port_info${sel}`);
   return rows

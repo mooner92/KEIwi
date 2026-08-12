@@ -36,20 +36,31 @@ export async function ServiceTable({ node }: { node?: string }) {
   // 모델 0건이 "유휴"인지 "수집 실패"인지 가른다. gpu-model-exporter는 nvidia-smi에 의존해
   // 드라이버 커널↔유저스페이스 불일치 시 조용히 0건이 되는데, DCGM은 커널모듈 값을 읽어
   // VRAM을 정상 보고한다 → 둘의 모순이 곧 수집 실패 신호다(2026-08-12 data03 실측).
-  let usedGib: number | null = null;
-  if (models.length === 0) {
+  //
+  // ⚠️ 판정은 **반드시 노드 단위**다. 임계(2 GiB)가 "카드당 유휴 베이스라인 0.5 GiB"에서
+  // 나온 값이라, 플릿 합계를 먹이면 카드가 여러 장인 순간 상시 오탐이 된다. 반대로
+  // "전체 모델 0건"을 조건으로 걸면 노드 A만 정상이어도 노드 B의 수집 실패를 놓친다
+  // — 원래 잡으려던 시나리오가 바로 그것이다.
+  const suspects = await (async (): Promise<string[]> => {
     try {
       const [cap, inv] = await Promise.all([queryCapacity(), loadInventory()]);
       const nodeByIp = new Map(inv.map((n) => [n.ip, n.id]));
-      usedGib =
-        (cap.gpuVramUsedMib ?? [])
-          .filter((s) => !node || nodeByIp.get(s.instance.split(":")[0] ?? "") === node)
-          .reduce((a, s) => a + s.value, 0) / 1024;
+      const usedByNode = new Map<string, number>();
+      for (const s of cap.gpuVramUsedMib ?? []) {
+        const id = nodeByIp.get(s.instance.split(":")[0] ?? "");
+        if (!id || (node && id !== node)) continue;
+        usedByNode.set(id, (usedByNode.get(id) ?? 0) + s.value / 1024);
+      }
+      const modelsByNode = new Map<string, number>();
+      for (const m of models) modelsByNode.set(m.node, (modelsByNode.get(m.node) ?? 0) + 1);
+      return [...usedByNode.entries()]
+        .filter(([id, gib]) => isGpuProbeSuspect(gib, modelsByNode.get(id) ?? 0))
+        .map(([id]) => id)
+        .sort();
     } catch {
-      usedGib = null; // 모르면 단정하지 않는다
+      return []; // 모르면 단정하지 않는다
     }
-  }
-  const probeSuspect = isGpuProbeSuspect(usedGib, models.length);
+  })();
 
   const NodeBadge = ({ n }: { n: string }) =>
     fleet && n ? (
@@ -68,19 +79,22 @@ export async function ServiceTable({ node }: { node?: string }) {
           </h3>
           <span className="tnum text-2xs text-ink-subtle">{models.length}</span>
         </header>
+        {/* 수집 실패 노드는 목록 유무와 무관하게 알린다 — 다른 노드가 정상이라고
+            한 노드의 실패가 가려져서는 안 된다(거짓 초록). */}
+        {suspects.length > 0 && (
+          <div className="border-b border-warn-border bg-warn-bg px-3 py-2">
+            <p className="text-xs font-medium text-warn-ink">
+              판정불가 — 프로세스 수집 실패: <span className="tnum">{suspects.join(", ")}</span>
+            </p>
+            <p className="mt-0.5 text-2xs leading-4 text-ink-subtle">
+              DCGM은 VRAM 사용을 보고하는데 그 노드의 프로세스 목록이 비었습니다.
+              gpu-model-exporter가 GPU를 읽지 못하는 상태입니다(드라이버 커널↔유저스페이스
+              불일치 등) — 런북 <span className="tnum">nvidia-driver-mismatch</span>.
+            </p>
+          </div>
+        )}
         {models.length === 0 ? (
-          probeSuspect ? (
-            // 거짓 초록 방지 — "없음"으로 적으면 GPU가 노는 것으로 읽힌다(no-data ≠ down).
-            <div className="px-3 py-6 text-center">
-              <p className="text-sm font-medium text-warn-ink">판정불가 — 프로세스 수집 실패</p>
-              <p className="mt-1 text-xs leading-5 text-ink-subtle">
-                DCGM은 <span className="tnum">{usedGib?.toFixed(1)}</span> GiB 사용 중이라고
-                보고하는데 프로세스 목록이 비었습니다. gpu-model-exporter가 GPU를 읽지 못하는
-                상태입니다(드라이버 커널↔유저스페이스 불일치 등) — 런북{" "}
-                <span className="tnum">nvidia-driver-mismatch</span>.
-              </p>
-            </div>
-          ) : (
+          suspects.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-ink-subtle">GPU에 적재된 프로세스 없음</p>
           )
         ) : (
