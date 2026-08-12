@@ -172,3 +172,16 @@ export function getGlitchTipDsn(): string | undefined {
 export function getModelOpsDir(): string {
   return z.string().min(1).default("/data/vllm/models").parse(process.env.MODEL_OPS_DIR);
 }
+
+/**
+ * CODE_GRAPH_PATH — graphify 코드 그래프 산출물(`graphify extract . --code-only`) 경로.
+ * 비밀 아님. 기본값은 레포 루트의 gitignore된 로컬 인덱스 — 없으면 화면이 "미생성"으로
+ * 정직하게 표기할 뿐 콘솔은 정상 동작한다(throw하지 않는다).
+ */
+export function getCodeGraphPath(): string {
+  return z
+    .string()
+    .min(1)
+    .default("../../graphify-out/graph.json")
+    .parse(process.env.CODE_GRAPH_PATH);
+}
