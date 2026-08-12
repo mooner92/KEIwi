@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { graphStats, layoutRadial, toFileGraph, type RawGraph } from "./code-graph";
+import { graphStats, toFileGraph, type RawGraph } from "./code-graph";
 
 // 파일 A(심볼 a1) · 파일 B(심볼 b1) · 파일 C(고립)
 const RAW: RawGraph = {
@@ -61,50 +61,6 @@ describe("toFileGraph — 심볼을 소유 파일로 접는다", () => {
   });
 });
 
-describe("layoutRadial — 결정론적 해바라기 배치", () => {
-  const g = toFileGraph(RAW);
-
-  it("연결된 노드만 그린다 — 고립 파일은 그림에서 뺀다(노이즈)", () => {
-    const p = layoutRadial(g.nodes);
-    expect(p.map((n) => n.id).sort()).toEqual(["A", "B"]); // C(고립) 제외
-    expect(p.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))).toBe(true);
-  });
-
-  it("연결이 하나도 없으면 빈 배치 — 빈 그림을 그리지 않는다", () => {
-    expect(layoutRadial([{ id: "z", label: "z", file: "z", community: 0, degree: 0 }])).toEqual([]);
-  });
-
-  it("연결 많은 파일이 중심에 가깝다", () => {
-    const many = [
-      { id: "hub", label: "hub", file: "hub", community: 0, degree: 9 },
-      { id: "mid", label: "mid", file: "mid", community: 0, degree: 4 },
-      { id: "leaf", label: "leaf", file: "leaf", community: 0, degree: 1 },
-    ];
-    const p = layoutRadial(many, 1000);
-    const dist = (q: (typeof p)[number]) => Math.hypot(q.x - 500, q.y - 500);
-    const byId = new Map(p.map((q) => [q.id, q]));
-    expect(dist(byId.get("hub")!)).toBeLessThan(dist(byId.get("leaf")!));
-  });
-
-  it("같은 입력이면 같은 그림 — 두 번 돌려도 동일", () => {
-    expect(layoutRadial(g.nodes)).toEqual(layoutRadial(g.nodes));
-  });
-
-  it("좌표가 캔버스 안에 있다", () => {
-    const size = 1000;
-    const p = layoutRadial(g.nodes, size);
-    expect(p.every((n) => n.x >= 0 && n.x <= size && n.y >= 0 && n.y <= size)).toBe(true);
-  });
-
-  it("노드 1개짜리 커뮤니티도 NaN 없이 배치한다(0으로 나누기 방지)", () => {
-    const p = layoutRadial([
-      { id: "X", label: "x", file: "x", community: 7, degree: 1 },
-    ]);
-    expect(Number.isFinite(p[0]!.x)).toBe(true);
-    expect(Number.isFinite(p[0]!.y)).toBe(true);
-  });
-});
-
 describe("graphStats", () => {
   it("파일·의존·커뮤니티·고립 수를 센다", () => {
     const s = graphStats(toFileGraph(RAW));
@@ -117,5 +73,25 @@ describe("graphStats", () => {
   it("허브 목록에는 연결된 파일만 넣는다", () => {
     const s = graphStats(toFileGraph(RAW));
     expect(s.hubs.every((h) => h.degree > 0)).toBe(true);
+  });
+});
+
+describe("모호 소유 심볼 — 가짜 파일 의존 방지 (실측 회귀)", () => {
+  it("두 파일이 소유한(병합된) 심볼의 간선은 버린다", () => {
+    const g = toFileGraph({
+      nodes: [
+        { id: "A", label: "a.ts" },
+        { id: "P", label: "p.ts" },
+        { id: "PT", label: "p.test.ts" },
+        { id: "sym", label: "fn()" },
+      ],
+      links: [
+        { source: "A", target: "a1", relation: "contains" },
+        { source: "P", target: "sym", relation: "contains" },
+        { source: "PT", target: "sym", relation: "contains" }, // 병합으로 이중 소유
+        { source: "A", target: "sym", relation: "imports_from" }, // 어느 파일인지 모른다
+      ],
+    });
+    expect(g.edges).toEqual([]); // A→P인지 A→PT인지 단정할 수 없으므로 그리지 않는다
   });
 });

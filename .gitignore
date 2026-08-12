@@ -29,3 +29,4 @@ infra/logging/filebeat-xenial/filebeat-*-linux-*/
 
 # RAG venv (uv 격리 환경 — requirements.lock로 재현)
 infra/rag/.venv/
+skills-lock.json

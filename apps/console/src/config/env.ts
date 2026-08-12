@@ -185,3 +185,12 @@ export function getCodeGraphPath(): string {
     .default("../../graphify-out/graph.json")
     .parse(process.env.CODE_GRAPH_PATH);
 }
+
+/** CODE_GRAPH_HTML — graphify가 생성한 인터랙티브 시각화(graph.html) 경로. 비밀 아님, 기본값 있음. */
+export function getCodeGraphHtml(): string {
+  return z
+    .string()
+    .min(1)
+    .default("../../graphify-out/graph.html")
+    .parse(process.env.CODE_GRAPH_HTML);
+}
