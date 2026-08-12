@@ -83,6 +83,26 @@ export function getVllmModel(): string {
   return r.data;
 }
 
+/**
+ * VLLM_BACKEND — 로컬 LLM 엔드포인트의 API 형태. `openai`(기본, vLLM 등 OpenAI 호환) | `ollama`.
+ *
+ * 왜 필요한가: ollama의 OpenAI 호환 레이어는 **thinking을 끌 수 없다** — reasoning 모델
+ * (qwen3.5 등)이 `content=""` + `reasoning`만 채운 채 length로 잘린다(2026-08-12 실측).
+ * 네이티브 `/api/chat` + `think:false`만 정상 응답한다. 엔드포인트 URL만으로는 어느 쪽인지
+ * 알 수 없으므로 **명시 선언**한다(자동 추측은 조용히 틀리는 쪽을 고른다).
+ * 미설정 시 기본값 openai — 기존 vLLM 배포가 env 추가 없이 그대로 동작해야 한다.
+ */
+export function getVllmBackend(): "openai" | "ollama" {
+  const raw = (process.env.VLLM_BACKEND ?? "openai").trim().toLowerCase();
+  const r = z.enum(["openai", "ollama"]).safeParse(raw);
+  if (!r.success) {
+    throw new Error(
+      `[env] VLLM_BACKEND 값이 잘못됨(${raw}) — openai | ollama 중 하나여야 합니다.`,
+    );
+  }
+  return r.data;
+}
+
 export type GrafanaDashboard = { uid: string; label: string };
 
 /** "경로|라벨" 쉼표 목록 → 대시보드 배열. 경로 = '/d/' 뒤 부분(uid 또는 uid/slug). */

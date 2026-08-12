@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { judgeModelFit } from "./model-ops";
+import { isGpuProbeSuspect, judgeModelFit } from "./model-ops";
 
 const GIB = 1024 ** 3;
 const MIB_PER_GIB = 1024;
@@ -111,5 +111,24 @@ describe("judgeModelFit — 4단 판정 (spec §5)", () => {
       gpuMemUtil: 0.5, // reserve 22.5 GiB ≤ 25
     });
     expect(r.verdict).toBe("ok");
+  });
+});
+
+describe("isGpuProbeSuspect — '유휴'와 '수집 실패' 구분 (data03 실측 회귀)", () => {
+  it("VRAM 21 GiB 쓰는데 모델 0건이면 수집 실패로 본다", () => {
+    expect(isGpuProbeSuspect(21, 0)).toBe(true);
+  });
+
+  it("모델이 1건이라도 잡히면 정상", () => {
+    expect(isGpuProbeSuspect(21, 1)).toBe(false);
+  });
+
+  it("유휴 기준선(2 GiB) 이하면 진짜 유휴로 본다 — dcgm-exporter 자체 컨텍스트", () => {
+    expect(isGpuProbeSuspect(1.0, 0)).toBe(false);
+    expect(isGpuProbeSuspect(2, 0)).toBe(false);
+  });
+
+  it("VRAM을 모르면 단정하지 않는다", () => {
+    expect(isGpuProbeSuspect(null, 0)).toBe(false);
   });
 });
