@@ -503,6 +503,59 @@ def render_attribution_reply(data, ctx):
     return head + "\n" + "\n".join(lines)
 
 
+def render_notice_form(data, ctx):
+    """답글 #1b — **사용자 통보 폼(복붙용)**. 디스크 알림이 발화했을 때만 만든다.
+
+    왜 relay가 만드나: 통보 문안은 매번 같은 형식인데 사람이 그때그때 새로 쓰면 늦거나
+    누락된다(2026-08-10 실측 — data04 96% 도달 후에야 통보 문안을 작성하기 시작했다).
+    반대로 평시에 보내면 소음이다 — **발화 자체가 "진짜 필요한 시점"의 게이트**다
+    (DiskUsageHigh > 90% · DiskFillPredicted 4h 내 소진, 둘 다 임계 근거는 specs/alerting).
+
+    관리자는 이 블록을 복사해 [ ] 자리만 채워 해당 노드 사용자에게 보낸다.
+    **자동 발송은 하지 않는다** — 사람에게 가는 통보는 사람이 보낸다(§11과 같은 원리).
+    상위 사용자(owner)는 E4 귀속 수집기가 준 값으로, Slack 반출은 E4에서 이미 허용된
+    필드다(답글 #1과 동일 경계 — 새 반출 없음).
+    """
+    if ctx.get("alertname") not in DISK_ALERTS:
+        return None
+    src = data if isinstance(data, dict) else {}
+    node = src.get("node") or ctx.get("node") or ctx.get("instance") or "?"
+    mount = src.get("mount") or ctx.get("mount") or "/"
+    try:
+        usage_label = "%.0f%%" % float(src.get("usage_pct"))
+    except (TypeError, ValueError):
+        usage_label = "임계 초과"  # 수집 실패여도 폼은 낸다 — 알림이 이미 90% 초과를 증언한다
+    owners = []
+    for entry in (src.get("top_dirs") or [])[:3]:
+        if isinstance(entry, dict) and entry.get("owner"):
+            size = _human_bytes(entry.get("bytes"))
+            owners.append("%s(%s)" % (entry["owner"], size) if size else str(entry["owner"]))
+    lines = [
+        "📨 사용자 통보 폼(복붙용) — `[ ]`만 채워 보내세요. 자동 발송하지 않습니다.",
+        "```",
+        "[디스크 정리 요청] %s %s %s 도달" % (node, mount, usage_label),
+        "",
+        "%s의 %s 디스크가 %s 찼습니다. 이대로 두면 쓰기가 멈춰 진행 중인" % (node, mount, usage_label),
+        "작업(tmux·jupyter 포함)이 유실될 수 있습니다.",
+    ]
+    if owners:
+        lines += ["", "상위 사용: %s" % " · ".join(owners)]
+    lines += [
+        "",
+        "부탁드립니다:",
+        "1) 진행 중인 장기 작업은 체크포인트를 저장해 주세요",
+        "2) 홈의 대용량 데이터는 /data(대용량 배열)로 이전을 협의해 주세요",
+        "3) 캐시류(~/.cache, conda pkgs 등)는 정리해 주세요",
+        "",
+        "정리/이전 작업 창: [일시 기입]",
+        "문의: [관리자 연락처]",
+        "```",
+    ]
+    if ctx.get("runbook_url"):
+        lines.append("관리자 절차(런북): %s" % ctx["runbook_url"])
+    return "\n".join(lines)
+
+
 def render_assistant_reply(answer, ctx):
     """답글 #2 — 어시스턴트(로컬 vLLM) 해석. **근거 번호 ``[n]`` 필수**(AC-E3-7).
 
@@ -1139,6 +1192,10 @@ class Enricher(object):
             text = render_attribution_reply(data, ctx) if data else None
             if text:
                 self._post_reply(channel, text, thread_ts, "#1 귀속")
+            # 통보 폼은 수집 실패여도 낸다 — 알림 발화가 이미 "필요한 시점"을 증언한다.
+            form = render_notice_form(data, ctx)
+            if form:
+                self._post_reply(channel, form, thread_ts, "#1b 통보 폼")
         answer = self.app.assistant.ask(ctx)
         text = render_assistant_reply(answer, ctx) if answer else None
         if text:
