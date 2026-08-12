@@ -7,6 +7,7 @@ import {
   type GpuModel,
 } from "@/lib/prometheus";
 import {
+  isGpuProbeSuspect,
   judgeModelFit,
   listInstalledModels,
   type InstalledModel,
@@ -217,7 +218,18 @@ export async function ModelOpsView() {
                   </span>
                 </div>
                 {g.serving.length === 0 ? (
-                  <span className="text-2xs text-ink-subtle">적재 모델 없음</span>
+                  // "유휴"와 "수집 실패"를 구분한다 — VRAM은 쓰이는데 목록이 비면 후자다
+                  // (gpu-model-exporter가 nvidia-smi에 의존해, 드라이버 불일치 시 조용히 0건).
+                  isGpuProbeSuspect(g.usedGib, 0) ? (
+                    <span
+                      className="text-2xs text-warn-ink"
+                      title="VRAM은 사용 중인데 프로세스 목록이 비었다 — gpu-model-exporter가 GPU를 못 읽는 상태(드라이버 커널↔유저스페이스 불일치 등). 런북: nvidia-driver-mismatch"
+                    >
+                      판정불가 — 수집 실패(VRAM 사용 중)
+                    </span>
+                  ) : (
+                    <span className="text-2xs text-ink-subtle">적재 모델 없음</span>
+                  )
                 ) : (
                   <ul className="flex flex-col gap-0.5">
                     {g.serving.map((m) => (

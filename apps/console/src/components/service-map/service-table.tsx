@@ -1,11 +1,14 @@
 import Link from "next/link";
 import {
+  queryCapacity,
   queryGpuModels,
   queryListeningPorts,
   aggregateGpuModels,
   type GpuModelAgg,
   type ListeningPort,
 } from "@/lib/prometheus";
+import { loadInventory } from "@/lib/inventory";
+import { isGpuProbeSuspect } from "@/lib/model-ops";
 import { endpointLabel } from "@/config/known-endpoints";
 
 const gib = (b: number) => `${(b / 1024 ** 3).toFixed(1)} GiB`;
@@ -30,6 +33,24 @@ export async function ServiceTable({ node }: { node?: string }) {
     ports = [];
   }
 
+  // 모델 0건이 "유휴"인지 "수집 실패"인지 가른다. gpu-model-exporter는 nvidia-smi에 의존해
+  // 드라이버 커널↔유저스페이스 불일치 시 조용히 0건이 되는데, DCGM은 커널모듈 값을 읽어
+  // VRAM을 정상 보고한다 → 둘의 모순이 곧 수집 실패 신호다(2026-08-12 data03 실측).
+  let usedGib: number | null = null;
+  if (models.length === 0) {
+    try {
+      const [cap, inv] = await Promise.all([queryCapacity(), loadInventory()]);
+      const nodeByIp = new Map(inv.map((n) => [n.ip, n.id]));
+      usedGib =
+        (cap.gpuVramUsedMib ?? [])
+          .filter((s) => !node || nodeByIp.get(s.instance.split(":")[0] ?? "") === node)
+          .reduce((a, s) => a + s.value, 0) / 1024;
+    } catch {
+      usedGib = null; // 모르면 단정하지 않는다
+    }
+  }
+  const probeSuspect = isGpuProbeSuspect(usedGib, models.length);
+
   const NodeBadge = ({ n }: { n: string }) =>
     fleet && n ? (
       <span className="tnum shrink-0 rounded-sm bg-surface-2 px-1 text-2xs text-ink-subtle">{n}</span>
@@ -48,7 +69,20 @@ export async function ServiceTable({ node }: { node?: string }) {
           <span className="tnum text-2xs text-ink-subtle">{models.length}</span>
         </header>
         {models.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-ink-subtle">GPU에 적재된 프로세스 없음</p>
+          probeSuspect ? (
+            // 거짓 초록 방지 — "없음"으로 적으면 GPU가 노는 것으로 읽힌다(no-data ≠ down).
+            <div className="px-3 py-6 text-center">
+              <p className="text-sm font-medium text-warn-ink">판정불가 — 프로세스 수집 실패</p>
+              <p className="mt-1 text-xs leading-5 text-ink-subtle">
+                DCGM은 <span className="tnum">{usedGib?.toFixed(1)}</span> GiB 사용 중이라고
+                보고하는데 프로세스 목록이 비었습니다. gpu-model-exporter가 GPU를 읽지 못하는
+                상태입니다(드라이버 커널↔유저스페이스 불일치 등) — 런북{" "}
+                <span className="tnum">nvidia-driver-mismatch</span>.
+              </p>
+            </div>
+          ) : (
+            <p className="px-3 py-6 text-center text-sm text-ink-subtle">GPU에 적재된 프로세스 없음</p>
+          )
         ) : (
           <ul className="min-h-0 divide-y divide-border-subtle overflow-y-auto">
             {models.map((mm, i) => (

@@ -172,3 +172,24 @@ export function listInstalledModels(dir: string): InstalledModel[] {
   }
   return out.sort((a, b) => b.sizeBytes - a.sizeBytes);
 }
+
+/**
+ * GPU 프로세스 목록이 "비어 있음"인지 "수집 실패"인지 판정 (순수 — 테스트 대상).
+ *
+ * 왜 필요한가: gpu-model-exporter는 `nvidia-smi`에 의존한다. 드라이버 커널↔유저스페이스
+ * 불일치가 나면 smi가 exit 18로 죽어 **모델 목록이 조용히 0건**이 되는데, DCGM은 커널모듈
+ * 값을 읽으므로 VRAM·온도를 정상 보고한다. 그러면 화면은 "GPU에 적재된 프로세스 없음"
+ * = **유휴**로 읽히지만 실제로는 GPU가 사용 중이다(2026-08-12 data03 실측: DCGM 21/48 GiB,
+ * 모델 0건, `nvidia-smi` rc=18).
+ * "측정 못 함"이 "정상"으로 보이는 것 — 이 레포가 반복해서 고쳐 온 실패모드다(no-data ≠ down).
+ *
+ * 판정: VRAM이 유휴 기준선을 넘게 쓰이는데 모델이 0건이면 **수집 실패**로 본다.
+ * @param usedGib DCGM 실측 사용 VRAM(GiB, 노드 합). null이면 판정 불가라 false.
+ */
+export function isGpuProbeSuspect(usedGib: number | null, modelCount: number): boolean {
+  if (modelCount > 0) return false;
+  if (usedGib == null) return false;
+  // 유휴 기준선: dcgm-exporter 자신이 잡는 컨텍스트가 카드당 0.5 GiB 안팎이다(실측).
+  // 2 GiB를 넘으면 "누군가 쓰고 있다"로 본다 — 오탐보다 미탐이 비싼 판정이다.
+  return usedGib > 2;
+}
