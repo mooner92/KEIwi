@@ -28,7 +28,10 @@ templates:
       {{- end }}
 
       {{ define "keiwi.alert" -}}
-      *{{ .Labels.alertname }}*{{ if .Labels.node }} · {{ .Labels.node }}{{ end }} — {{ .Annotations.summary }}
+      {{- /* 제목(keiwi.title)이 이미 alertname·node를 말했다 — 본문에서 반복하면
+           "DiskUsageHigh · nodeDiskUsageHigh · node — ..."처럼 읽힌다(2026-08-12 실채널 실측).
+           본문은 summary부터 시작하고, summary가 없을 때만 이름으로 폴백한다. */ -}}
+      {{ if .Annotations.summary }}{{ .Annotations.summary }}{{ else }}*{{ .Labels.alertname }}*{{ if .Labels.node }} · {{ .Labels.node }}{{ end }}{{ end }}
       시작 {{ .StartsAt | tz "Asia/Seoul" | date "01-02 15:04" }} KST
       {{ if .Annotations.console_url }}<{{ .Annotations.console_url }}|콘솔 분석>{{ end }}{{ if .Annotations.drilldown_url }} · <{{ .Annotations.drilldown_url }}|드릴다운>{{ end }}{{ if .SilenceURL }} · <{{ .SilenceURL }}|침묵>{{ end }}{{ if .Annotations.runbook_url }} · <{{ .Annotations.runbook_url }}|런북>{{ end }}
       {{- end }}

@@ -352,6 +352,48 @@ class TestPureHelpers(unittest.TestCase):
         self.assertNotIn("COMMAND=", text)
         self.assertNotIn("/home/user6", text)
 
+    def _junk_payload(self):
+        """2026-08-12 실채널 사고 재현 — stripPort 파싱 실패로 원문이 그대로 온 payload."""
+        return {
+            "status": "firing",
+            "commonLabels": {"alertname": "DiskUsageHigh", "severity": "warning"},
+            "title": "🔴 [WARNING] DiskUsageHigh · 192.168.1.104:9100",
+            "message": '{{ $$labels.instance | stripPort }} 사용률 {{ printf "%.1f" $$values.A.Value }}%',
+            "alerts": [{
+                "labels": {"alertname": "DiskUsageHigh", "instance": "192.168.1.104:9100",
+                           "severity": "warning", "mountpoint": "/"},
+                "annotations": {
+                    "summary": '{{ $$labels.instance | stripPort }} 사용률 {{ printf "%.1f" $$values.A.Value }}%',
+                    "drilldown_url": "http://192.168.1.105:3000/d/x?var-instance={{ $$labels.instance }}",
+                    "runbook_url": "https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md",
+                },
+                "values": {"A": 95.2, "C": 1},
+                "silenceURL": "http://192.168.1.105:3000/alerting/silence/new?x=1",
+                "startsAt": "2026-08-03T10:38:00Z",
+                "fingerprint": "f1",
+            }],
+        }
+
+    def test_render_top_level_rebuilds_when_template_junk_leaks(self):
+        """렌더 실패 흔적({{)이 있으면 원문을 버리고 결정적으로 재조립한다."""
+        text = ar.render_top_level(self._junk_payload())
+        self.assertNotIn("{{", text, "템플릿 원문이 Slack에 새면 안 된다: %r" % text)
+        self.assertIn("data04", text, "노드는 ip:port가 아니라 이름으로")
+        self.assertIn("95.2", text, "발화 시점 확정값(values)으로 사실을 말한다")
+        self.assertIn("침묵", text)
+        self.assertIn("런북", text)
+        self.assertNotIn("드릴다운", text, "깨진 URL 링크는 그 링크만 뺀다")
+        # 단일 알림 — 제목이 말한 alertname을 본문이 반복하지 않는다(실채널 중복 실측).
+        self.assertEqual(text.count("DiskUsageHigh"), 1)
+
+    def test_render_top_level_passthrough_when_clean(self):
+        """정본 템플릿이 멀쩡하면 그대로 중계한다 — 재조립은 사고 시에만."""
+        payload = self._junk_payload()
+        payload["title"] = "🔴 [WARNING] DiskUsageHigh · data04"
+        payload["message"] = "data04 / 사용률 95.2% (임계 90%)\n시작 08-03 19:38 KST"
+        text = ar.render_top_level(payload)
+        self.assertEqual(text, payload["title"] + "\n" + payload["message"])
+
     def test_render_notice_form_from_collector(self):
         """통보 폼 — 수집기 값(노드·사용률·상위 사용자)이 채워진 복붙 블록."""
         data = json.load(open(os.path.join(FIXTURES, "collector-disk-attribution.json")))

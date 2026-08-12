@@ -60,6 +60,20 @@ policies:
       #   group_interval: 5m
       #   repeat_interval: 4h
 
+      # ── Grafana 자체 알림(DatasourceNoData/Error) — 도배 차단 ──────────
+      # 실측(2026-08-12 실채널): DatasourceNoData가 **10분마다** 게시됐다. 원인은 이 알림이
+      # 원 규칙의 라벨을 물려받지 못해 전용 라우트 없이 흘렀고, 노드별 시리즈가 그룹에
+      # 드나들 때마다 group_interval 주기로 재통지된 것. 이 알림의 정보량은 "수집기가 아직
+      # 없다" 한 문장이라 하루 한 번이면 충분하다 — **근본 수정은 수집기 배포**(hardware-ops
+      # T0-2)이고, 이 라우트는 그때까지의 소음 통제다.
+      - receiver: slack-infra
+        object_matchers:
+          - ["alertname", "=~", "DatasourceNoData|DatasourceError"]
+        group_by: ["alertname"]   # 노드 드나듦이 재통지를 만들지 않게 이름으로만 묶는다
+        group_wait: 5m
+        group_interval: 4h
+        repeat_interval: 24h
+
       # ── 앱 런타임(콘솔·API) → #keiwi-web ──────────────────────────────
       # 인프라 담당자와 앱 담당자가 볼 것이 다르므로 채널을 나눈다.
       # (현재는 1인이지만, 채널이 나뉘어야 음소거·검색·보존을 독립으로 관리할 수 있다)
