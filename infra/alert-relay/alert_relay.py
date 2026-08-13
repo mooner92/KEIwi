@@ -350,36 +350,85 @@ def alert_context(payload, alert):
     }
 
 
-def render_top_level(payload):
-    """기본 게시 문구 — **payload의 렌더된 title/message를 그대로 쓴다**.
+def _looks_unrendered(text):
+    """Grafana 템플릿 렌더 실패 흔적 — ``{{`` 가 남아 있으면 원문이 새는 중이다."""
+    return "{{" in (text or "")
 
-    포맷의 정본은 E1 템플릿(``templates.yaml``) 한 곳이다(spec §3.2). 여기서 다시
-    조립하면 정본이 둘이 되고, 다음 사람은 둘 중 어느 쪽을 고쳐야 하는지 모른다.
-    payload에 title/message가 없을 때만(웹훅 contact point에 템플릿을 안 붙인 경우)
-    라벨로 최소 조립한다 — 조용히 빈 메시지를 보내지 않기 위한 폴백이다.
+
+def render_top_level(payload):
+    """기본 게시 문구 — payload의 렌더된 title/message를 신뢰하되, **렌더 실패 흔적이
+    있으면 버리고 결정적으로 재조립한다**.
+
+    포맷의 정본은 E1 템플릿(``templates.yaml``) 한 곳이다(spec §3.2). 그러나 정본이
+    깨졌을 때 그대로 중계하는 것은 정본 존중이 아니라 사고 확산이다 — 실측(2026-08-12
+    실채널): 존재하지 않는 템플릿 함수 하나(``stripPort``)가 annotation 파싱을 깨
+    ``{{ $$labels.instance | stripPort }}`` 원문이 열흘 넘게 그대로 게시됐다.
+    재조립은 라벨·values(발화 시점 확정값)·annotation 링크로만 한다. 링크도 렌더 실패
+    흔적이 있으면 그 링크만 뺀다(깨진 URL은 클릭조차 안 된다).
     """
     title = (payload.get("title") or "").strip()
     message = (payload.get("message") or "").strip()
-    if title or message:
+    if (title or message) and not (_looks_unrendered(title) or _looks_unrendered(message)):
         return (title + "\n" + message).strip()
+
     common = payload.get("commonLabels") or {}
     status = payload.get("status") or "firing"
+    alerts = payload.get("alerts") or []
     head = "%s [%s] %s" % (
         "🔴" if status == "firing" else "✅",
         (common.get("severity") or "unknown").upper(),
         common.get("alertname") or "(alertname 없음)",
     )
-    if common.get("node"):
-        head += " · " + common["node"]
+    head_node = normalize_node(common.get("node")) or normalize_node(common.get("instance"))
+    # 그룹이 1건이면(대부분) 노드는 그 알림의 것을 쓴다 — commonLabels에 node가 없어도 나온다.
+    if not head_node and len(alerts) == 1:
+        head_node = alert_context(payload, alerts[0]).get("node")
+    if head_node:
+        head += " · " + head_node
+
+    solo = len(alerts) == 1
     body = []
-    for alert in payload.get("alerts") or []:
+    for alert in alerts:
         ctx = alert_context(payload, alert)
-        line = "*%s*" % (ctx["alertname"] or "?")
-        if ctx["node"]:
-            line += " · " + ctx["node"]
-        if ctx["summary"]:
-            line += " — " + ctx["summary"]
-        body.append(line)
+        summary = ctx["summary"]
+        if _looks_unrendered(summary):
+            summary = ""
+        if not summary:
+            # summary가 깨졌으면 발화 시점 확정값(values)으로 최소한의 사실을 말한다.
+            vals = alert.get("values") or {}
+            picked = None
+            for key in ("A", "B"):
+                v = vals.get(key)
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    picked = v
+                    break
+            if picked is not None:
+                summary = "현재값 %.1f (임계 판정 발화)" % picked
+        if solo:
+            # 제목이 이미 alertname·node를 말했다 — 반복하지 않는다(실채널 중복 실측).
+            if summary:
+                body.append(summary)
+        else:
+            line = "*%s*" % (ctx["alertname"] or "?")
+            if ctx["node"]:
+                line += " · " + ctx["node"]
+            if summary:
+                line += " — " + summary
+            body.append(line)
+        started = kst_label(ctx["starts_at"]) if ctx["starts_at"] else ""
+        if started:
+            body.append("시작 %s KST" % started)
+        links = []
+        for url, label in (
+            (ctx["console_url"], "콘솔 분석"),
+            (ctx["drilldown_url"], "드릴다운"),
+            (alert.get("silenceURL"), "침묵"),
+            (ctx["runbook_url"], "런북"),
+        ):
+            if url and not _looks_unrendered(url):
+                links.append("<%s|%s>" % (url, label))
+        if links:
+            body.append(" · ".join(links))
     return (head + "\n" + "\n".join(body)).strip()
 
 
@@ -501,6 +550,59 @@ def render_attribution_reply(data, ctx):
     if ctx.get("console_url"):
         lines.append("상세 → <%s|콘솔 분석>" % ctx["console_url"])
     return head + "\n" + "\n".join(lines)
+
+
+def render_notice_form(data, ctx):
+    """답글 #1b — **사용자 통보 폼(복붙용)**. 디스크 알림이 발화했을 때만 만든다.
+
+    왜 relay가 만드나: 통보 문안은 매번 같은 형식인데 사람이 그때그때 새로 쓰면 늦거나
+    누락된다(2026-08-10 실측 — data04 96% 도달 후에야 통보 문안을 작성하기 시작했다).
+    반대로 평시에 보내면 소음이다 — **발화 자체가 "진짜 필요한 시점"의 게이트**다
+    (DiskUsageHigh > 90% · DiskFillPredicted 4h 내 소진, 둘 다 임계 근거는 specs/alerting).
+
+    관리자는 이 블록을 복사해 [ ] 자리만 채워 해당 노드 사용자에게 보낸다.
+    **자동 발송은 하지 않는다** — 사람에게 가는 통보는 사람이 보낸다(§11과 같은 원리).
+    상위 사용자(owner)는 E4 귀속 수집기가 준 값으로, Slack 반출은 E4에서 이미 허용된
+    필드다(답글 #1과 동일 경계 — 새 반출 없음).
+    """
+    if ctx.get("alertname") not in DISK_ALERTS:
+        return None
+    src = data if isinstance(data, dict) else {}
+    node = src.get("node") or ctx.get("node") or ctx.get("instance") or "?"
+    mount = src.get("mount") or ctx.get("mount") or "/"
+    try:
+        usage_label = "%.0f%%" % float(src.get("usage_pct"))
+    except (TypeError, ValueError):
+        usage_label = "임계 초과"  # 수집 실패여도 폼은 낸다 — 알림이 이미 90% 초과를 증언한다
+    owners = []
+    for entry in (src.get("top_dirs") or [])[:3]:
+        if isinstance(entry, dict) and entry.get("owner"):
+            size = _human_bytes(entry.get("bytes"))
+            owners.append("%s(%s)" % (entry["owner"], size) if size else str(entry["owner"]))
+    lines = [
+        "📨 사용자 통보 폼(복붙용) — `[ ]`만 채워 보내세요. 자동 발송하지 않습니다.",
+        "```",
+        "[디스크 정리 요청] %s %s %s 도달" % (node, mount, usage_label),
+        "",
+        "%s의 %s 디스크가 %s 찼습니다. 이대로 두면 쓰기가 멈춰 진행 중인" % (node, mount, usage_label),
+        "작업(tmux·jupyter 포함)이 유실될 수 있습니다.",
+    ]
+    if owners:
+        lines += ["", "상위 사용: %s" % " · ".join(owners)]
+    lines += [
+        "",
+        "부탁드립니다:",
+        "1) 진행 중인 장기 작업은 체크포인트를 저장해 주세요",
+        "2) 홈의 대용량 데이터는 /data(대용량 배열)로 이전을 협의해 주세요",
+        "3) 캐시류(~/.cache, conda pkgs 등)는 정리해 주세요",
+        "",
+        "정리/이전 작업 창: [일시 기입]",
+        "문의: [관리자 연락처]",
+        "```",
+    ]
+    if ctx.get("runbook_url"):
+        lines.append("관리자 절차(런북): %s" % ctx["runbook_url"])
+    return "\n".join(lines)
 
 
 def render_assistant_reply(answer, ctx):
@@ -1139,6 +1241,10 @@ class Enricher(object):
             text = render_attribution_reply(data, ctx) if data else None
             if text:
                 self._post_reply(channel, text, thread_ts, "#1 귀속")
+            # 통보 폼은 수집 실패여도 낸다 — 알림 발화가 이미 "필요한 시점"을 증언한다.
+            form = render_notice_form(data, ctx)
+            if form:
+                self._post_reply(channel, form, thread_ts, "#1b 통보 폼")
         answer = self.app.assistant.ask(ctx)
         text = render_assistant_reply(answer, ctx) if answer else None
         if text:

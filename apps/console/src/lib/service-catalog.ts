@@ -1,4 +1,5 @@
 import { getOpenSearchUrl } from "@/config/env";
+import { fetchWithTimeout, TIMEOUT_MS } from "@/lib/http";
 
 /** 노드에서 도는 서비스 1건(최근 로그 기준) — 서비스 맵 행. */
 export type NodeService = {
@@ -79,12 +80,11 @@ export function parseServiceBuckets(json: AggJson): NodeService[] {
  */
 export async function getNodeServices(fleetNode: string, from = "now-24h"): Promise<NodeService[]> {
   const base = getOpenSearchUrl().replace(/\/+$/, "");
-  const res = await fetch(`${base}/keiwi-logs-*/_search`, {
+  const res = await fetchWithTimeout(`${base}/keiwi-logs-*/_search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildServiceAggBody(fleetNode, from)),
-    cache: "no-store",
-  });
+  }, TIMEOUT_MS.opensearch);
   if (!res.ok) throw new Error(`[opensearch] HTTP ${res.status}`);
   return parseServiceBuckets((await res.json()) as AggJson);
 }

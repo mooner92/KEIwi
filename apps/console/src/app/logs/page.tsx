@@ -18,6 +18,7 @@ export default async function LogsPage() {
   // 현재 신호 — 대시보드와 같은 눈높이(24h error·warn, 노이즈 제외 — ADR-0015).
   // size 60: 워크벤치 필터 칩(레벨·노드)의 모수 확보 — 12건이면 노드별 분포가 안 잡힘.
   let signals: LogDoc[] = [];
+  let signalsError: string | null = null;
   try {
     signals = await searchLogs({
       levels: ["error", "warn"],
@@ -25,8 +26,10 @@ export default async function LogsPage() {
       excludeNoise: true,
       size: 60,
     });
-  } catch {
-    signals = [];
+  } catch (e) {
+    // 검색 실패를 빈 목록으로 접으면 "신호 없음(정상)"으로 읽힌다 — 거짓 초록.
+    // 실패를 상태로 승격해 워크벤치가 구분해 표기하게 한다.
+    signalsError = e instanceof Error ? e.message : String(e);
   }
 
   let grafana: { baseUrl: string; dashboards: { uid: string; label: string }[] } | null = null;
@@ -40,5 +43,10 @@ export default async function LogsPage() {
 
   const initialTheme = (await cookies()).get("keiwi-theme")?.value === "dark" ? "dark" : "light";
 
-  return <LogsWorkbench signals={signals} grafana={grafana} initialTheme={initialTheme} />;
+  return <LogsWorkbench
+      signals={signals}
+      signalsError={signalsError}
+      grafana={grafana}
+      initialTheme={initialTheme}
+    />;
 }

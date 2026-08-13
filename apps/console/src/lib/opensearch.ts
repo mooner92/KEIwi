@@ -1,4 +1,5 @@
 import { getOpenSearchUrl } from "@/config/env";
+import { fetchWithTimeout, TIMEOUT_MS } from "@/lib/http";
 
 /** 어시스턴트 근거(인용)용 로그 1건. _id는 서버 검증된 실제 doc 식별자(날조 차단). */
 export type LogDoc = {
@@ -80,12 +81,11 @@ export async function searchLogs(opts: SearchLogsOpts): Promise<LogDoc[]> {
     _source: ["@timestamp", "fleet_node", "service", "log_level", "message"],
   };
 
-  const res = await fetch(`${base}/keiwi-logs-*/_search`, {
+  const res = await fetchWithTimeout(`${base}/keiwi-logs-*/_search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  }, TIMEOUT_MS.opensearch);
   if (!res.ok) throw new Error(`[opensearch] HTTP ${res.status}`);
   const json: { hits?: { hits?: OsHit[] } } = await res.json();
 

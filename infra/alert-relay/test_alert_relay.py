@@ -254,6 +254,15 @@ class RelayHarness(object):
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+
+
+def split_form_replies(replies):
+    """통보 폼(#1b)과 그 외 답글을 분리 — 폼은 결정적이라 디스크 알림에 항상 붙는다."""
+    forms = [r for r in replies if "통보 폼" in r["text"]]
+    others = [r for r in replies if "통보 폼" not in r["text"]]
+    return forms, others
+
+
 class TestPureHelpers(unittest.TestCase):
     def test_normalize_node(self):
         self.assertEqual(ar.normalize_node("192.168.1.104:9100"), "data04")
@@ -343,6 +352,72 @@ class TestPureHelpers(unittest.TestCase):
         self.assertNotIn("COMMAND=", text)
         self.assertNotIn("/home/user6", text)
 
+    def _junk_payload(self):
+        """2026-08-12 실채널 사고 재현 — stripPort 파싱 실패로 원문이 그대로 온 payload."""
+        return {
+            "status": "firing",
+            "commonLabels": {"alertname": "DiskUsageHigh", "severity": "warning"},
+            "title": "🔴 [WARNING] DiskUsageHigh · 192.168.1.104:9100",
+            "message": '{{ $$labels.instance | stripPort }} 사용률 {{ printf "%.1f" $$values.A.Value }}%',
+            "alerts": [{
+                "labels": {"alertname": "DiskUsageHigh", "instance": "192.168.1.104:9100",
+                           "severity": "warning", "mountpoint": "/"},
+                "annotations": {
+                    "summary": '{{ $$labels.instance | stripPort }} 사용률 {{ printf "%.1f" $$values.A.Value }}%',
+                    "drilldown_url": "http://192.168.1.105:3000/d/x?var-instance={{ $$labels.instance }}",
+                    "runbook_url": "https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md",
+                },
+                "values": {"A": 95.2, "C": 1},
+                "silenceURL": "http://192.168.1.105:3000/alerting/silence/new?x=1",
+                "startsAt": "2026-08-03T10:38:00Z",
+                "fingerprint": "f1",
+            }],
+        }
+
+    def test_render_top_level_rebuilds_when_template_junk_leaks(self):
+        """렌더 실패 흔적({{)이 있으면 원문을 버리고 결정적으로 재조립한다."""
+        text = ar.render_top_level(self._junk_payload())
+        self.assertNotIn("{{", text, "템플릿 원문이 Slack에 새면 안 된다: %r" % text)
+        self.assertIn("data04", text, "노드는 ip:port가 아니라 이름으로")
+        self.assertIn("95.2", text, "발화 시점 확정값(values)으로 사실을 말한다")
+        self.assertIn("침묵", text)
+        self.assertIn("런북", text)
+        self.assertNotIn("드릴다운", text, "깨진 URL 링크는 그 링크만 뺀다")
+        # 단일 알림 — 제목이 말한 alertname을 본문이 반복하지 않는다(실채널 중복 실측).
+        self.assertEqual(text.count("DiskUsageHigh"), 1)
+
+    def test_render_top_level_passthrough_when_clean(self):
+        """정본 템플릿이 멀쩡하면 그대로 중계한다 — 재조립은 사고 시에만."""
+        payload = self._junk_payload()
+        payload["title"] = "🔴 [WARNING] DiskUsageHigh · data04"
+        payload["message"] = "data04 / 사용률 95.2% (임계 90%)\n시작 08-03 19:38 KST"
+        text = ar.render_top_level(payload)
+        self.assertEqual(text, payload["title"] + "\n" + payload["message"])
+
+    def test_render_notice_form_from_collector(self):
+        """통보 폼 — 수집기 값(노드·사용률·상위 사용자)이 채워진 복붙 블록."""
+        data = json.load(open(os.path.join(FIXTURES, "collector-disk-attribution.json")))
+        data = ar.drop_local_only_fields(data)
+        ctx = {"alertname": "DiskUsageHigh", "node": "data04", "mount": "/",
+               "runbook_url": "https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/disk-pressure.md"}
+        text = ar.render_notice_form(data, ctx)
+        self.assertIn("[디스크 정리 요청] data04 / 95%", text)
+        self.assertIn("체크포인트", text)
+        self.assertIn("user2", text)          # E4가 허용한 owner 필드 재사용
+        self.assertIn("자동 발송하지 않습니다", text)
+        self.assertNotIn("raw", text)          # 로컬 전용 필드는 폼에도 없다
+
+    def test_render_notice_form_without_collector_still_renders(self):
+        """수집 실패여도 폼은 낸다 — 알림 발화가 이미 임계 초과를 증언한다."""
+        ctx = {"alertname": "DiskFillPredicted", "node": "data05", "mount": "/"}
+        text = ar.render_notice_form(None, ctx)
+        self.assertIn("data05", text)
+        self.assertIn("임계 초과", text)
+
+    def test_render_notice_form_only_for_disk_alerts(self):
+        """디스크 외 알림에는 폼을 만들지 않는다 — 90% 게이트의 존재 이유."""
+        self.assertIsNone(ar.render_notice_form({}, {"alertname": "GpuTempHigh"}))
+
     def test_render_attribution_reply_skips_when_empty(self):
         self.assertIsNone(ar.render_attribution_reply(None, {}))
         self.assertIsNone(ar.render_attribution_reply({}, {"node": "data04"}))
@@ -414,7 +489,11 @@ class TestAssistantFailureIsolation(unittest.TestCase):
         self.assertEqual(body["posted"], 1)
         self.assertTrue(harness.drain())
         self.assertEqual(len(harness.slack.top_level()), 1)
-        self.assertEqual(harness.slack.replies(), [], "실패는 Slack에 도배하지 않는다(로그에만)")
+        forms, others = split_form_replies(harness.slack.replies())
+        self.assertEqual(others, [], "실패는 Slack에 도배하지 않는다(로그에만)")
+        # 통보 폼(#1b)은 결정적이라 어시스턴트가 죽어도 게시된다 — 디스크 알림의 핵심 산출물.
+        self.assertEqual(len(forms), 1)
+        self.assertIn("복붙용", forms[0]["text"])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -518,9 +597,10 @@ class TestEnrichment(unittest.TestCase):
         self.assertEqual(len(harness.slack.top_level()), 2)
 
         # ② 2차 답글 2건 모두 게시 — 각자 자기 스레드에.
-        replies = harness.slack.replies()
+        forms, replies = split_form_replies(harness.slack.replies())
         self.assertEqual(len(replies), 2)
         self.assertEqual(len({r["thread_ts"] for r in replies}), 2, "답글이 서로 다른 스레드에 붙는다")
+        self.assertEqual(len(forms), 1, "통보 폼은 디스크 알림에만 붙는다(GPU 알림엔 없음)")
 
         # ③ 직렬화 — 어시스턴트 동시 실행이 1을 넘지 않았다(콘솔 동시 1 계약과 정합).
         self.assertEqual(harness.assistant.max_inflight, 1)
@@ -537,7 +617,7 @@ class TestEnrichment(unittest.TestCase):
         harness.post(load_fixture("webhook-diskusagehigh-firing.json"))
         self.assertTrue(harness.drain())
 
-        replies = harness.slack.replies()
+        _forms, replies = split_form_replies(harness.slack.replies())
         self.assertEqual(len(replies), 1)
         text = replies[0]["text"]
 
@@ -585,9 +665,11 @@ class TestEnrichment(unittest.TestCase):
         harness.post(load_fixture("webhook-diskusagehigh-firing.json"))
         self.assertTrue(harness.drain())
 
-        replies = harness.slack.replies()
+        forms, replies = split_form_replies(harness.slack.replies())
         self.assertEqual(len(replies), 2)
         self.assertTrue(replies[0]["text"].startswith("📎"), "결정적 답글이 먼저다")
+        self.assertEqual(len(forms), 1)
+        self.assertIn("[디스크 정리 요청]", forms[0]["text"])
         joined = "\n".join(r["text"] for r in replies)
         self.assertNotIn("COMMAND=", joined)
         self.assertNotIn("/home/user6", joined)
@@ -939,9 +1021,9 @@ class TestAssistantReplyRedaction(unittest.TestCase):
         harness.post(load_fixture("webhook-diskusagehigh-firing.json"))
         self.assertTrue(harness.drain())
 
-        replies = harness.slack.replies()
+        forms, replies = split_form_replies(harness.slack.replies())
         self.assertEqual(len(replies), 1, "답글이 통째로 사라지면 안 된다(세탁이지 차단이 아니다)")
-        text = replies[0]["text"]
+        text = replies[0]["text"] + "".join(f["text"] for f in forms)
         for forbidden in ("patient-data", "/home/user2", "COMMAND=",
                           "attacker.invalid", "/var/log/private"):
             self.assertNotIn(forbidden, text, "누출: %r" % forbidden)

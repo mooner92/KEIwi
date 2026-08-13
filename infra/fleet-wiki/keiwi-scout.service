@@ -1,0 +1,17 @@
+# fleet-wiki scout — 열린 포트 역추적 수집기 (specs/fleet-wiki §3-①, 배포는 사람 §11)
+[Unit]
+Description=KEIwi fleet-wiki scout (포트→프로세스→cwd→git 역추적, read-only)
+After=network-online.target
+
+[Service]
+Type=oneshot
+# root 필요: 타 계정 프로세스의 /proc/<pid>/cwd 판독. 비root면 partial=true로 정직 기록.
+Environment=KEIWI_SCOUT_OUT=/var/lib/keiwi-scout/scout.json
+# 노드명은 배포 시 노드별로 지정한다(호스트명이 인벤토리 id와 다른 노드가 있다 — data05).
+Environment=KEIWI_SCOUT_NODE=CHANGEME
+ExecStart=/usr/bin/python3 /opt/keiwi/fleet-wiki/scout.py
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/keiwi-scout

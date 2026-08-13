@@ -102,10 +102,13 @@ function FilterChip({
  */
 export function LogsWorkbench({
   signals,
+  signalsError = null,
   grafana,
   initialTheme = "light",
 }: {
   signals: LogDoc[];
+  /** 로그 검색이 실패했으면 그 사유. null이면 검색은 성공한 것 — "신호 없음"과 구분한다. */
+  signalsError?: string | null;
   grafana: GrafanaConf | null;
   /** SSR 테마 — 서버가 `keiwi-theme` 쿠키에서 읽어 준다(use-theme.ts 주석 참조). */
   initialTheme?: "light" | "dark";
@@ -328,9 +331,17 @@ export function LogsWorkbench({
                   )}
                 </div>
               )}
-              {signals.length === 0 ? (
+              {signalsError ? (
+                // 거짓 초록 방지 — 검색 실패는 "신호 없음"이 아니다.
+                <div className="px-3 py-6 text-center">
+                  <p className="text-base font-medium text-warn-ink">판정불가 — 로그 검색 실패</p>
+                  <p className="mt-1 text-sm leading-6 text-ink-subtle">
+                    OpenSearch를 조회하지 못했습니다. 신호가 없는 것이 아니라 못 본 것입니다.
+                  </p>
+                </div>
+              ) : signals.length === 0 ? (
                 <p className="px-3 py-6 text-center text-base text-ink-muted">
-                  지금 신호 없음(정상) 또는 데이터 없음
+                  최근 24시간 신호 없음 — 검색은 정상 동작했습니다
                 </p>
               ) : filtered.length === 0 ? (
                 <p className="px-3 py-6 text-center text-base text-ink-muted">

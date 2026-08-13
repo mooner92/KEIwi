@@ -39,6 +39,7 @@
 | [auto-remediation](../specs/auto-remediation/README.md) | 자율 사다리 L0~L4 · 조치 제안 | ✅ L1 · L2~ 게이트 |
 | [external-watchdog](../specs/external-watchdog/README.md) | 사이트 전체 침묵 감시(L4 외부) | 📎 제안(ADR 대기) |
 | [model-ops](../specs/model-ops/spec.md) | 모델 서빙 가시화 · VRAM 사전판정 · 기동/정지 | 📎 초안(Q1~Q4 대기) |
+| [fleet-wiki](../specs/fleet-wiki/spec.md) | 서버·계정·프로젝트 문서 그래프(포트 역추적) · 서비스 탭 고도화 | 📎 초안(Q1~Q5 대기) |
 
 ## 📑 결정 기록 (ADR — `./decisions/`)
 
@@ -102,6 +103,7 @@
 | 에러 트래킹(GlitchTip·하트비트) | [infra/error-tracking](../infra/error-tracking/README.md) |
 | 알림 중계(webhook→Slack 스레드·L1 제안) | [infra/alert-relay](../infra/alert-relay/README.md) |
 | 지식그래프 RAG(LightRAG·완전 로컬) | [infra/rag](../infra/rag/README.md) |
+| 플릿 위키 scout(포트 역추적 수집기) | [infra/fleet-wiki](../infra/fleet-wiki/README.md) |
 | BMC·SEL(하드웨어 이벤트) | [infra/monitoring/bmc](../infra/monitoring/bmc/README.md) |
 
 ## 🎨 디자인 / ✅ 테스트 / ✍️ 기타

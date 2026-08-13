@@ -1,0 +1,11 @@
+# fleet-wiki scout 주기 실행 — 1시간(모델 반입·서비스 기동은 드문 사건이다)
+[Unit]
+Description=KEIwi fleet-wiki scout timer
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

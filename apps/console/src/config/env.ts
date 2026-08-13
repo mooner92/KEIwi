@@ -172,3 +172,34 @@ export function getGlitchTipDsn(): string | undefined {
 export function getModelOpsDir(): string {
   return z.string().min(1).default("/data/vllm/models").parse(process.env.MODEL_OPS_DIR);
 }
+
+/**
+ * CODE_GRAPH_PATH — graphify 코드 그래프 산출물(`graphify extract . --code-only`) 경로.
+ * 비밀 아님. 기본값은 레포 루트의 gitignore된 로컬 인덱스 — 없으면 화면이 "미생성"으로
+ * 정직하게 표기할 뿐 콘솔은 정상 동작한다(throw하지 않는다).
+ */
+export function getCodeGraphPath(): string {
+  return z
+    .string()
+    .min(1)
+    .default("../../graphify-out/graph.json")
+    .parse(process.env.CODE_GRAPH_PATH);
+}
+
+/** CODE_GRAPH_HTML — graphify가 생성한 인터랙티브 시각화(graph.html) 경로. 비밀 아님, 기본값 있음. */
+export function getCodeGraphHtml(): string {
+  return z
+    .string()
+    .min(1)
+    .default("../../graphify-out/graph.html")
+    .parse(process.env.CODE_GRAPH_HTML);
+}
+
+/**
+ * WIKI_DIR — fleet-wiki 산출물 디렉터리(specs/fleet-wiki §4). 비밀 아님, 기본값 있음.
+ * 산출물은 실계정·경로를 담으므로 레포 밖에 산다 — 없으면 /wiki가 "미생성"으로 정직하게
+ * 안내할 뿐 콘솔은 정상 동작한다(throw하지 않는다).
+ */
+export function getWikiDir(): string {
+  return z.string().min(1).default("/data/keiwi/wiki").parse(process.env.WIKI_DIR);
+}
