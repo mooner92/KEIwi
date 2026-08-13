@@ -103,6 +103,7 @@
 | 에러 트래킹(GlitchTip·하트비트) | [infra/error-tracking](../infra/error-tracking/README.md) |
 | 알림 중계(webhook→Slack 스레드·L1 제안) | [infra/alert-relay](../infra/alert-relay/README.md) |
 | 지식그래프 RAG(LightRAG·완전 로컬) | [infra/rag](../infra/rag/README.md) |
+| 플릿 위키 scout(포트 역추적 수집기) | [infra/fleet-wiki](../infra/fleet-wiki/README.md) |
 | BMC·SEL(하드웨어 이벤트) | [infra/monitoring/bmc](../infra/monitoring/bmc/README.md) |
 
 ## 🎨 디자인 / ✅ 테스트 / ✍️ 기타
