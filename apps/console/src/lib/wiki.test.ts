@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSpans, parseWikiMd, readWikiPage } from "./wiki";
+import { parentSlug, parseSpans, parseWikiMd, readWikiPage, wikiCoveredNodes, wikiPortIndex } from "./wiki";
 
 describe("parseSpans — 생성기 문법 부분집합", () => {
   it("굵게·코드·위키링크를 분해한다", () => {
@@ -68,5 +68,27 @@ describe("readWikiPage — 경로 탈출 차단", () => {
 
   it("없는 문서는 null(미생성과 동일 경로) — throw하지 않는다", () => {
     expect(readWikiPage("/nonexistent", "data05")).toBeNull();
+  });
+});
+
+describe("parentSlug — 그래프 간선의 결정론 유도", () => {
+  it("project → account → server", () => {
+    expect(parentSlug("projects", "data05--user1--console-786af9")).toBe("data05--user1");
+    expect(parentSlug("accounts", "data05--user1")).toBe("data05");
+    expect(parentSlug("servers", "data05")).toBeNull();
+  });
+});
+
+describe("wikiPortIndex", () => {
+  it("디렉터리 없으면 null — 미생성과 빈 색인을 구분(배지 소음 방지)", () => {
+    expect(wikiPortIndex("/nonexistent-wiki")).toBeNull();
+  });
+});
+
+describe("wikiCoveredNodes — 미등록 배지의 유효 범위", () => {
+  it("색인 키에서 노드 집합을 얻는다(포트에 콜론 없음 전제 — 키 형식 node:port)", () => {
+    const nodes = wikiCoveredNodes({ "data05:3105": "a", "data05:8001": "b" });
+    expect([...nodes]).toEqual(["data05"]);
+    expect(nodes.has("data03")).toBe(false); // scout 미배포 노드 → 배지 대상 아님
   });
 });

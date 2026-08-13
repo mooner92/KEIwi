@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { getWikiDir } from "@/config/env";
+import { WikiGraph } from "./wiki-graph";
 import {
   listWikiPages,
   readWikiPage,
   type WikiBlock,
   type WikiSpan,
 } from "@/lib/wiki";
+
+/**
+ * 그래프 뷰의 가상 슬러그. 생성기 슬러그 문자집합에 밑줄이 포함되어 이론상 같은 이름의
+ * 디렉터리와 충돌할 수 있고 그때는 그래프가 우선한다 — 실플릿에 `__graph__` 디렉터리는
+ * 없으며, 생긴다면 여기가 아니라 생성기에서 접두어를 바꿔 풀어야 한다.
+ */
+const GRAPH_SLUG = "__graph__";
 
 /**
  * 플릿 위키 — 서버·계정·프로젝트 문서 뷰 (specs/fleet-wiki §5, P1).
@@ -84,12 +92,25 @@ export function WikiView({ pageSlug }: { pageSlug?: string }) {
   if (listing === null) return <Empty dir={dir} />;
 
   const slug = pageSlug || listing.find((p) => p.kind === "servers")?.slug || "index";
-  const page = readWikiPage(dir, slug);
+  const isGraph = slug === GRAPH_SLUG;
+  const page = isGraph ? null : readWikiPage(dir, slug);
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[240px_1fr]">
       {/* 좌 — 문서 트리(서버→계정→프로젝트) */}
       <nav aria-label="위키 문서" className="min-h-0 overflow-y-auto rounded-lg border border-border bg-surface">
+        <Link
+          href={`/wiki?page=${GRAPH_SLUG}`}
+          aria-current={isGraph ? "page" : undefined}
+          className={[
+            "block border-b border-border px-3 py-1.5 text-sm",
+            isGraph
+              ? "bg-surface-2 font-semibold text-ink"
+              : "text-ink-muted hover:bg-surface-2 hover:text-ink",
+          ].join(" ")}
+        >
+          그래프 보기
+        </Link>
         {(["servers", "accounts", "projects"] as const).map((kind) => {
           const items = listing.filter((p) => p.kind === kind);
           if (items.length === 0) return null;
@@ -122,9 +143,11 @@ export function WikiView({ pageSlug }: { pageSlug?: string }) {
         })}
       </nav>
 
-      {/* 우 — 문서 본문 */}
+      {/* 우 — 문서 본문(또는 그래프) */}
       <article className="min-h-0 overflow-y-auto rounded-lg border border-border bg-surface px-4 py-3">
-        {page ? (
+        {isGraph ? (
+          <WikiGraph listing={listing} />
+        ) : page ? (
           <>
             <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2 text-2xs text-ink-subtle">
               <span className="rounded-sm border border-border bg-surface-2 px-1 py-px font-medium">

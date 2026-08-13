@@ -143,3 +143,52 @@ export function listWikiPages(dir: string): WikiListing | null {
   }
   return out;
 }
+
+/**
+ * (node:port) → 프로젝트 문서 슬러그 색인 — 서비스 탭이 포트 행을 위키 문서로 잇는다(P2).
+ * 디렉터리가 없으면 null("위키 미생성"에서는 미등록 배지를 만들지 않는다 — 위키가 없는데
+ * 전 포트에 미등록을 칠하면 배지가 소음이 되고, 배지의 신호 가치는 기준선이 있을 때만 있다).
+ */
+export function wikiPortIndex(dir: string): Record<string, string> | null {
+  const d = path.join(dir, "projects");
+  let names: string[] = [];
+  try {
+    names = fs.readdirSync(d).filter((n) => n.endsWith(".md"));
+  } catch {
+    return null;
+  }
+  const out: Record<string, string> = {};
+  for (const n of names) {
+    try {
+      const page = parseWikiMd(n.slice(0, -3), fs.readFileSync(path.join(d, n), "utf8"));
+      const ports: unknown = JSON.parse(page.meta.ports ?? "[]");
+      if (!page.meta.node || !Array.isArray(ports)) continue;
+      for (const p of ports) out[`${page.meta.node}:${p}`] = page.slug;
+    } catch {
+      /* 깨진 문서 하나가 색인 전체를 막지 않는다 */
+    }
+  }
+  return out;
+}
+
+/**
+ * 색인이 커버하는 노드 집합 — "미등록" 배지는 이 집합 안에서만 유효하다. scout가 아직
+ * 배포되지 않은 노드의 포트까지 미등록으로 칠하면 플릿 뷰가 배지 도배가 된다
+ * (실측: data05만 수집된 상태에서 data03·data04 전 행에 배지 431회 — 2026-08-13).
+ */
+export function wikiCoveredNodes(index: Record<string, string>): Set<string> {
+  return new Set(Object.keys(index).map((k) => k.slice(0, k.lastIndexOf(":"))));
+}
+
+/**
+ * 슬러그의 부모 — 그래프 간선(project→account→server)을 슬러그 구조에서 결정론으로 만든다
+ * (순수 — 테스트 대상). 생성기 슬러그 규약: server / server--owner / server--owner--name.
+ * 한계: owner에 연속 특수문자가 있으면 "--"가 생겨 오분해될 수 있다 — 생성기 slug()가
+ * 문자 단위 치환이라 현 플릿 계정명에서는 발생하지 않는다(발생 시 생성기에서 접어야 한다).
+ */
+export function parentSlug(kind: string, slug: string): string | null {
+  const parts = slug.split("--");
+  if (kind === "projects") return parts.slice(0, 2).join("--");
+  if (kind === "accounts") return parts[0] ?? null;
+  return null;
+}
