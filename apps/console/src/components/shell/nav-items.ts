@@ -14,6 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
 // /about(소개)·/changelog(패치노트)는 사이드바 푸터에서 진입한다 — 주 내비는 관제 작업 흐름만 담는다.
 const HIDDEN_ROUTES: NavItem[] = [
   { href: "/graph", label: "코드 그래프" },
+  { href: "/wiki", label: "플릿 위키" },
   { href: "/incidents", label: "어시스턴트" },
   { href: "/about", label: "소개" },
   { href: "/changelog", label: "패치노트" },

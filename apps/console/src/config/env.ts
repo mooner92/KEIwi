@@ -194,3 +194,12 @@ export function getCodeGraphHtml(): string {
     .default("../../graphify-out/graph.html")
     .parse(process.env.CODE_GRAPH_HTML);
 }
+
+/**
+ * WIKI_DIR — fleet-wiki 산출물 디렉터리(specs/fleet-wiki §4). 비밀 아님, 기본값 있음.
+ * 산출물은 실계정·경로를 담으므로 레포 밖에 산다 — 없으면 /wiki가 "미생성"으로 정직하게
+ * 안내할 뿐 콘솔은 정상 동작한다(throw하지 않는다).
+ */
+export function getWikiDir(): string {
+  return z.string().min(1).default("/data/keiwi/wiki").parse(process.env.WIKI_DIR);
+}

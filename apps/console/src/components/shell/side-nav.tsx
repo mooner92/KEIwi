@@ -77,6 +77,12 @@ export function SideNav() {
         >
           코드 그래프
         </Link>
+        <Link
+          href="/wiki"
+          className="w-fit text-ink-muted underline underline-offset-2 hover:text-ink"
+        >
+          플릿 위키
+        </Link>
         <div>
           <p className="tnum">환경 · data05</p>
           <p>KEIwi · M1</p>
