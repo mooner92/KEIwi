@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Breadcrumb } from "@/components/shell/breadcrumb";
 import { PageHeader } from "@/components/shell/page-header";
 import {
@@ -56,8 +57,36 @@ function groupByDateDesc(entries: ChangelogEntry[]): [string, ChangelogEntry[]][
   return [...map.entries()].sort(([a], [b]) => (a < b ? 1 : -1));
 }
 
-export default function ChangelogPage() {
-  const groups = groupByDateDesc(CHANGELOG);
+/** `?type=`·`?scope=`로 항목을 걸러 본다 — 탭과 같은 이유로 **URL이 상태를 소유**한다
+ *  (클라이언트 상태였다면 하이드레이션이 죽는 순간 필터도 통째로 죽는다 — 이 콘솔이
+ *  세 번 겪은 실패모드). 링크라 JS 없이 동작하고, 필터된 화면을 그대로 공유할 수 있다. */
+export default async function ChangelogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string; scope?: string }>;
+}) {
+  const params = await searchParams;
+  // 검증: 알려진 타입·실존 scope만 인정 — 임의 값은 조용히 무필터로(오타가 빈 화면을 만들지 않게)
+  const typeFilter = TYPE_ORDER.includes(params.type as ChangelogType)
+    ? (params.type as ChangelogType)
+    : null;
+  const scopes = [...new Set(CHANGELOG.map((e) => e.scope))].sort();
+  const scopeFilter = scopes.includes(params.scope ?? "") ? (params.scope as string) : null;
+  const filtered = CHANGELOG.filter(
+    (e) => (!typeFilter || e.type === typeFilter) && (!scopeFilter || e.scope === scopeFilter),
+  );
+  /** 현재 필터에서 한 축만 바꾼 href — 나머지 축은 보존한다(탭의 hrefFor와 같은 규약). */
+  const hrefFor = (next: { type?: ChangelogType | null; scope?: string | null }) => {
+    const q = new URLSearchParams();
+    const ty = next.type === undefined ? typeFilter : next.type;
+    const sc = next.scope === undefined ? scopeFilter : next.scope;
+    if (ty) q.set("type", ty);
+    if (sc) q.set("scope", sc);
+    const s = q.toString();
+    return s ? `/changelog?${s}` : "/changelog";
+  };
+
+  const groups = groupByDateDesc(filtered);
   const first = CHANGELOG[0]?.date ?? "";
   // 범위 끝은 **데이터에서** 계산한다. 스냅샷 날짜를 쓰면 이후 릴리스 항목을 추가할 때마다
   // 헤더만 과거에 멈춰(항목은 최신인데 기간은 08-03) 화면이 스스로 모순된다.
@@ -87,22 +116,47 @@ export default function ChangelogPage() {
         <p className="tnum text-sm text-ink-muted">
           커밋 {CHANGELOG_META.surveyedCommits}건 · 항목 {CHANGELOG.length}건
         </p>
-        <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {typeCounts.map(([t, n]) => (
-            <li key={t} className="flex items-center gap-1 text-2xs">
-              <span
-                className={`rounded-sm border px-1 py-px font-medium ${TYPE_BADGE[t]}`}
-              >
-                {t}
-              </span>
-              <span className="tnum text-ink-subtle">{n}</span>
-            </li>
-          ))}
+        <ul className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {typeCounts.map(([t, n]) => {
+            const active = typeFilter === t;
+            return (
+              <li key={t} className="flex items-center gap-1 text-2xs">
+                {/* 클릭=필터, 다시 클릭=해제(토글). 활성은 색이 아니라 테두리·굵기로 */}
+                <Link
+                  href={hrefFor({ type: active ? null : t })}
+                  aria-pressed={active}
+                  className={[
+                    "rounded-sm border px-1 py-px font-medium transition-colors",
+                    TYPE_BADGE[t],
+                    active ? "border-ink font-semibold text-ink" : "hover:border-border-strong",
+                  ].join(" ")}
+                >
+                  {t}
+                </Link>
+                <span className="tnum text-ink-subtle">{n}</span>
+              </li>
+            );
+          })}
         </ul>
+        {(typeFilter || scopeFilter) && (
+          <p className="flex items-center gap-2 text-2xs text-ink-muted">
+            필터: <span className="font-medium text-ink">{[typeFilter, scopeFilter].filter(Boolean).join(" · ")}</span>
+            <span className="tnum">{filtered.length}건</span>
+            <Link href="/changelog" className="underline underline-offset-2 hover:text-ink">
+              전체 보기
+            </Link>
+          </p>
+        )}
       </section>
 
       {/* 날짜 내림차순 타임라인 */}
       <div className="flex flex-col gap-5">
+        {groups.length === 0 && (
+          <p className="rounded-lg border border-dashed border-border bg-surface px-3 py-6 text-center text-sm text-ink-subtle">
+            이 필터에 해당하는 항목이 없습니다 —{" "}
+            <Link href="/changelog" className="underline underline-offset-2">전체 보기</Link>
+          </p>
+        )}
         {groups.map(([date, entries]) => (
           <section key={date} aria-labelledby={`d-${date}`} className="flex flex-col gap-2">
             <div className="flex items-baseline gap-2 border-b border-border pb-1.5">
@@ -122,12 +176,18 @@ export default function ChangelogPage() {
                   ].join(" ")}
                 >
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span
-                      className={`rounded-sm border px-1.5 py-px text-2xs font-medium ${TYPE_BADGE[e.type]}`}
+                    <Link
+                      href={hrefFor({ type: typeFilter === e.type ? null : e.type })}
+                      className={`rounded-sm border px-1.5 py-px text-2xs font-medium hover:border-border-strong ${TYPE_BADGE[e.type]}`}
                     >
                       {e.type}
-                    </span>
-                    <span className="text-2xs text-ink-subtle">{e.scope}</span>
+                    </Link>
+                    <Link
+                      href={hrefFor({ scope: scopeFilter === e.scope ? null : e.scope })}
+                      className="text-2xs text-ink-subtle underline-offset-2 hover:text-ink hover:underline"
+                    >
+                      {e.scope}
+                    </Link>
                     <span className="ml-auto tnum text-2xs text-ink-subtle">
                       {e.shas.join(" · ")}
                     </span>
