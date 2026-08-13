@@ -11,6 +11,7 @@
 ## [Unreleased]
 
 ### Added
+- **서비스 탭 ↔ 플릿 위키** — 포트 행에 '위키' 문서 링크, 커버 노드 한정 '미등록' 배지(미커버 노드까지 칠하면 배지 431회 도배 — 실측 후 37회로). `/wiki` 그래프 보기: 서버→계정→프로젝트 3컬럼 SVG, 간선은 슬러그 구조에서 결정론 유도(신규 의존성 0).
 - **코드 그래프 `/graph`** — graphify(`extract --code-only`) AST 산출물을 파일 단위 의존 그래프로 시각화. LLM 호출 0·egress 0·신규 npm 의존성 0, 서버 렌더 SVG라 JS 없이도 보인다. 배치는 해바라기(연결 많은 파일이 중심) — 커뮤니티 원형 배치는 이 레포 규모에서 커뮤니티가 80개로 쪼개져 그림이 뭉개져 폐기했다.
 - **어시스턴트 ollama 백엔드** — `VLLM_BACKEND`(openai|ollama). ollama의 OpenAI 호환 레이어는 thinking을 끌 수 없어 reasoning 모델 응답이 빈 채로 잘린다(실측) → 네이티브 `/api/chat` + `think:false`만 동작.
 - **서버 fetch 타임아웃** — `lib/http.ts`에 데이터원별 상한(Prometheus 5s·OpenSearch 10s·LLM 180s). 상한이 없어 어시스턴트가 전역 429로 잠길 수 있었다(동시 1요청 제한).
