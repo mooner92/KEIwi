@@ -29,8 +29,11 @@ Grafana는 프로비저닝 YAML 전체에서 `$VAR`/`${VAR}`를 환경변수로 
 게이트(레포, fleet-hardening 축5 레지스트리에 등록 후보):
 
 ```bash
-# scripts/gates/check-alerting-escapes.sh — alerting 프로비저닝 4파일 대상
-# 통과: 이스케이프 안 된 `$영문` 0건 ($$·$__env 제외)
+# scripts/gates/check-grafana-templates.py — alerting 프로비저닝 4파일 대상
+# ⚠️ 필드마다 규칙이 **반대**다(Grafana 13.0.1 실측 2026-08-14):
+#   labels      → `$$labels` (env 보간이 삼키므로 이스케이프 필요)
+#   annotations → `$labels`  (이스케이프가 안 풀려 Go 템플릿이 거부 → 본문 없는 알림)
+# grep 한 줄로는 이 비대칭을 볼 수 없어 파서 게이트가 소유한다(구 check-alerting-escapes.sh 대체).
 grep -nE '\$[a-zA-Z]' infra/monitoring/grafana/provisioning/alerting/*.yaml \
   | grep -v '\$\$' | grep -v '\$__env{' && exit 1 || exit 0
 ```
@@ -154,7 +157,7 @@ text: '{{ template "keiwi.text" . }}'
 | **AC-E1-4** | `grep -c '92°C' alert-rules.yaml` + `grep -c '85°C'` | ≥1 / 0 (dev 기준) |
 | **AC-E1-5** `[server]` | templates.yaml 복사 후 `docker logs grafana 2>&1 \| grep -i 'provision.*err'` + `curl …/api/v1/provisioning/templates` | 에러 0 + `keiwi-slack` 존재 (기동 실패 전례: inhibitionRules 사고 [실측]) |
 | **AC-E1-6** `[server]` | 테스트 발화(임계 임시 하향 또는 Test notification) → Slack 실메시지 | ① 현재값 % ② 마운트 ③ 시작 KST ④ 침묵 링크 4종 확인 + 스크린샷 |
-| **AC-E1-7** | `bash scripts/gates/check-alerting-escapes.sh` (§0.2) | rc=0 — 4파일 전체, 재발 방지 게이트 |
+| **AC-E1-7** | `python3 scripts/gates/check-grafana-templates.py` (§0.2) | rc=0 — 4파일 전체. 양방향 역증명(annotations `$$` 훼손 → G1 / labels 단일 `$` 훼손 → G2) |
 
 ### 1.5 위험
 

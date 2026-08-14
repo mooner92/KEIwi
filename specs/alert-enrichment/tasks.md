@@ -41,7 +41,7 @@
 - [x] **T-E1-3** (M) `templates.yaml` 신설(keiwi.title/alert/text — `$` 문자 0개 형태 유지) + `contact-points.yaml` title/text를 `{{ template … }}` 호출로 교체(2채널 중복 제거). 로컬 Grafana 컨테이너 프로비저닝 스모크 포함(기동 실패 전례 — inhibitionRules). **선행: T-E1-1.** 검증: AC-E1-5
 - [x] **T-E1-4** (S) `notification-policies.yaml` warning 라우트 group_by `[alertname]`→`[alertname, node]` + 파일 상단 "스레딩 불가" 주석에 E3 예고 각주. 되돌리기 조건(2주 리뷰에서 메시지 수 과다) 주석 명기. **선행: T-E1-1.** 검증: AC-E1-2와 함께 적용 후 확인
 - [ ] **T-E1-5** `[server]` (S) 라이브 적용 — 4파일 복사(§11) → Grafana 프로비저닝 리로드 → AC-E1-2(API 실측)·AC-E1-3(미리보기, [검증 필요] 3건 일괄 확정)·AC-E1-6(테스트 발화 스크린샷). 미리보기 실패 항목은 spec §1.2 폴백 표기로 수정 후 재커밋. **선행: T-E1-1~4.** 검증: AC-E1-2·3·5·6
-- [x] **T-E1-6** (S) 게이트 `scripts/gates/check-alerting-escapes.sh` 작성(spec §0.2) + W1 브랜치(chore/gate-toolchain)에 이스케이프 픽스 반영(24곳) + fleet-hardening 축5 게이트 레지스트리 등록 제안 노트. **선행: T-E1-1.** 검증: AC-E1-1(W1분)·AC-E1-7
+- [x] **T-E1-6** (S) 게이트 `scripts/gates/check-grafana-templates.py`(2026-08-14 `check-alerting-escapes.sh` 대체 — 필드 비대칭을 grep이 못 봤다) 작성(spec §0.2) + W1 브랜치(chore/gate-toolchain)에 이스케이프 픽스 반영(24곳) + fleet-hardening 축5 게이트 레지스트리 등록 제안 노트. **선행: T-E1-1.** 검증: AC-E1-1(W1분)·AC-E1-7
 
 ## E2 — 딥링크
 
