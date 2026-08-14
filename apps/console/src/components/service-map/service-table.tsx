@@ -9,6 +9,8 @@ import {
 } from "@/lib/prometheus";
 import { loadInventory } from "@/lib/inventory";
 import { isGpuProbeSuspect } from "@/lib/model-ops";
+import { wikiCoveredNodes, wikiPortIndex } from "@/lib/wiki";
+import { getWikiDir } from "@/config/env";
 import { endpointLabel } from "@/config/known-endpoints";
 
 const gib = (b: number) => `${(b / 1024 ** 3).toFixed(1)} GiB`;
@@ -32,6 +34,12 @@ export async function ServiceTable({ node }: { node?: string }) {
   } catch {
     ports = [];
   }
+
+  // (P2) 포트 → 위키 문서 색인. null = 위키 미생성 — 그때는 배지를 만들지 않는다.
+  // "미등록" 배지는 **위키가 커버하는 노드에서만** 단다 — scout 미배포 노드까지 칠하면
+  // 배지 도배가 되어 신호 가치가 0이다(wikiCoveredNodes 주석의 실측).
+  const portDocs = wikiPortIndex(getWikiDir());
+  const wikiNodes = portDocs ? wikiCoveredNodes(portDocs) : new Set<string>();
 
   // 모델 0건이 "유휴"인지 "수집 실패"인지 가른다. gpu-model-exporter는 nvidia-smi에 의존해
   // 드라이버 커널↔유저스페이스 불일치 시 조용히 0건이 되는데, DCGM은 커널모듈 값을 읽어
@@ -145,11 +153,14 @@ export async function ServiceTable({ node }: { node?: string }) {
             {ports.map((p, i) => {
               const known = endpointLabel(p.port);
               const q = `${p.node || node || ""} ${p.process} 포트 ${p.port} 최근 상태`.trim();
+              // (P2) 위키 매칭 — 문서가 있으면 링크, 커버 노드의 비매칭만 "미등록".
+              const rowNode = p.node || node || "";
+              const wikiSlug = portDocs?.[`${rowNode}:${p.port}`];
               return (
-                <li key={`${p.proto}-${p.port}-${p.pid}-${i}`}>
+                <li key={`${p.proto}-${p.port}-${p.pid}-${i}`} className="flex items-stretch">
                   <Link
                     href={`/incidents?q=${encodeURIComponent(q)}`}
-                    className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-surface-2"
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-surface-2"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <NodeBadge n={p.node} />
@@ -160,6 +171,14 @@ export async function ServiceTable({ node }: { node?: string }) {
                       {p.user !== "unknown" ? (
                         <span className="tnum shrink-0 text-xs text-ink-subtle">{p.user}</span>
                       ) : null}
+                      {!wikiSlug && wikiNodes.has(rowNode) ? (
+                        <span
+                          className="shrink-0 rounded-sm border border-dashed border-border px-1 text-2xs text-ink-subtle"
+                          title="플릿 위키에 문서가 없는 포트 — 새로 열렸거나 문서화 누락(specs/fleet-wiki §5)"
+                        >
+                          미등록
+                        </span>
+                      ) : null}
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
                       {known ? <span className="text-xs text-ink-subtle">{known}</span> : null}
@@ -168,6 +187,16 @@ export async function ServiceTable({ node }: { node?: string }) {
                       </span>
                     </span>
                   </Link>
+                  {wikiSlug ? (
+                    // 형제 앵커 — 행 링크(어시스턴트) 안에 중첩하지 않는다(HTML 유효성).
+                    <Link
+                      href={`/wiki?page=${encodeURIComponent(wikiSlug)}`}
+                      className="flex shrink-0 items-center border-l border-border-subtle px-2.5 text-2xs text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
+                      title={`위키 문서: ${wikiSlug}`}
+                    >
+                      위키
+                    </Link>
+                  ) : null}
                 </li>
               );
             })}

@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
   // OpenTelemetry는 Sentry SDK가 서버 계측에 쓴다. 번들링하면 런타임에 깨진다.
   serverExternalPackages: ["@opentelemetry/api"],
 
+  // Next dev 표시기(좌하단 "N" 배지)를 숨긴다.
+  //
+  // 왜: 3106을 화면 검토·스크린샷에 그대로 쓰는데, 배지가 사이드바 푸터(환경·버전 표기)를
+  // 덮어 그 자리를 볼 수 없다. dev 전용 UI라 프로덕션(3105)에는 애초에 없다 — 즉 끄더라도
+  // 잃는 정보가 없고, 오히려 dev 화면이 프로덕션과 같아져 검토 결과를 그대로 신뢰할 수 있다.
+  devIndicators: false,
+
   turbopack: {
     // 워크스페이스 루트를 이 앱 디렉터리로 못 박는다.
     //
