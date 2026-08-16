@@ -7,15 +7,16 @@
 
 ## P0 — 재발화 강등 (spec C1)
 
-- [ ] **T0-1** (S) `CooldownStore` — 지문별 마지막 채널 게시 시각. `ThreadStore`의 sqlite+메모리
-      2티어 패턴을 그대로 따른다(DB 죽어도 발송 지속). 검증: AC-5
-- [ ] **T0-2** (S) 강등 분기 — 억제창 안이면 새 메시지 대신 스레드 답글. 답글 본문에
+- [x] **T0-1** (S) ~~`CooldownStore`~~ → **신규 스토어가 필요 없었다.** `threads` 테이블에
+      `last_seen` 이 이미 있어 억제창 판정에 그대로 쓰고, 컬럼 하나(`repeat_count`)만 더했다.
+      `ThreadStore` 의 sqlite+메모리 2티어가 그대로 적용된다(DB 죽어도 발송 지속). 검증: AC-5
+- [x] **T0-2** (S) 강등 분기 — 억제창 안이면 새 메시지 대신 스레드 답글. 답글 본문에
       **"N회째 (최초 HH:MM)"** — 5회째와 1회째는 다른 정보다. 검증: AC-1
-- [ ] **T0-3** (S) `severity: critical` 예외 — 억제창 무시. 검증: AC-4
-- [ ] **T0-4** (S) `RELAY_COOLDOWN_SEC`(기본 1800) env + README §설정 표 갱신.
+- [x] **T0-3** (S) `severity: critical` 예외 — 억제창 무시. 검증: AC-4
+- [x] **T0-4** (S) `RELAY_COOLDOWN_SEC`(기본 1800) env + README §설정 표 갱신.
       **`RELAY_DEDUP_WINDOW_SEC`(배달 중복, 300초)와 혼동 금지** — 이름이 비슷하고 의미가
       다르므로 README에 두 줄을 나란히 놓고 차이를 적는다
-- [ ] **T0-5** (S) 유닛 — 억제창 경계(창 안/밖/정확히 경계), critical 예외, DB 부재 폴백
+- [x] **T0-5** (S) 유닛 — 억제창 경계(창 안/밖/정확히 경계), critical 예외, DB 부재 폴백 — 6건(AC-1·4 · 창 만료 · 스위치 off · DB 실패 · 혼합 그룹)
 
 ## P1 — 사건 상관 (spec C2·C3)
 

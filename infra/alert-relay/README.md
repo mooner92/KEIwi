@@ -112,6 +112,17 @@ docker exec grafana wget -qO- http://host.docker.internal:8130/healthz || \
 > ⚠️ 순서를 지켜라. 수신처가 없는데 라우트를 먼저 켜면 프로비저닝이 실패하고
 > **Grafana가 뜨지 않는다**(inhibitionRules로 이미 겪은 사고 유형).
 
+### ⚠️ 이름이 비슷한 env 두 개 (혼동 주의)
+
+| env | 무엇을 막나 | 기본 |
+| --- | --- | --- |
+| `RELAY_DEDUP_WINDOW_SEC` | **같은 배달이 두 번 오는 것** — Grafana 웹훅 재전송·재시도 | 300 |
+| `RELAY_COOLDOWN_SEC` | **같은 사건이 계속 재통지되는 것** — 창 안이면 스레드 답글로 강등 | 1800 |
+
+둘은 다른 문제를 푼다. 전자가 없으면 한 번의 발화가 여러 메시지가 되고, 후자가 없으면
+한 사건이 몇 시간 동안 채널을 채운다. 강등은 **보수적**이다 — 그룹에 새 알림이 섞였거나
+`severity: critical` 이면 접지 않는다(spec `alert-correlation` §C4).
+
 ## L2 설치 (사람, 헌장 §11 — `[server]` T2-10)
 
 > **먼저 읽어라: [ADR-0026](../../docs/decisions/0026-auto-remediation-ladder.md).**
@@ -248,6 +259,8 @@ print(ar.build_slack_payload("#keiwi-relay-test", ar.render_attribution_reply(d,
 | 답글이 안 붙는다 | `journalctl -u keiwi-alert-relay -n 100` — 어시스턴트 429/502 재시도·수집기 미배포는 전부 로그에 남는다(Slack에는 안 남긴다) |
 | 스레드가 갈린다 | `sqlite3 /data/alert-relay/threads.db 'select * from threads order by last_seen desc limit 5'` |
 | 보강만 끄고 싶다 | env `RELAY_ENRICH=0` → restart. 1차 전달만 남는다 |
+| 같은 알림이 채널에 반복된다 | 정상이 아니다 — 재발화는 스레드 답글로 접힌다(`🔁 재발화 N회째`). `curl -s localhost:8130/healthz` 의 `demoted` 가 0이면 강등이 안 걸린 것이다 |
+| 재발화 강등을 끄고 싶다 | env `RELAY_COOLDOWN_SEC=0` → restart. 종전 동작(항상 최상위)으로 돌아간다 |
 | 되돌린다 | [docs/runbooks/alert-relay-rollback.md](../../docs/runbooks/alert-relay-rollback.md) — 파일 1개 복사(<5분) |
 
 ## 알려진 한계 (정직하게)
