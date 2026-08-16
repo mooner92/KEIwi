@@ -36,6 +36,7 @@
 | [sre-addons](../specs/sre-addons/backlog.md) | SRE 추가 기능 백로그(리서치 — 착수는 선택 후) | 후보 |
 | [fleet-hardening](../specs/fleet-hardening/README.md) | 운영 부채 5축 교정(정합성·SMART·런북·전력·CI) | 🔄 58/83 |
 | [alert-enrichment](../specs/alert-enrichment/README.md) | 알림 보강(현재값·딥링크·LLM 분석·귀속) | ✅ E1·E2 라이브 |
+| [alert-correlation](../specs/alert-correlation/spec.md) | 알림 상관(재발화 강등·사건 객체) | 📎 초안(E3 컷오버 선행) |
 | [auto-remediation](../specs/auto-remediation/README.md) | 자율 사다리 L0~L4 · 조치 제안 | ✅ L1 · L2~ 게이트 |
 | [external-watchdog](../specs/external-watchdog/README.md) | 사이트 전체 침묵 감시(L4 외부) | 📎 제안(ADR 대기) |
 | [model-ops](../specs/model-ops/spec.md) | 모델 서빙 가시화 · VRAM 사전판정 · 기동/정지 | 📎 초안(Q1~Q4 대기) |
