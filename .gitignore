@@ -30,3 +30,6 @@ infra/logging/filebeat-xenial/filebeat-*-linux-*/
 # RAG venv (uv 격리 환경 — requirements.lock로 재현)
 infra/rag/.venv/
 skills-lock.json
+
+# 운영 실값 오버레이 — 공개 저장소엔 자리표시자만 둔다(docs/inventory.yaml 배너 참조)
+*.local.yaml

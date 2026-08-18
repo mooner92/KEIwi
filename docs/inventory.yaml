@@ -1,3 +1,12 @@
+# ⚠️ 이 파일은 **공개용 자리표시자**다 — 실제 값이 아니다.
+#
+# 이 저장소는 공개돼 있고 프로덕션 체크아웃과 같은 트리다. 그래서 IP·호스트명은
+# RFC 5737 TEST-NET-1(192.0.2.0/24)과 일반화한 이름으로 바꿔 두었다.
+# 운영 노드는 같은 디렉터리의 `inventory.local.yaml`(git 제외)을 두며,
+# 로더가 그 파일이 있으면 **자동으로 그쪽을 쓴다**(apps/console/src/lib/inventory.ts).
+# 노드 id(data01~05)는 그대로다 — 문서·런북·알림이 전부 id 로 서술되고,
+# id 자체는 어떤 조직에나 있을 수 있는 일반 이름이라 가릴 실익이 없다.
+#
 # docs/inventory.yaml — 플릿 단일 기준 (source of truth)
 #
 # 헌장 §0의 노드 맵을 옮긴 것. service discovery·온보딩의 단일 기준이며,
@@ -7,60 +16,60 @@
 # 실제 값은 확정 시 이 파일에서 갱신한다. (확인 필요)
 nodes:
   - id: data01                 # 안정적 식별자 (변하지 않음)
-    ip: 192.168.1.101
-    hostname: "DataLX01"       # node_uname_info 확인(2026-07-24 온보딩)
+    ip: 192.0.2.11
+    hostname: "data01-host"       # node_uname_info 확인(2026-07-24 온보딩)
     os: ubuntu                 # 16.04 xenial(EOL) — py3.6, glibc 2.23. filebeat는 8.x apt 불가 → 7.17 벤더링
     role: target
     gpu: "Tesla M4 x1"         # 4GB, 드라이버 418 → DCGM 불가(gpu-model-exporter만·카드 배지는 gpu-model 폴백)
     driver: "418.39"           # 실측(T0-9) — legacy 예외(ADR-0020 예정), DCGM 불가
     kernel_module: proprietary
     exporters:                 # dcgm 없음(드라이버 418). 로그: filebeat 7.17 벤더링(infra/logging/filebeat-xenial).
-      node: "192.168.1.101:9100"
+      node: "192.0.2.11:9100"
       # 로그 수집: journald → data05 Logstash(2026-07-24, fleet_node=data01). [logging] 그룹 미포함(apt role은 xenial 불가).
 
   - id: data02
-    ip: 192.168.1.102
+    ip: 192.0.2.12
     hostname: ""
     os: windows
     role: target
     gpu: null
     exporters:
-      windows: "192.168.1.102:9182"   # windows_exporter 기본 포트
+      windows: "192.0.2.12:9182"   # windows_exporter 기본 포트
 
   - id: data03
-    ip: 192.168.1.103
-    hostname: "datalx03"          # node_uname_info nodename 확인(2026-07-03)
+    ip: 192.0.2.13
+    hostname: "data03-host"          # node_uname_info nodename 확인(2026-07-03)
     os: ubuntu
     role: target
     gpu: "Quadro RTX 6000 x2"    # lspci TU102GL x2 확인(2026-07-03) — 드라이버 설치 후 dcgm 활성
     driver: "595.71.05"          # 실측(T0-9) — open 커널 모듈
     kernel_module: open
     exporters:
-      node: "192.168.1.103:9100"
-      dcgm: "192.168.1.103:9400"   # 직접 스크랩(터널 불필요) — data03 ufw .105→9400 허용
+      node: "192.0.2.13:9100"
+      dcgm: "192.0.2.13:9400"   # 직접 스크랩(터널 불필요) — data03 ufw .105→9400 허용
 
   - id: data04
-    ip: 192.168.1.104
-    hostname: "data04lx"          # node_uname_info nodename — Grafana var-nodename 드릴다운용
+    ip: 192.0.2.14
+    hostname: "data04-host"          # node_uname_info nodename — Grafana var-nodename 드릴다운용
     os: ubuntu
     role: target
     gpu: "Quadro RTX 6000 x2"    # 각 24GB (nvidia-smi 확인)
     driver: "535.309.01"         # 실측(T0-9) — 표준화(595.x) 대상: T6-3
     kernel_module: proprietary
     exporters:
-      node: "192.168.1.104:9100"
-      dcgm: "192.168.1.104:9400"   # DCGM exporter — data04에 설치 필요(아래 서버 단계) + 터널 9404
+      node: "192.0.2.14:9100"
+      dcgm: "192.0.2.14:9400"   # DCGM exporter — data04에 설치 필요(아래 서버 단계) + 터널 9404
 
   - id: data05
-    ip: 192.168.1.105
-    hostname: "efc20b3d818e"      # 실제 OS hostname(랜덤형) — hostnamectl로 정리 권장. 드릴다운 var-nodename용
+    ip: 192.0.2.15
+    hostname: "data05-host"      # 실제 OS hostname(랜덤형) — hostnamectl로 정리 권장. 드릴다운 var-nodename용
     os: ubuntu
     role: stack-host           # 개발(Claude Code) + 관제 스택 호스트
     gpu: "A40 x2"
     driver: "595.84"             # 실측 2026-08-06 — 재부팅으로 커널↔유저스페이스 정합(T0-4). modinfo license=NVIDIA
     kernel_module: proprietary   # ⚠️ data03(open)과 플레이버 상이 — 표준 플레이버는 ADR-0020(T6-1)에서 확정
     exporters:
-      node: "192.168.1.105:9100"
-      dcgm: "192.168.1.105:9400"
+      node: "192.0.2.15:9100"
+      dcgm: "192.0.2.15:9400"
       # smartctl(:9633) 복구·수집 재개(2026-07-31, ufw 해소 후) — SmartHealthFailed 알림 대상. 근거: specs/alerting/spec.md §2
       # 어시스턴트 vLLM 엔진(:8010)은 현재 정지 — 스크랩·알림 대상 제외(specs/alerting §2 "의도적 미포함")
