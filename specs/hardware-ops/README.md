@@ -121,7 +121,7 @@ SEL 용량: data03 120 entries / **46%**, data04 166 entries / **64%**, 최대 2
 |---|---|---|---|
 | C1 | **Slack 웹훅 = 외부 SaaS로 알림 텍스트 유출** | §I-1 온프레미스 only | ADR-0018로 **명시적 egress 예외 1건** 승인 + 나가는 필드 화이트리스트(alertname/severity/node/gpu/job만) 강제. `user`·`pid`·`cmdline` 금지. 상세는 링크로만. → spec §2.5 |
 | C2 | OpenSearch Alerting monitor를 쓰면 **알림 UI가 Grafana 밖에 하나 더 생긴다** | §I-2 단일 콘솔 | 채택하지 않는다. Grafana 알림 규칙이 `.opendistro-anomaly-results-history-*`를 조회하는 경로로 RCF를 재사용 → 라우팅 트리 단일 유지. → spec §2.7 |
-| C3 | BMC 관리망 결선·iLO IP 배정은 **되돌리기 어려운 물리·네트워크 변경** | §11 · §12 | P7로 완전 분리. 에이전트는 절대 손대지 않고 별도 ADR + 사람의 작업창. 기관망(gw 192.168.1.1은 우리 것이 아님)이라 IP는 협의 사항 |
+| C3 | BMC 관리망 결선·iLO IP 배정은 **되돌리기 어려운 물리·네트워크 변경** | §11 · §12 | P7로 완전 분리. 에이전트는 절대 손대지 않고 별도 ADR + 사람의 작업창. 기관망(gw 192.0.2.1은 우리 것이 아님)이라 IP는 협의 사항 |
 | C4 | out-of-band Redfish는 **BMC 크레덴셜이 생긴다** | §13 | 1차를 in-band(chif, 크레덴셜 0)로 택한 근거의 절반이 이것. 2차 승격 시 `.env`만, 레포 금지 |
 | C5 | `ipmitool`/`ilorest`는 **root 필요**(`/dev/ipmi0`·`/dev/hpilo` 모두 `crw------- root`) | §15 안전 | port-exporter·smartctl-exporter가 이미 root systemd 전례 → 정책적 신규성 0. 단 셸 출력 파싱이므로 입력 검증·타임아웃·**부분 실패 시 stale 값 노출 금지**를 코드 요구사항으로 명시 |
 | C6 | data01(Gen9)·data02(Windows)는 **하드웨어 관측 커버리지 밖** | §I-5 이기종 1급 | data01은 `/dev/ipmi0` 부재(modprobe = 사람) + Gen9/iLO4에서 DCMI 전력 미보고(0W) → **명시적 예외로 선언**하고 전력 합계에서 제외. data02는 대상 아님 |

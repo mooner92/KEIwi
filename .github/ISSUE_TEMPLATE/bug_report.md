@@ -28,9 +28,9 @@ assignees: ["mooner92"]
 
 ```bash
 # 예: 콘솔 헬스
-curl -s http://192.168.1.105:3105/api/health
+curl -s http://192.0.2.15:3105/api/health
 # 예: Prometheus 타깃 up 여부
-curl -s 'http://192.168.1.105:9090/api/v1/query?query=up'
+curl -s 'http://192.0.2.15:9090/api/v1/query?query=up'
 # 예: 로그 수집(OpenSearch) 최근 인입 확인
 ```
 
@@ -43,11 +43,11 @@ curl -s 'http://192.168.1.105:9090/api/v1/query?query=up'
 > [!NOTE]
 > 플릿 단일 기준: [`docs/inventory.yaml`](../../docs/inventory.yaml).
 
-- [ ] data01 (192.168.1.101 · Ubuntu 16.04 · Tesla M4)
-- [ ] data02 (192.168.1.102 · Windows)
-- [ ] data03 (192.168.1.103 · Ubuntu · Quadro RTX 6000 x2)
-- [ ] data04 (192.168.1.104 · Ubuntu · Quadro RTX 6000 x2)
-- [ ] data05 (192.168.1.105 · Ubuntu · 관제 스택 호스트 · A40 x2)
+- [ ] data01 (192.0.2.11 · Ubuntu 16.04 · Tesla M4)
+- [ ] data02 (192.0.2.12 · Windows)
+- [ ] data03 (192.0.2.13 · Ubuntu · Quadro RTX 6000 x2)
+- [ ] data04 (192.0.2.14 · Ubuntu · Quadro RTX 6000 x2)
+- [ ] data05 (192.0.2.15 · Ubuntu · 관제 스택 호스트 · A40 x2)
 - [ ] 노드 무관(콘솔/스택 자체)
 
 ## 영향 범위 · 긴급도

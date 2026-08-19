@@ -56,6 +56,7 @@
 | [0009](./decisions/0009-ansible-config-mgmt.md) | Ansible 설정관리 | [0022](./decisions/0022-error-tracking-glitchtip.md) | 에러 트래킹(GlitchTip) |
 | [0023](./decisions/0023-ci-pipeline.md) | CI 파이프라인 | [0024](./decisions/0024-physical-disk-smart-collection.md) | 물리 디스크 SMART 수집(textfile) |
 | [0025](./decisions/0025-alert-relay-webhook.md) | 웹훅 중계(alert-relay) | [0026](./decisions/0026-auto-remediation-ladder.md) | 자동 조치 사다리(L1 제안·L2 승인실행·L4 미채택) |
+| [ADR-0029](./decisions/0029-internal-network-info-in-public-repo.md) | 공개 저장소의 내부망 정보 — 자리표시자 전환(P5) |
 
 ## 🛠️ 런북 (`./runbooks/`)
 

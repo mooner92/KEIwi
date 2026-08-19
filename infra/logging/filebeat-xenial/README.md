@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | 설치 | ansible `filebeat` role, Elastic 8.x apt | **7.17.x 정적 바이너리 벤더링** |
 | 입력 | journald | journald (동일) |
-| 출력 | logstash 192.168.1.105:5044 | 동일 |
+| 출력 | logstash 192.0.2.15:5044 | 동일 |
 | 관리 | `[logging]` 그룹 + `playbooks/logging.yml` | systemd 유닛(수동/이 디렉터리) |
 | inventory | `[logging]`에 포함 | **미포함**(apt role이 xenial에서 깨지므로) |
 
@@ -31,15 +31,15 @@ cd /tmp
 curl -fSLO https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-${V}-linux-x86_64.tar.gz
 tar xzf filebeat-${V}-linux-x86_64.tar.gz
 
-# ② data01로 홈 + 설정 전송(포트 764)
+# ② data01로 홈 + 설정 전송(포트 <SSH_PORT>)
 #    계정은 레포에 적지 않는다(§13) — infra/ansible/README.md «노드 계정 주입»
-N=$KEIWI_USER_DATA01@192.168.1.101
-scp -P 764 -r filebeat-${V}-linux-x86_64 "$N:/tmp/filebeat-home"
-scp -P 764 /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.yml     "$N:/tmp/"
-scp -P 764 /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.service "$N:/tmp/"
+N=$KEIWI_USER_DATA01@192.0.2.11
+scp -P <SSH_PORT> -r filebeat-${V}-linux-x86_64 "$N:/tmp/filebeat-home"
+scp -P <SSH_PORT> /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.yml     "$N:/tmp/"
+scp -P <SSH_PORT> /KEIwi/infra/logging/filebeat-xenial/keiwi-filebeat.service "$N:/tmp/"
 
 # ③ data01에서 설치(사람, sudo)
-ssh -p 764 "$N" 'sudo sh -s' <<'EOF'
+ssh -p <SSH_PORT> "$N" 'sudo sh -s' <<'EOF'
 mkdir -p /opt/keiwi
 rm -rf /opt/keiwi/filebeat && mv /tmp/filebeat-home /opt/keiwi/filebeat
 install -m 0644 -o root -g root /tmp/keiwi-filebeat.yml /opt/keiwi/filebeat/keiwi.yml
@@ -53,7 +53,7 @@ EOF
 
 ```bash
 # 설정·출력 헬스체크(data01)
-ssh -p 764 "$KEIWI_USER_DATA01@192.168.1.101" \
+ssh -p <SSH_PORT> "$KEIWI_USER_DATA01@192.0.2.11" \
   '/opt/keiwi/filebeat/filebeat test config -c /opt/keiwi/filebeat/keiwi.yml --path.home /opt/keiwi/filebeat; \
    /opt/keiwi/filebeat/filebeat test output -c /opt/keiwi/filebeat/keiwi.yml --path.home /opt/keiwi/filebeat'
 # → Config OK / dial up... OK / talk to server... OK
@@ -67,5 +67,5 @@ curl -s 'localhost:9200/keiwi-logs-*/_count?q=fleet_node:data01'
 - **seek 정책이 핵심**: `cursor_seek_fallback: tail` 없으면 최초 실행에 journald **처음(head)**부터 읽어 3.8G 과거를 재적재 → OpenSearch·디스크 폭주. tail로 신규만.
 - data01 `/var/log/syslog`는 3.7GB로 비대하지만 **파일 입력이 아니라 journald**라 무관(과거 재적재 안 함).
 - journald 입력은 7.x에서 **experimental**(부팅 WARN 1줄) — 실측 안정 가동. 필드는 Logstash가 구형 `journald.*` 경로로 정규화(`logs.conf`).
-- 방화벽: 수신측 data05 ufw가 `192.168.1.0/24 → 5044` 허용(서브넷 전체) → data01 추가 규칙 불필요. 발신측 data01은 방화벽 없음.
+- 방화벽: 수신측 data05 ufw가 `192.0.2.0/24 → 5044` 허용(서브넷 전체) → data01 추가 규칙 불필요. 발신측 data01은 방화벽 없음.
 - 파이썬/iproute2 등 다른 xenial 제약은 [노드 온보딩 런북](../../../docs/runbooks/node-onboarding.md) 참고.

@@ -144,42 +144,42 @@ constitution §0의 노드 맵을 이 스키마로 옮긴다. **노드 추가/�
 # docs/inventory.yaml — 플릿 단일 기준 (source of truth)
 nodes:
   - id: data01                 # 안정적 식별자 (변하지 않음)
-    ip: 192.168.1.101
+    ip: 192.0.2.11
     hostname: ""               # 알면 채움
     os: ubuntu                 # ubuntu | windows
     role: target               # target | stack-host
     gpu: null                  # 예: "A40 x2" | null
     exporters:                 # 있는 것만. 포트는 기본값(확인 필요)
-      node: "192.168.1.101:9100"
+      node: "192.0.2.11:9100"
   - id: data02
-    ip: 192.168.1.102
+    ip: 192.0.2.12
     os: windows
     role: target
     gpu: null
     exporters:
-      windows: "192.168.1.102:9182"   # windows_exporter 기본 포트
+      windows: "192.0.2.12:9182"   # windows_exporter 기본 포트
   - id: data03
-    ip: 192.168.1.103
+    ip: 192.0.2.13
     os: ubuntu
     role: target
     gpu: null
     exporters:
-      node: "192.168.1.103:9100"
+      node: "192.0.2.13:9100"
   - id: data04
-    ip: 192.168.1.104
+    ip: 192.0.2.14
     os: ubuntu
     role: target
     gpu: null
     exporters:
-      node: "192.168.1.104:9100"
+      node: "192.0.2.14:9100"
   - id: data05
-    ip: 192.168.1.105
+    ip: 192.0.2.15
     os: ubuntu
     role: stack-host
     gpu: "A40 x2"
     exporters:
-      node: "192.168.1.105:9100"
-      dcgm: "192.168.1.105:9400"
+      node: "192.0.2.15:9100"
+      dcgm: "192.0.2.15:9400"
 ```
 
 > 포트(9100 node_exporter / 9182 windows_exporter / 9400 DCGM)는 표준 기본값이다. 실제 값은 확정 시 이 파일에서 갱신한다.

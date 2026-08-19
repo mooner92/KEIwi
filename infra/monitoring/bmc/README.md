@@ -19,7 +19,7 @@ SEL(System Event Log)은 BMC(iLO)가 OS와 무관하게 남기는 하드웨어 �
 수집 방법(읽기 전용):
 
 ```bash
-ssh -p 764 <user>@<ip> 'sudo ipmitool sel list' > sel-backfill/<node>-sel.txt
+ssh -p <SSH_PORT> <user>@<ip> 'sudo ipmitool sel list' > sel-backfill/<node>-sel.txt
 ```
 
 > [!NOTE]

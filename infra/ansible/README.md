@@ -9,7 +9,7 @@
 
 ```mermaid
 flowchart LR
-  CTL["control = data05<br/>ansible-playbook"] -->|"SSH 764 · become"| N["대상 노드"]
+  CTL["control = data05<br/>ansible-playbook"] -->|"SSH <SSH_PORT> · become"| N["대상 노드"]
   N --> FB["filebeat (journald)\n→ Logstash :5044"]
   N --> GM["gpu-model-exporter\n:9836 (GPU 노드)"]
   N --> PE["port-exporter\n:9986 (모든 노드)"]
@@ -28,7 +28,7 @@ flowchart LR
 | 경로 | 내용 |
 | --- | --- |
 | `ansible.cfg` | 실행 기본값 — inventory·roles 경로·`become=sudo`·SSH(`ansible_port` via inventory) |
-| `inventory.ini` | 대상: `[logging]`·`[gpu]`·`[nodes]` = **data03**(직접)·**data04**(터널)·**data05**(local) · `ansible_port=764` · `fleet_node` · 계정은 env 주입(아래 «노드 계정 주입») |
+| `inventory.ini` | 대상: `[logging]`·`[gpu]`·`[nodes]` = **data03**(직접)·**data04**(터널)·**data05**(local) · `ansible_port=<SSH_PORT>` · `fleet_node` · 계정은 env 주입(아래 «노드 계정 주입») |
 | `playbooks/logging.yml` | `filebeat` 역할 |
 | `playbooks/agents.yml` | `gpu-model-exporter`(GPU 노드) + `port-exporter`(모든 노드) 역할 |
 | `roles/filebeat/` | Elastic APT 설치 + `filebeat.yml.j2`(fleet_node·logstash 변수화) + enable |
@@ -38,11 +38,11 @@ flowchart LR
 ## 전제 (사람이 준비)
 
 1. **control = data05**(관제 스택 호스트)에서 실행. data05 자신은 `ansible_connection=local`.
-2. **대상 SSH(포트 764) 키 인증** — data05 공개키를 대상 계정에 등록:
+2. **대상 SSH(포트 <SSH_PORT>) 키 인증** — data05 공개키를 대상 계정에 등록:
    ```bash
-   ssh-copy-id -p 764 "$KEIWI_USER_DATA03@192.168.1.103"   # data03 (1회)
-   ssh-copy-id -p 764 "$KEIWI_USER_DATA04@192.168.1.104"   # data04 (1회)
-   ssh -p 764 "$KEIWI_USER_DATA04@192.168.1.104" true      # 무프롬프트 확인
+   ssh-copy-id -p <SSH_PORT> "$KEIWI_USER_DATA03@192.0.2.13"   # data03 (1회)
+   ssh-copy-id -p <SSH_PORT> "$KEIWI_USER_DATA04@192.0.2.14"   # data04 (1회)
+   ssh -p <SSH_PORT> "$KEIWI_USER_DATA04@192.0.2.14" true      # 무프롬프트 확인
    ```
    계정명은 노드마다 다르다 — 가정하지 말고 대상 노드에서 `ls /home`으로 먼저 확인한다.
 
@@ -63,7 +63,7 @@ flowchart LR
 4. **Ansible 설치**(data05): `sudo apt install -y ansible`. `ansible.builtin`만 사용(community 모듈 불필요).
 5. **로그용 ufw**(filebeat 대상 → data05:5044):
    ```bash
-   sudo ufw allow from 192.168.1.0/24 to any port 5044 proto tcp
+   sudo ufw allow from 192.0.2.0/24 to any port 5044 proto tcp
    ```
 
 ## 실행 (data05에서 — §11)
@@ -93,7 +93,7 @@ curl -s 'http://localhost:9200/keiwi-logs-*/_search?size=0' -H 'Content-Type: ap
   -d '{"aggs":{"by_node":{"terms":{"field":"fleet_node"}}}}' | python3 -m json.tool   # data03·04·05 버킷
 
 # GPU 모델 익스포터 (계정은 노드별 — «노드 계정 주입» 참고)
-ssh -p 764 "$KEIWI_USER_DATA03@192.168.1.103" 'systemctl is-active keiwi-gpu-model-exporter && curl -s localhost:9836/metrics | grep -m3 gpu_model_info'
+ssh -p <SSH_PORT> "$KEIWI_USER_DATA03@192.0.2.13" 'systemctl is-active keiwi-gpu-model-exporter && curl -s localhost:9836/metrics | grep -m3 gpu_model_info'
 ```
 
 ## 선택 파일 로그 (예: vLLM)

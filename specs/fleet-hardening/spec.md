@@ -437,14 +437,14 @@ groups:
 | **AC-1-2** | 드라이런이 4노드 전부에서 `failed=0`·`unreachable=0`이고 각 노드가 changed를 계획 | `cd infra/ansible && ansible-playbook -i inventory.ini playbooks/agents.yml --tags node-hygiene --check --diff -K 2>&1 \| tail -12` → PLAY RECAP에 data01·03·04·05 **4호스트**, 각 `changed>0`·`failed=0`·`unreachable=0`. (14행 안내 debug 태스크를 지웠으므로 `skipped`는 ARGS 주입 1건만 — data01·data05에서 `skipped=1`이 정상) ⚠️ **`-K`는 선택이 아니다** — `ansible.cfg`가 `become = True`·`become_ask_pass = False`이고 data05는 `ansible_connection=local` + `sudo -n` rc=1이라, 없이 돌리면 data05가 `sudo: a password is required`로 **`failed=1`**이 된다 [실측]. NOPASSWD인 data01·03·04는 입력값을 쓰지 않는다. hardware-ops **T0-6** 완료 후에는 `-K`를 뺀다(README §4.2.1). 비번을 `-e ansible_become_password=`로 넘기지 않는다(§13 — 프로세스 목록에 남는다) |
 | **AC-1-3** | 커버리지 갭 0 (현재 2) | `q 'fleet:node_hygiene_coverage:gap'` → `0` |
 | **AC-1-4** | 위생 수집기가 4노드 전부에서 보고 | `q 'count(node_hygiene_collector_last_run_timestamp_seconds)'` → `4` (배포 전 2) |
-| **AC-1-5** | data05에서 불일치가 **실제로 1로 탐지**된다 — hardware-ops T0-2의 기대치가 비로소 달성 가능해진다 | `q 'node_nvidia_version_mismatch{instance="192.168.1.105:9100"}'` → `1` · `node_nvidia_smi_ok` → `0` · `node_nvidia_smi_exit_code` → `18` (재부팅 전) |
-| **AC-1-6** | 정상 3노드 오탐 0 — 특히 NVML 경로가 다른 data01 | `q 'node_nvidia_version_mismatch{instance!="192.168.1.105:9100"}'` → 전부 `0` · `q 'count(node_nvidia_probe_ok == 1)'` → `4` |
+| **AC-1-5** | data05에서 불일치가 **실제로 1로 탐지**된다 — hardware-ops T0-2의 기대치가 비로소 달성 가능해진다 | `q 'node_nvidia_version_mismatch{instance="192.0.2.15:9100"}'` → `1` · `node_nvidia_smi_ok` → `0` · `node_nvidia_smi_exit_code` → `18` (재부팅 전) |
+| **AC-1-6** | 정상 3노드 오탐 0 — 특히 NVML 경로가 다른 data01 | `q 'node_nvidia_version_mismatch{instance!="192.0.2.15:9100"}'` → 전부 `0` · `q 'count(node_nvidia_probe_ok == 1)'` → `4` |
 | **AC-1-7** | 버전 라벨이 실측 매트릭스와 정확히 일치 | `q 'node_nvidia_kernel_module_version'` / `q 'node_nvidia_userspace_version'` → kernel .101=418.39 .103=595.71.05 .104=535.309.01 .105=595.71.05 / userspace .105만 **595.84** |
 | **AC-1-8** | 재부팅 대기가 3노드에서 관측(현재 .105 누락) | `q 'node_reboot_required == 1'` → .103·.104·.105 **3시리즈** (배포 전 2) |
-| **AC-1-9** | data01 apt 카운터 미수집(EOL 248건 노이즈 차단), 나머지 위생은 정상 | `q 'node_apt_upgrades_pending{instance="192.168.1.101:9100"}'` → EMPTY · `q 'node_hygiene_collector_last_run_timestamp_seconds{instance="192.168.1.101:9100"}'` → 1시리즈 |
+| **AC-1-9** | data01 apt 카운터 미수집(EOL 248건 노이즈 차단), 나머지 위생은 정상 | `q 'node_apt_upgrades_pending{instance="192.0.2.11:9100"}'` → EMPTY · `q 'node_hygiene_collector_last_run_timestamp_seconds{instance="192.0.2.11:9100"}'` → 1시리즈 |
 | **AC-1-10** | 레코딩 규칙이 유효하고 alert 키가 없다(헌장·파일 규약) | `bash scripts/gates/check-rules.sh --check infra/monitoring/rules/keiwi-hygiene-coverage.yml && test "$(grep -c '^[[:space:]]*- alert:' infra/monitoring/rules/keiwi-hygiene-coverage.yml)" = 0 && echo PASS` → `RULES_OK engine=…` + `PASS` (record **10건**, alert 0건). **promtool 부재와 무관하게 rc=0이어야 한다** — 없으면 `engine=structural`로 내려간다(§0.2.2). ⚠️ `promtool.sh`를 직접 부르지 말 것(엔진 없으면 exit 2) · raw `docker run … prom/prometheus … promtool`도 **동작하지 않는다**(§0.2.1) |
 | **AC-1-11** | 커버리지 갭 알림과 런북이 실재 — 구멍이 다시 열리면 사람이 안다 | `grep -q 'NodeHygieneCoverageGap' … alert-rules.yaml && grep -q 'NodeHygieneStale' … && ls docs/runbooks/node-hygiene-coverage-gap.md docs/runbooks/node-hygiene-stale.md` → 알림 2건 + 런북 2파일 |
-| **AC-1-12** | data05 systemd 수집기 복구 — `nvidia-cdi-refresh` 실패가 Prometheus에서 보인다 | `q 'node_scrape_collector_success{collector="systemd",instance="192.168.1.105:9100"}'` → `1`(현재 0) · `q 'count(node_systemd_unit_state{instance="192.168.1.105:9100",name=~".*nvidia.*"})'` → `>0`(현재 0) |
+| **AC-1-12** | data05 systemd 수집기 복구 — `nvidia-cdi-refresh` 실패가 Prometheus에서 보인다 | `q 'node_scrape_collector_success{collector="systemd",instance="192.0.2.15:9100"}'` → `1`(현재 0) · `q 'count(node_systemd_unit_state{instance="192.0.2.15:9100",name=~".*nvidia.*"})'` → `>0`(현재 0) |
 | **AC-1-13** | **증거 보존** — 재부팅 후 1→0 전이가 시계열에 모두 남는다. 순서 제약 위반을 **재부팅 후 30일 이내** 기계 판정 | 아래 스니펫 → `has1 True has0 True`. ⚠️ TSDB 보존이 정확히 **30d**라 그 이후에는 `has1 UNKNOWN`이 정상이다 — 영구 증거는 T1-11이 커밋하는 JSON 스냅샷이다 |
 | **AC-1-14** | 소비처 미선언 노드에 생산자만 깔리는 새 실패모드가 차단(회귀 테스트) | `cd infra/ansible && ansible-playbook -i inventory.ini playbooks/agents.yml --tags node-hygiene --check --limit data03 -e 'node_hygiene_consumer=' 2>&1 \| grep -c 'node_hygiene_consumer 미선언'` → `≥1` (assert는 `--check`에서도 실패해야 한다 — D1-1 `--check` 규약. 대상이 data03 하나뿐이고 data03은 NOPASSWD라 `-K` 불필요 [실측]) |
 | **AC-1-15** | **재부팅 부채가 알림이 아니라 지표로 존재한다** — day-1 상주 발화 0 | ① `q 'count(instance:node_reboot_debt:min14d) - count(node_reboot_required)'` → **`0`** (부채 창 record가 보고 노드 전부를 덮는다) ② `q 'count(instance:node_reboot_debt:min7d) - count(instance:node_reboot_debt:min30d)'` → **`0`** (창 3개가 같은 노드 집합에 다 존재) ③ **2단 판정 — T1-14 승격 관문(D1-4)이 판별자다**: 관문 2개(`fleet:node_reboot_required:count`=0 **및** `count(min_over_time(node_reboot_required[14d]) == 1) or vector(0)`=0)를 충족하기 **전에는** `! grep -q 'RebootRequiredStale' infra/monitoring/grafana/provisioning/alerting/alert-rules.yaml; echo $?` → **`0`**(규칙 부재 — 있으면 day-1 상주 발화), **T1-14 완료 후에는** 같은 grep의 정답이 반대(규칙 존재)이며 그 판정은 **AC-1-17로 이관**된다. 단일 시점 정답은 하나다: "부채>0인데 규칙 존재"만이 red다 — 이렇게 쓰지 않으면 T1-14의 산출물이 이 AC를 영구 red로 만든다(배타 해소). ⚠️ **부채의 "값"을 AC로 박지 않는다** — T1-13이 부채를 0으로 만드는 것이 이 스펙의 목표인데 `count`=2를 수용 기준으로 두면 **목표 달성이 곧 AC red**다. 값의 스냅샷(`fleet:node_reboot_required:count`=**2**, T1-4 후 3 / `min14d` .103·.104 각 1)은 §1.1의 실측 기록이지 수용 기준이 아니다 |
@@ -455,7 +455,7 @@ groups:
 # AC-1-13 — has1이 False면 재부팅이 먼저 일어나 증거가 소실된 것이다.
 #          결과가 비면(보존 만료·미배포) 예외로 죽지 않고 UNKNOWN을 출력한다.
 curl -s --get http://localhost:9090/api/v1/query_range \
-  --data-urlencode 'query=node_nvidia_version_mismatch{instance="192.168.1.105:9100"}' \
+  --data-urlencode 'query=node_nvidia_version_mismatch{instance="192.0.2.15:9100"}' \
   --data-urlencode "start=$(date -d '30 days ago' +%s)" \
   --data-urlencode "end=$(date +%s)" --data-urlencode 'step=300' \
 | python3 -c "
@@ -716,7 +716,7 @@ SER=ZC1AE78X
 P=$(curl -s --get --data-urlencode "query=node_smart_disk_grown_defect_list{serial=\"$SER\"}" \
      http://localhost:9090/api/v1/query \
    | python3 -c "import sys,json;r=json.load(sys.stdin)['data']['result'];print(int(float(r[0]['value'][1])) if r else 'NOSERIES')")
-S=$(ssh -p 764 "$KEIWI_USER_DATA04@192.168.1.104" "for n in \$(seq 0 24); do sudo -n smartctl --json -d cciss,\$n /dev/sg3 2>/dev/null; done" \
+S=$(ssh -p <SSH_PORT> "$KEIWI_USER_DATA04@192.0.2.14" "for n in \$(seq 0 24); do sudo -n smartctl --json -d cciss,\$n /dev/sg3 2>/dev/null; done" \
    | python3 -c "
 import sys,json
 buf=sys.stdin.read()
@@ -841,7 +841,7 @@ last_verified: 2026-08-02
 # (a) 코드: 어느 GPU가 무슨 코드인가
 curl -sG localhost:9090/api/v1/query --data-urlencode 'query=DCGM_FI_DEV_XID_ERRORS'
 
-# (b) 원문: pid/name은 여기에만 있다 (알림 instance 192.168.1.10N → fleet_node=data0N, docs/inventory.yaml)
+# (b) 원문: pid/name은 여기에만 있다 (알림 instance 192.0.2.1N → fleet_node=data0N, docs/inventory.yaml)
 NODE=data05
 curl -s "localhost:9200/keiwi-logs-*/_search" -H 'Content-Type: application/json' -d "{
   \"size\":20,\"sort\":[{\"@timestamp\":\"desc\"}],
@@ -903,7 +903,7 @@ curl -s "localhost:9200/keiwi-logs-*/_count" -H 'Content-Type: application/json'
 
 `① 이 알림이 말하는 것/아닌 것 → ② 30초 판별(복붙 명령) → ③ 원인 분기표 → ④ 조치(파괴 강도 순, 소유자 확인 게이트) → ⑤ 사후·재발방지`
 
-- `node-down.md`: exporter down인지 노드 down인지 먼저 가른다(`up{job="node-exporter"}` vs ping/ssh :764). **data04는 터널 경유라 터널 죽음도 NodeDown으로 보인다** — 이 오판 경로를 명시. 복구는 node-onboarding §2.5 링크.
+- `node-down.md`: exporter down인지 노드 down인지 먼저 가른다(`up{job="node-exporter"}` vs ping/ssh :<SSH_PORT>). **data04는 터널 경유라 터널 죽음도 NodeDown으로 보인다** — 이 오판 경로를 명시. 복구는 node-onboarding §2.5 링크.
 - `disk-pressure.md`: 두 알림의 의미 차(이미 높다 vs 곧 찬다) → OpenSearch ISM · Prometheus TSDB · 모델 캐시 순 정리.
 - `memory-pressure.md`: `node_vmstat_oom_kill` 증가 → journald에서 죽은 프로세스 확인 → `gpu_model_info`/`keiwi_listening_port_info`로 소유자 역추적.
 - `smart-health-failed.md`: **한계를 먼저 쓴다** — `smartctl_device`가 노출하는 건 `HPE LOGICAL VOLUME`뿐이고 RAID 뒤 물리 디스크는 0개다. 즉 이 알림은 논리 볼륨 수준에서만 발화한다. 수집 구조 변경은 **축2 소관이므로 링크만** 건다(축2 완료 후 §한계 절을 갱신하는 것은 T2-9의 일).
@@ -952,14 +952,14 @@ R7의 정밀도: **단위(`°C`/`%`)가 붙은 숫자만** 대조하므로 LogIn
 | 파일 | 결함 | 조치 |
 |---|---|---|
 | `log-ingestion-stopped.md` | ① frontmatter 없음 → 콘솔 미인덱싱 + R6 FAIL ② R10은 **초록이지만** 66행이 rsyslog와 같은 무따옴표 자리표시자다 | ① frontmatter 추가(`kind: alert`, `alerts: [LogIngestStalled]`, `category`, `severity`, `signature`, `last_verified`) ② **본문은 66행 1줄만** — 아래 표기 규약대로 따옴표를 씌운다(예방) |
-| `rsyslog-omfile-flood.md` | ① `kind` 없음 → R6 FAIL ② **`bash -n` 실패** → R10 FAIL | ① `kind: incident` 한 줄 ② **41행** `ssh -p 764 <user>@<node-ip>`의 자리표시자를 **따옴표로 감싼다**(게이트가 찍는 `:40`은 ` ```bash ` **블록 시작 행**이고 문제의 명령은 그 다음 줄이다) |
+| `rsyslog-omfile-flood.md` | ① `kind` 없음 → R6 FAIL ② **`bash -n` 실패** → R10 FAIL | ① `kind: incident` 한 줄 ② **41행** `ssh -p <SSH_PORT> <user>@<node-ip>`의 자리표시자를 **따옴표로 감싼다**(게이트가 찍는 `:40`은 ` ```bash ` **블록 시작 행**이고 문제의 명령은 그 다음 줄이다) |
 | `node-onboarding.md` | 없음(이미 `id`·`kind: procedure`·`category` 보유) | **변경 0** — `kind` 분류 덕분이고, `<…>` 자리표시자 4곳은 전부 **주석 안 또는 작은따옴표 안**이라 R10에 걸리지 않는다(실측) |
 
 `bash -n` 실패의 정확한 원인 [실측]: bash가 `<user>`의 `<`를 **입력 리다이렉션**으로 파싱한다. 최소 수정:
 
 ```diff
--ssh -p 764 <user>@<node-ip>          # 계정은 노드별(레포에 적지 않는다)
-+ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다)
+-ssh -p <SSH_PORT> <user>@<node-ip>          # 계정은 노드별(레포에 적지 않는다)
++ssh -p <SSH_PORT> "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다)
 ```
 
 따옴표 안에서는 리다이렉션으로 해석되지 않고(검증: `bash -n` 통과) 사람이 읽는 의미도 그대로다.
@@ -968,8 +968,8 @@ R7의 정밀도: **단위(`°C`/`%`)가 붙은 숫자만** 대조하므로 LogIn
 
 | 위치 | 형태 | R10 | 처리 |
 |---|---|---|---|
-| `rsyslog-omfile-flood.md:41` | `ssh -p 764 <user>@<node-ip>   # 주석` | **FAIL** | T3-4가 고친다. 끝의 `>` 뒤에 리다이렉션 대상이 없어 `unexpected token 'newline'` |
-| `log-ingestion-stopped.md:66` | `ssh -p 764 <user>@<ip> '…'` | PASS | 뒤따르는 인용문이 우연히 `>`의 대상이 되어 **문법만** 통과한다. 복붙하면 `user: No such file or directory`로 즉시 죽는다(실측). 같은 표기이므로 T3-4가 함께 통일 |
+| `rsyslog-omfile-flood.md:41` | `ssh -p <SSH_PORT> <user>@<node-ip>   # 주석` | **FAIL** | T3-4가 고친다. 끝의 `>` 뒤에 리다이렉션 대상이 없어 `unexpected token 'newline'` |
+| `log-ingestion-stopped.md:66` | `ssh -p <SSH_PORT> <user>@<ip> '…'` | PASS | 뒤따르는 인용문이 우연히 `>`의 대상이 되어 **문법만** 통과한다. 복붙하면 `user: No such file or directory`로 즉시 죽는다(실측). 같은 표기이므로 T3-4가 함께 통일 |
 | `node-onboarding.md:147·148` | `# <user>…` / `echo '<user> …'` | PASS | 주석·작은따옴표 안이라 구조적으로 안전. **변경 없음** |
 
 > **표기 규약 — `<…>` 자리표시자는 따옴표 안에 둔다.** 축3이 새로 쓰는 런북 6종과 최소 골격 템플릿(T3-3)에 이 규약을 넣는다. R10이 잡는 것은 *문법 오류*뿐이라 무따옴표 표기는 **우연히 통과할 수 있고**(위 표 2행), 그 상태로 남으면 다음 편집에서 다시 red가 된다. 규약을 문서 쪽에 두는 이유는 게이트를 하나 더 늘리지 않기 위해서다 — 같은 결함을 두 번 잡는 규칙은 유지비만 늘린다.
@@ -1251,9 +1251,9 @@ tests:
   # (A) BIOS 미탐 회귀 — 같은 U30인데 리비전만 다름. 구 규칙은 1(미탐), 신 규칙은 2.
   - interval: 1m
     input_series:
-      - series: 'node_dmi_info{instance="192.168.1.103:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.2"}'
+      - series: 'node_dmi_info{instance="192.0.2.13:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.2"}'
         values: '1x10'
-      - series: 'node_dmi_info{instance="192.168.1.104:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.4"}'
+      - series: 'node_dmi_info{instance="192.0.2.14:9100",product_name="ProLiant DL380 Gen10",bios_version="U30",bios_release="2.4"}'
         values: '1x10'
     promql_expr_test:
       - expr: product:node_bios_revisions:count
@@ -1264,7 +1264,7 @@ tests:
         exp_samples: [{labels: '{}', value: 1}]
 
   # (B) 0W 노드 제외 + 정직성 분모 → watts_sum=816, reporting_count=3
-  # (C) :9400 → :9100 정규화 조인 성립 → instance:gpu_power_share:ratio{instance="192.168.1.105:9100"}=0.5
+  # (C) :9400 → :9100 정규화 조인 성립 → instance:gpu_power_share:ratio{instance="192.0.2.15:9100"}=0.5
 ```
 
 `tests/keiwi-standards.test.yml` 핵심 케이스: 라벨 있는 GPU 2장 + 라벨 없는 GPU 2장 입력 → `fleet:gpu_driver_versions:count`=**1**(구 규칙이면 2), `fleet:gpu_driver_unlabeled:count`=**2**.
@@ -1429,7 +1429,7 @@ curl -s 'localhost:9090/api/v1/rules?type=record' \
 | **AC-4-7** | 라이브 적용 후 플릿 전력 시리즈가 존재하고 값이 실측 범위 | `q 'fleet:node_chassis_power:watts_sum'` → `700 < x < 1200` (실측 820) |
 | **AC-4-8** | 정직성 분모가 함께 산출 | `q 'fleet:node_chassis_power:reporting_count'` → `3` |
 | **AC-4-9** | 노드별 GPU 점유율이 GPU 3노드 전부에서 산출(`:9400`→`:9100` 조인 성립) | `q 'instance:gpu_power_share:ratio'` → **3시리즈**(전부 `:9100` 형식), 각 `0 < x < 1` |
-| **AC-4-10** | 일일 전력량이 적용 직후부터 정확(레코딩 축적 대기 없음) | `q 'instance:node_chassis_energy:kwh1d{instance="192.168.1.105:9100"}'` → 첫 평가 시점에 `8 < x < 12` (실측 9.43) |
+| **AC-4-10** | 일일 전력량이 적용 직후부터 정확(레코딩 축적 대기 없음) | `q 'instance:node_chassis_energy:kwh1d{instance="192.0.2.15:9100"}'` → 첫 평가 시점에 `8 < x < 12` (실측 9.43) |
 | **AC-4-11** | 드라이버 지표의 사각지대가 숫자로 노출 | `q 'fleet:gpu_driver_versions:count'` → `1` · `q 'fleet:gpu_driver_unlabeled:count'` → `4` (hardware-ops가 적은 "현재 2"가 아니다) |
 | **AC-4-12** | BIOS 드리프트가 리비전 기준이고 분모가 함께 존재 | `q 'fleet:node_bios_drift:count'` → `0` · `q 'count(product:node_count:count > 1)'` → `1` |
 | **AC-4-13** | 거짓 레코드명이 **적용 대상 코퍼스에서** 완전히 사라졌다 | `! git grep -q 'product:node_bios_versions:count\|instance:node_bios_age:days' -- infra/monitoring/rules/ infra/monitoring/dashboards/ specs/hardware-ops/ ; echo $?` → `0`. **T4-7의 11곳(D4-6) 전부 교정 후에만 통과한다** — 교정 전 실측 히트는 hardware-ops **8줄**(`spec.md:212·216·221·261·551·889` · `tasks.md:42·151`)이고, D4-6이 9곳이던 초안은 그중 `spec.md:551`·`tasks.md:151` 2줄을 못 덮어 **영구 rc=1**이었다(D4-6 10·11행이 그 둘이다). ⚠️ **스코프를 `specs/ infra/` 전체로 잡으면 영구 rc=1** — 이 스펙 자신의 README·spec·tasks가 그 이름을 "삭제 대상"의 근거로 인용하기 때문이다(실측: fleet-hardening 3파일 히트). 삭제해야 할 것은 **규칙·대시보드·hardware-ops 문장**이지 삭제 근거를 적은 문서가 아니다 |
@@ -1460,7 +1460,7 @@ curl -s 'localhost:9090/api/v1/rules?type=record' \
 > 그 파서가 문자열 안의 `//`를 주석 시작으로 오인하면 **조용한 미탐**이 된다(게이트가 가장 피해야 할 실패).
 > 그래서 규칙을 약화시키지 않고 **문서 예시를 RFC 2606·RFC 5737로 교정**했다(T5-2·T5-4 범위에 포함).
 
-**스캔 사각지대** 스크립트는 `apps/console/src`만 본다. 같은 성격의 리터럴이 밖에 있다 — `apps/console/next.config.ts:31` `allowedDevOrigins: ["127.0.0.1","localhost","192.168.1.105","*.<자체 도메인>"]`. `infra/`·`docs/`·`.github/`는 전혀 검사되지 않는다.
+**스캔 사각지대** 스크립트는 `apps/console/src`만 본다. 같은 성격의 리터럴이 밖에 있다 — `apps/console/next.config.ts:31` `allowedDevOrigins: ["127.0.0.1","localhost","192.0.2.15","*.<자체 도메인>"]`. `infra/`·`docs/`·`.github/`는 전혀 검사되지 않는다.
 
 **진짜 시크릿 탐지 능력 0** 규칙 1은 `https?://`로 시작하는 문자열만 본다. 개인키·`ghp_`·`xoxb-`·Slack 웹훅·GlitchTip DSN·Cloudflare 터널 토큰은 전부 통과한다.
 

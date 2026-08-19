@@ -116,7 +116,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=up{job="smartctl-ex
 
 ```bash
 # ④ 진짜 상태는 노드에서 본다 (읽기 전용 — RAID 컨트롤러 뒤까지 본다)
-ssh -p 764 "<user>@<node-ip>"        # 예: ssh -p 764 mooner92@192.168.1.103
+ssh -p <SSH_PORT> "<user>@<node-ip>"        # 예: ssh -p <SSH_PORT> mooner92@192.0.2.13
 sudo smartctl -H /dev/sda                     # LV 수준(익스포터가 보는 것과 동일)
 ls -l /sys/class/scsi_generic/                # 컨트롤러 sg 노드 (data03=sg2, data04=sg3, data05=sg4)
 sudo smartctl -d cciss,0 -H -i /dev/sg2       # ← 물리 디스크 0번. 인덱스를 0,1,2… 늘려가며 확인

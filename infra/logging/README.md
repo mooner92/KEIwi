@@ -18,7 +18,7 @@ flowchart LR
 
 | 항목 | 값 |
 | --- | --- |
-| 수집 대상 | **data01·03·04·05**(Filebeat journald). data03·04·05는 role(apt 8.x); **data01은 xenial이라 7.17 벤더링**([`filebeat-xenial/`](filebeat-xenial/README.md), 2026-07-24 온보딩). 수신은 data05 ufw가 `192.168.1.0/24 → 5044` 허용(서브넷 전체라 노드 추가 시 규칙 변경 불필요). data02(Windows — winlogbeat 백로그 B02)는 제외 |
+| 수집 대상 | **data01·03·04·05**(Filebeat journald). data03·04·05는 role(apt 8.x); **data01은 xenial이라 7.17 벤더링**([`filebeat-xenial/`](filebeat-xenial/README.md), 2026-07-24 온보딩). 수신은 data05 ufw가 `192.0.2.0/24 → 5044` 허용(서브넷 전체라 노드 추가 시 규칙 변경 불필요). data02(Windows — winlogbeat 백로그 B02)는 제외 |
 | 저장 | **OpenSearch**(ES 7.10 호환, Apache-2.0) — `docker-compose.yml` 컨테이너 `keiwi-opensearch`·`keiwi-logstash` |
 | 데이터소스 | Grafana **`grafana-opensearch-datasource`**(내장 ES 플러그인 v13 파손으로 전환, uid `keiwi-logs-es`) |
 | 표준 필드(계약) | `@timestamp · fleet_node · log_level · service · message · host_name` + `category · log_level_source`(ADR-0010) |

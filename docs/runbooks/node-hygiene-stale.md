@@ -67,7 +67,7 @@ curl -sG localhost:9090/api/v1/query \
      --data-urlencode 'query=sort_desc(time() - node_hygiene_collector_last_run_timestamp_seconds)'
 ```
 
-대상 노드(`192.168.1.10N` → `data0N`, `docs/inventory.yaml`)에서:
+대상 노드(`192.0.2.1N` → `data0N`, `docs/inventory.yaml`)에서:
 
 ```bash
 systemctl status keiwi-node-hygiene.timer  --no-pager

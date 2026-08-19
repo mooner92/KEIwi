@@ -82,7 +82,7 @@ M1 콘솔 + M2 통합 로그를 중심으로 한 최초 릴리스(태그 `v0.1.0
 
 ### Added
 - **M1 콘솔** — Next.js 16 + Tailwind v4 앱 셸 스캐폴드(`71c48bc`), 플릿 상태 API(`1f70a89`), Overview(플릿 스트립 + Grafana 임베드, `e1e78e8`), 대시보드 탭 다중 지원(`bdc621b`), 플릿 카드→노드 메트릭 드릴다운(`3f37550`).
-- **인프라 기반** — 프로젝트 헌장(Constitution) + ADR 0001~0005, 플릿 인벤토리 SoT, AGENTS 맵. Prometheus 설정 + data04 SSH 터널(:764), keiwi-console systemd 유닛(:3105 상주, `e9ed4e6`).
+- **인프라 기반** — 프로젝트 헌장(Constitution) + ADR 0001~0005, 플릿 인벤토리 SoT, AGENTS 맵. Prometheus 설정 + data04 SSH 터널(:<SSH_PORT>), keiwi-console systemd 유닛(:3105 상주, `e9ed4e6`).
 - **모델 워크로드 관측** — vLLM 스크랩 + Grafana 대시보드(`d4d4df7`), data04 모델 배선(터널 9836·node 라벨, `6fa51ed`).
 - **KRDS 디자인 v2** — 파운데이션 스펙 + ADR 0006/0007(`8feaa8d`), KRDS 토큰·Pretendard GOV·다크 모드(`e0c8d66`), 표준형 KRDS 전환(정부 블루·흰 헤더·식별 배너, `58dcd56`).
 - **M2 통합 로그(라이브)** — Filebeat → Logstash → OpenSearch(ES에서 전환, `daa01bc`), category 분류 + log_level 계측 + 보존 365일(ADR-0010, `6704571`), 신호 우선(signal-first) 재구성(ADR-0011, `8374ca5`), 콘솔 `/logs` 임베드.

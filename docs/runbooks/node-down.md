@@ -79,7 +79,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=up' \
 data04의 **4개 타깃 전부**가 data05의 SSH 터널을 지난다 [실측 `keiwi-tunnel-data04.service`]:
 
 ```text
-ssh -N -p 764 "$KEIWI_USER_DATA04@192.168.1.104"   # 계정은 env(§13) — infra/ansible/README.md
+ssh -N -p <SSH_PORT> "$KEIWI_USER_DATA04@192.0.2.14"   # 계정은 env(§13) — infra/ansible/README.md
   -L 172.18.0.1:9104:localhost:9100   # node-exporter  ← NodeDown이 보는 타깃
   -L 172.18.0.1:9404:localhost:9400   # DCGM
   -L 172.18.0.1:9837:localhost:9836   # gpu-model
@@ -100,11 +100,11 @@ ss -tlnp | grep -E '172.18.0.1:(9104|9404|9837|9987)'   # 4개 다 떠 있어야
 ### 2.3 노드 자체가 살아 있는가 (A vs C)
 
 ```bash
-ping -c 3 "<node-ip>"                              # 예: ping -c 3 192.168.1.104
-ssh -p 764 "<user>@<node-ip>" 'uptime; systemctl is-system-running'
+ping -c 3 "<node-ip>"                              # 예: ping -c 3 192.0.2.14
+ssh -p <SSH_PORT> "<user>@<node-ip>" 'uptime; systemctl is-system-running'
 ```
 
-계정은 노드마다 다르다 — **실제 계정명은 레포에 적지 않는다**(대상 노드에서 `ls /home`, 또는 `KEIWI_USER_DATA0N` env). 포트는 전부 **764**.
+계정은 노드마다 다르다 — **실제 계정명은 레포에 적지 않는다**(대상 노드에서 `ls /home`, 또는 `KEIWI_USER_DATA0N` env). 포트는 전부 **<SSH_PORT>**.
 
 | ping | ssh | 판정 |
 | --- | --- | --- |
@@ -116,7 +116,7 @@ ssh -p 764 "<user>@<node-ip>" 'uptime; systemctl is-system-running'
 
 ```bash
 # 해당 노드에서 (data03·data01은 직접 스크랩, data04는 터널 너머)
-ssh -p 764 "<user>@<node-ip>"
+ssh -p <SSH_PORT> "<user>@<node-ip>"
 systemctl status prometheus-node-exporter --no-pager | head -5   # apt 설치 노드(data03·data04)
 curl -s localhost:9100/metrics | head -3                          # 로컬에선 살아 있는가
 sudo ufw status | grep -E '9100|9400|9633'                        # data05(.105)에서 오는 접근 허용?

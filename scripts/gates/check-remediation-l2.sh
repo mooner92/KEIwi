@@ -387,7 +387,7 @@ fi
 hits=$(detect_auto_trigger "$L2_PY")
 if [[ -n "$hits" ]]; then
   printf '%s\n' "$hits" | sed 's/^/   /'
-  echo "M6_FAIL 자동 트리거(데몬·리스너·타이머·무한루프)가 들어왔다 — 그건 L3다(ADR-0027)"
+  echo "M6_FAIL 자동 트리거(데몬·리스너·타이머·무한루프)가 들어왔다 — 그건 L3다(ADR-0029)"
   fail=1
 else
   echo "M6_OK 데몬 0 · 리스너 0 · 타이머 0 (사람이 치지 않으면 아무것도 기다리지 않는다)"

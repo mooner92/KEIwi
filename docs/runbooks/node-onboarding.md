@@ -31,14 +31,14 @@ actions: []
 - **① 계정명부터 확인** — 계정을 가정하지 말고 대상 노드에서 `ls /home`으로 실제 ansible 계정을 확인한다(data03 온보딩 때 **다른 노드의 계정으로 가정**했다가 Permission denied — 노드마다 계정이 다르다. 실제 계정명은 레포에 적지 않는다 §13 · control인 data05는 ansible local이라 무관).
 - **② SSH 키 인증**: data05 공개키를 대상 계정 `authorized_keys`에 등록:
   ```bash
-  ssh-copy-id -p <port> <user>@<ip>        # 예: ssh-copy-id -p 764 mooner92@192.168.1.103
+  ssh-copy-id -p <port> <user>@<ip>        # 예: ssh-copy-id -p <SSH_PORT> mooner92@192.0.2.13
   ```
 - **③ 무비번 sudo(NOPASSWD)** — 플릿 표준 `/etc/sudoers.d/90-keiwi-ansible`(전 노드 적용, 2026-07-03 → ansible `-K` 불필요). 신규 노드엔 아래 **원격 원라이너**로 1회 적용. 반드시 `ssh -t`로 **원격에서** 실행할 것 — ssh 세션이 끊긴 채 같은 명령을 로컬(control)에서 실행한 사고가 있었다:
   ```bash
   ssh -t -p <port> <user>@<ip> "echo '<user> ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/90-keiwi-ansible && sudo chmod 440 /etc/sudoers.d/90-keiwi-ansible && sudo visudo -cf /etc/sudoers.d/90-keiwi-ansible"
   #   마지막 visudo -cf "parsed OK" 확인(필수) — 상세·대안(Vault)은 부록 참조
   ```
-- SSH 포트가 22가 아니면(예 data03·data04=764) inventory에 `ansible_port`.
+- SSH 포트가 22가 아니면(예 data03·data04=<SSH_PORT>) inventory에 `ansible_port`.
 
 ## 2. 노드 추가 (add) — data0N 예시
 
@@ -68,7 +68,7 @@ actions: []
 2. **노출 경로 결정 — 직접 스크랩 vs SSH 터널**: 같은 서브넷이고 대상 노드 ufw에서 `.105` 발신을 허용할 수 있으면 **직접 스크랩 우선**(data03 사례 — 터널 불필요). 터널은 `.105`에서 도달 불가할 때만(data04 사례).
    - **직접 스크랩(권장)** — 대상 노드에서 `.105` → 익스포터 포트(node 9100 · dcgm 9400 · gpu-model 9836 · port-exporter 9986) 허용:
      ```bash
-     for p in 9100 9400 9836 9986; do sudo ufw allow from 192.168.1.105 to any port $p proto tcp; done
+     for p in 9100 9400 9836 9986; do sudo ufw allow from 192.0.2.15 to any port $p proto tcp; done
      ```
      (로그 평면은 방향이 반대 — 대상→data05:5044, §2.4.) Prometheus 타깃은 `<ip>:<port>` 그대로 쓰면 되고 아래 3(터널 ufw)은 생략.
    - **SSH 터널(도달 불가 시만)**: `infra/monitoring/keiwi-tunnel-data04.service`를 복제 → 포워드 포트를 노드별로 변경(예 data04=9104/9404/9837/9987, 다음 노드=9105/9405/…), `ssh -p <port> <user>@<ip>`로 `-L 172.18.0.1:<lport>:localhost:9100`(+ GPU면 :9400 등). `sudo cp` → `systemctl enable --now keiwi-tunnel-dataNN`.
@@ -76,7 +76,7 @@ actions: []
 4. **Prometheus 타깃**(레포 `infra/monitoring/prometheus.yml`): 해당 job `static_configs`에 타깃 추가하되 **`labels.instance`를 `docs/inventory.yaml`의 exporters 값과 정확히 일치**시킨다(콘솔이 `up{instance}`를 그 값과 정확 매칭 — 불일치 시 조용히 no-data). 직접 스크랩 노드는 타깃=inventory 값 그대로라 instance 라벨 불필요. 터널 노드 예:
    ```yaml
    - targets: ['172.18.0.1:9105']
-     labels: { instance: '192.168.1.10N:9100' }
+     labels: { instance: '192.0.2.1N:9100' }
    ```
    **node 라벨은 스크랩단에서 부여**: 신규 GPU 노드의 노드 구분(`node: dataNN`)은 이렇게 `labels`로 붙인다(§3의 4 참조). 대시보드 쿼리의 `label_replace` IP 하드코딩은 data04/05 레거시 — 신규 노드에 복제하지 말 것.
 5. **라이브 반영(사람)**: 위 내용을 `/data/monitoring/prometheus.yml`에 반영 → `sudo docker restart prometheus`(compose 1.29 버그로 recreate 아닌 restart).
@@ -98,7 +98,7 @@ GPU 노드는 어떤 모델이 어느 GPU에 떴는지 보이게 `gpu-model-expo
 4. 새 systemd 서비스가 새 카테고리로 분류돼야 하면 `infra/logging/logstash/pipeline/service-category.yml`에 앵커 정규식 한 줄 추가(300s 내 자동 reload, 재시작 불필요).
 
 ### 2.5 검증
-- 메트릭: 콘솔 Overview에서 노드 카드가 `정상`(no-data 아님). 또는 `curl -s localhost:9090/api/v1/query --data-urlencode 'query=up{instance="192.168.1.10N:9100"}'` == 1.
+- 메트릭: 콘솔 Overview에서 노드 카드가 `정상`(no-data 아님). 또는 `curl -s localhost:9090/api/v1/query --data-urlencode 'query=up{instance="192.0.2.1N:9100"}'` == 1.
 - GPU(해당 노드만): dcgm 타깃 `up{instance="…:9400"}` == 1, 콘솔 Overview 노드 카드에 GPU 배지 + GPU 탭에 신규 노드 표시.
 - 로그: `ansible -i inventory.ini dataNN -m command -a 'systemctl is-active filebeat'` == active. /logs 탭에서 `fleet_node:dataNN` 로그 유입.
 - 재부팅 자동복구: 대상 노드 재부팅 후 systemd enable 서비스(filebeat·keiwi-gpu-model-exporter 등)와 `--restart unless-stopped` 컨테이너(dcgm-exporter)가 **자동 복구**되는지 확인 — 수동 복구 불필요(data03 검증, 2026-07-03).
@@ -120,7 +120,7 @@ GPU 노드는 어떤 모델이 어느 GPU에 떴는지 보이게 `gpu-model-expo
    ```yaml
    - targets: ['172.18.0.1:9836'];       labels: { node: data05 }
    - targets: ['172.18.0.1:9837'];       labels: { node: data04 }   # 터널
-   - targets: ['192.168.1.103:9836'];    labels: { node: data03 }   # 직접 스크랩
+   - targets: ['192.0.2.13:9836'];    labels: { node: data03 }   # 직접 스크랩
    ```
    `/data/monitoring/prometheus.yml` 반영 → `docker restart prometheus`.
 5. **모델 대시보드 노드 구분**: `infra/monitoring/dashboards/model-workload.json`에 `node` 템플릿 변수 추가 + `gpu_model_*{node="$node"}` 필터. 재provisioning은 바인드 마운트 `/data/monitoring/grafana/provisioning`에 반영 → `docker restart grafana`(**`docker cp` 금지** — 컨테이너 재생성 시 소실 사고).

@@ -83,7 +83,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=DCGM_FI_DEV_XID_ERR
 
 ```bash
 # (b) 원문: pid/name은 여기에만 있다
-#     알림의 instance(192.168.1.10N:9400) → fleet_node=data0N 로 바꿔 넣는다(docs/inventory.yaml).
+#     알림의 instance(192.0.2.1N:9400) → fleet_node=data0N 로 바꿔 넣는다(docs/inventory.yaml).
 NODE=data05
 curl -s "localhost:9200/keiwi-logs-*/_search" -H 'Content-Type: application/json' -d "{
   \"size\":20,\"sort\":[{\"@timestamp\":\"desc\"}],
@@ -170,7 +170,7 @@ done
 **원문이 없을 때(§2의 (b)가 계속 0건)** — 해당 노드에서 직접 본다:
 
 ```bash
-ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 764
+ssh -p <SSH_PORT> "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 <SSH_PORT>
 sudo dmesg -T | grep -i 'NVRM: Xid' | tail -20
 nvidia-smi -q | grep -iE 'Remapped Rows|Retired Pages|ECC Errors' -A3 | head -40
 ```

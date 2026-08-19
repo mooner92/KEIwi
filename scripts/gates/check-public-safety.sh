@@ -36,8 +36,13 @@
 #     소스에서의 문자열 분할 조립도 마찬가지다 — 해시 대조는 정확 일치가 전부다.
 #   · **커밋 이력.** 작업 트리만 본다. 이미 push된 이력의 정화는 git-filter-repo 영역이고
 #     그건 사람이 판단한다(§11).
-#   · **사설 IP·포트·노드명.** RFC1918은 외부에서 라우팅 불가라 공개돼도 무해하다는 것이
-#     이 레포의 결정이다. 여기서 막지 않는다.
+#   · **운영 설정 파일의 사설 IP·포트.** P5가 막는 것은 **문서(md)뿐**이다. prometheus.yml·
+#     수집기·systemd 는 동작하는 파일이라 자리표시자로 바꾸면 배포가 깨진다 — 오버레이가
+#     선행해야 하고 그건 후속 과제다(ADR-0029 §아직 하지 않은 것).
+#     ↑ 2026-08-19 이전에는 "RFC1918은 공개돼도 무해하므로 막지 않는다"가 이 레포의 결정이었다.
+#       기술적으로는 여전히 맞지만 청중이 바뀌어(공공 GitLab·기관명 병기) 뒤집었다 — ADR-0029.
+#   · **노드명(data01~05).** 일부러 남긴다. 2,114곳의 서술이 id 로 이어져 있고 id 자체는
+#     어느 조직에나 있을 수 있어 가려서 얻는 것이 없다(ADR-0029).
 #   · **의미의 유출.** "data04 /home 272G를 연구자 4명이 쓴다" 같은 서술은 계정명이
 #     없어도 조직 정보다. 그건 사람이 판단할 몫이지 정규식의 몫이 아니다.
 #
@@ -244,6 +249,32 @@ def rule_p2(files, root, deny_accounts):
     return hits
 
 
+FLEET_IP_RE = re.compile(r"\b192\.168\.1\.\d{1,3}\b")
+SSH_PORT_RE = re.compile(r"(?<![\d.])764(?![\d.])")
+
+
+def rule_p5(files, root):
+    """P5 — 커밋본 **문서**에 실 IP·SSH 포트가 다시 들어오는 것을 막는다(ADR-0029).
+
+    범위가 md 인 이유: 운영 설정(prometheus.yml·수집기·systemd)은 **동작하는 파일**이라
+    자리표시자로 바꾸면 배포가 깨진다. 각각 오버레이가 필요하고 그건 후속 과제다.
+    좁은 게이트가 꺼진 게이트보다 낫지만, "전부 막고 있다"는 오해는 더 나쁘다 —
+    그래서 통과 메시지에 범위를 적는다.
+    """
+    hits = []
+    for rel in files:
+        if not rel.endswith(".md"):
+            continue
+        text = read_text(os.path.join(root, rel))
+        if text is None:
+            continue
+        for m in FLEET_IP_RE.finditer(text):
+            hits.append((rel, line_of(text, m.start()), "P5 내부 IP(문서)"))
+        for m in SSH_PORT_RE.finditer(text):
+            hits.append((rel, line_of(text, m.start()), "P5 SSH 포트(문서)"))
+    return hits
+
+
 def rule_p3(files, root):
     hits = []
     for rel in files:
@@ -258,9 +289,10 @@ def rule_p3(files, root):
 
 
 HINTS = {
-    "P1a": "외부 진입 주소는 레포에 적지 않는다 — 내부 IP(192.168.1.105:3106·:3000) 또는 env 참조로.",
+    "P1a": "외부 진입 주소는 레포에 적지 않는다 — 내부 IP(192.0.2.15:3106·:3000) 또는 env 참조로.",
     "P1b": "우리 스택 서비스의 외부 호스트다 — 지우거나 RFC 2606 example.com 으로 쓴다.",
     "P2":  "실계정 대신 익명 대체본(user1~user6)을 쓴다. 운영에 실제 계정이 필요하면 env 주입(§13).",
+    "P5":  "실제 값 대신 자리표시자를 쓴다 — IP는 192.0.2.1N(RFC 5737), SSH 포트는 <SSH_PORT>. 실값은 docs/inventory.local.yaml(git 제외)에 둔다(ADR-0029).",
     "P3":  "개인 홈 하위 경로는 프로젝트명까지 드러낸다 — 카테고리(`사용자 홈`)나 마운트까지만 적는다.",
 }
 
@@ -348,6 +380,19 @@ def self_test(root):
     print("P3 detect ok" if p3_ok else "P3 detect FAIL")
     rc |= 0 if p3_ok else 1
 
+    # P5 — 문서의 실 IP·SSH 포트는 잡고, 자리표시자와 **운영 설정 파일**은 놓쳐야 한다.
+    # 마지막 조건이 중요하다: 범위를 md 로 한정한 것이 이 규칙의 설계이고(ADR-0029),
+    # 그 한정이 사라지면 배포가 깨지는 쪽으로 조용히 번진다.
+    i_catch = w("p5-catch.md", "ssh -p 764 user@192.168.1.103\n")
+    i_miss = w("p5-miss.md", "ssh -p <SSH_PORT> user@192.0.2.13  # 포트 7640·1764 는 아니다\n")
+    y_miss = w("p5-config.yml", "targets: ['192.168.1.103:9100']\n")
+    p5_ok = ("P5" in hit_rules([i_catch], lambda n: rule_p5(n, tmp))
+             and not hit_rules([i_miss], lambda n: rule_p5(n, tmp))
+             and not hit_rules([y_miss], lambda n: rule_p5(n, tmp)))
+    print("P5 detect ok" if p5_ok else "P5 detect FAIL")
+    rc |= 0 if p5_ok else 1
+    rc |= 0 if p3_ok else 1
+
     # P4 위임이 실재하는가 — 참조만 하고 구현하지 않기로 했으므로, 그 참조 대상이
     # 사라지면 커버리지에 구멍이 뚫린 채 이 게이트는 계속 초록이다.
     delegate = os.path.join(root, "apps/console/scripts/check-no-secrets.sh")
@@ -413,9 +458,11 @@ def main(argv):
         hits += rule_p2(files, root, DENY_ACCOUNT_SHA256)
     if not only or "P3" in only:
         hits += rule_p3(files, root)
+    if not only or "P5" in only:
+        hits += rule_p5(files, root)
     rc = report(hits)
     if rc == 0:
-        print("PUBLIC_SAFETY_OK (P1 도메인 · P2 실계정 · P3 홈 경로 — corpus %d files)"
+        print("PUBLIC_SAFETY_OK (P1 도메인 · P2 실계정 · P3 홈 경로 · P5 내부 IP/포트[문서 한정] — corpus %d files)"
               % len(files))
         print("  P4(자격증명 꼴)는 apps/console/scripts/check-no-secrets.sh 소관 — 여기서 중복 구현하지 않는다.")
     else:

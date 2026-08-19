@@ -105,7 +105,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=increase(node_vmsta
 
 ```bash
 # ③ 무엇이 죽었나 — 커널 로그가 유일한 증거다 (해당 노드에서)
-ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 764
+ssh -p <SSH_PORT> "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 <SSH_PORT>
 sudo journalctl -k --since '-24h' --no-pager | grep -iE 'out of memory|oom-kill|killed process' | tail -20
 free -g
 ps -eo pid,user,rss,comm --sort=-rss | head -15     # 지금 누가 먹고 있나 (RSS 기준)
