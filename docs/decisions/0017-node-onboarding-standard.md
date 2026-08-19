@@ -37,7 +37,7 @@
 
 ## 개정 — 2026-07-03 (data03 실전 적용)
 
-data03 온보딩(계정 mooner92, sshd :764, GPU Quadro RTX 6000×2)으로 본 표준을 실전 검증하고 다음을 개정했다. 상세 절차는 [런북](../runbooks/node-onboarding.md).
+data03 온보딩(계정 mooner92, sshd :<SSH_PORT>, GPU Quadro RTX 6000×2)으로 본 표준을 실전 검증하고 다음을 개정했다. 상세 절차는 [런북](../runbooks/node-onboarding.md).
 
 1. **직접 스크랩 경로 추가**: 같은 서브넷 + 대상 ufw에서 `.105` 발신 허용 가능이면 SSH 터널 없이 **직접 스크랩 우선**(data03 — ufw로 9100/9400/9836/9986 허용). 터널은 도달 불가 시만(data04). 런북 §2.2.
 2. **sudo NOPASSWD 표준화**: `/etc/sudoers.d/90-keiwi-ansible` **전 노드 적용** → ansible `-K` 폐지. 신규 노드는 원격 원라이너(`ssh -t … sudo tee + visudo -cf`) 1회 — 런북 §1·부록.

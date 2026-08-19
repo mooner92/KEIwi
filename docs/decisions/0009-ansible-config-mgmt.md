@@ -15,7 +15,7 @@
 
 **Ansible을 설정 관리/에이전트 배포 도구로 채택한다.**
 
-- `infra/ansible/` — agentless. **data05(control)** 에서 SSH(포트 764, 키)로 data04·05(이후 확장)에 멱등 적용.
+- `infra/ansible/` — agentless. **data05(control)** 에서 SSH(포트 <SSH_PORT>, 키)로 data04·05(이후 확장)에 멱등 적용.
 - 역할: `roles/filebeat`(M2), 향후 `roles/node-exporter`·`roles/dcgm-exporter`로 M1 수동 설치도 표준화.
 - inventory에 호스트·`fleet_node`·접속정보(키 경로, 비번 아님). 시크릿은 레포밖(§13) — vault 또는 외부 주입.
 - 실행은 **사람이**(`ansible-playbook ...`) — 에이전트는 playbook을 레포에 생성(§11).

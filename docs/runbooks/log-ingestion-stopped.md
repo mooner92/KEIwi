@@ -102,7 +102,7 @@ sleep 30 && curl -s 'localhost:9200/keiwi-logs-*/_count'   # 증가하면 복구
 
 해당 노드에서(예 data01):
 ```bash
-ssh -p 764 "<user>@<ip>" 'sudo -n sh -c "
+ssh -p <SSH_PORT> "<user>@<ip>" 'sudo -n sh -c "
   systemctl is-active keiwi-filebeat
   tail -2 /var/log/keiwi-filebeat/filebeat | grep -o \"libbeat.*pipeline[^}]*}\"
   ls -l /var/lib/keiwi-filebeat/registry/filebeat/log.json

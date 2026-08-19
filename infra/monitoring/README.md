@@ -16,7 +16,7 @@ flowchart LR
     GM["gpu-model-exporter :9836"]
     PE["port-exporter :9986"]
   end
-  NE & DC & GM & PE -->|"scrape · 같은 서브넷은 직접, 도달 불가 노드만 SSH 터널(764)"| P[("Prometheus<br/>data05 :9090")]
+  NE & DC & GM & PE -->|"scrape · 같은 서브넷은 직접, 도달 불가 노드만 SSH 터널(<SSH_PORT>)"| P[("Prometheus<br/>data05 :9090")]
   P --> G["Grafana"] -->|"iframe 임베드"| C["KEIwi 콘솔"]
   P -->|"up·capacity BFF"| C
 ```
@@ -26,7 +26,7 @@ flowchart LR
 | 노드 | node :9100 | dcgm :9400 | gpu-model :9836 | port :9986 | 비고 |
 | --- | :---: | :---: | :---: | :---: | --- |
 | **data05** | ✅ 컨테이너 | ✅ A40×2 | ✅ | ✅ | control · 스택 호스트 |
-| **data04** | ✅ apt | ✅ RTX 6000×2 | ✅(Ansible role) | ✅ | SSH 터널(764) 경유 |
+| **data04** | ✅ apt | ✅ RTX 6000×2 | ✅(Ansible role) | ✅ | SSH 터널(<SSH_PORT>) 경유 |
 | **data03** | ✅ | ✅ Quadro RTX 6000×2 | ✅(Ansible role) | ✅ | **직접 스크랩**(터널 불필요 — data03 ufw가 `.105 → 9100/9400/9836/9986` 허용) · 2026-07-03 온보딩 |
 | data01 | ⬜ | — | — | — | 미접근 → `no-data`(설계) |
 | data02 | ⬜ windows:9182 | — | — | — | 미배선(백로그 B02) |
@@ -49,10 +49,10 @@ GPU는 총 **6장**(data03 Quadro RTX 6000×2 · data04 RTX 6000×2 · data05 A4
 ## 적용 순서 (.105에서, 사람 — §11)
 
 > [!WARNING] 전제
-> data04 sshd는 **포트 764**. .105 실행 계정의 공개키가 data04 계정에 등록돼야 합니다(`ssh-copy-id -p 764 "$KEIWI_USER_DATA04@192.168.1.104"` — 계정명은 레포에 적지 않는다, [ansible README](../ansible/README.md)). ufw active면 도커 브리지(`172.18.0.0/16`)가 터널/vLLM 포트에 닿게 **포트별로** 열어야 합니다(안 열면 타깃 down/timeout).
+> data04 sshd는 **포트 <SSH_PORT>**. .105 실행 계정의 공개키가 data04 계정에 등록돼야 합니다(`ssh-copy-id -p <SSH_PORT> "$KEIWI_USER_DATA04@192.0.2.14"` — 계정명은 레포에 적지 않는다, [ansible README](../ansible/README.md)). ufw active면 도커 브리지(`172.18.0.0/16`)가 터널/vLLM 포트에 닿게 **포트별로** 열어야 합니다(안 열면 타깃 down/timeout).
 
 > [!NOTE] data03은 터널 없이 직접 스크랩 (2026-07-03)
-> 같은 서브넷 노드는 **직접 스크랩이 우선**(터널은 도달 불가 시만). data03은 자기 ufw에서 `.105 → 9100/9400/9836/9986`만 허용하면 끝 — 아래 ①(터널)은 data04 전용이고, ②의 `prometheus.yml`에 data03 타깃(192.168.1.103)이 이미 반영돼 있습니다.
+> 같은 서브넷 노드는 **직접 스크랩이 우선**(터널은 도달 불가 시만). data03은 자기 ufw에서 `.105 → 9100/9400/9836/9986`만 허용하면 끝 — 아래 ①(터널)은 data04 전용이고, ②의 `prometheus.yml`에 data03 타깃(192.0.2.13)이 이미 반영돼 있습니다.
 
 **① data04 SSH 터널** (node :9100 · dcgm :9400 · gpu-model :9836 · port :9986 포워드)
 ```bash
@@ -154,8 +154,8 @@ sudo docker rm -f grafana && sudo docker-compose up -d grafana
 
 ```bash
 # up 타깃(노드별)
-curl -s 'http://localhost:9090/api/v1/query?query=up' | grep -o '192.168.1.10[345]:[0-9]*'
-#   기대: 192.168.1.103/104/105 각각 :9100/:9400 (+ gpu-model·port 타깃)
+curl -s 'http://localhost:9090/api/v1/query?query=up' | grep -o '192.0.2.1[345]:[0-9]*'
+#   기대: 192.0.2.13/104/105 각각 :9100/:9400 (+ gpu-model·port 타깃)
 # 모델↔GPU (node 라벨)
 curl -s localhost:9090/api/v1/query --data-urlencode 'query=gpu_model_info{node="data04"}'
 ```

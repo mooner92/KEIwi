@@ -87,7 +87,7 @@ curl -sG localhost:9090/api/v1/query \
 | python3 -c 'import sys,json;print(sorted(r["metric"]["instance"] for r in json.load(sys.stdin)["data"]["result"]))'
 ```
 
-(a) − (b) 가 구멍 난 노드다. IP → 노드 id 매핑은 `docs/inventory.yaml`(`192.168.1.10N` → `data0N`).
+(a) − (b) 가 구멍 난 노드다. IP → 노드 id 매핑은 `docs/inventory.yaml`(`192.0.2.1N` → `data0N`).
 
 ## 3. 원인 분기표
 

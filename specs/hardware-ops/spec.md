@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | **G0-1** | data05 NVIDIA 드라이버 커널↔유저스페이스 불일치 | `/proc/driver/nvidia/version`=595.71.05 vs `modinfo nvidia`=595.84 vs `libnvidia-ml.so.1`→595.84. `nvidia-smi` exit **18**. `/var/run/reboot-required` mtime Jul 29 06:08, uptime **58일**. `nvidia-cdi-refresh.service` failed since Jul 24 06:53 | 축3 전체(컨테이너 벤치 기동 불확실), data05 `gpu_vram_total_bytes` 시리즈 부재 → ADR-0013 판정이 data05에서 구조적 unknown | `[server]` 재부팅 1회(다운타임 창) |
 | **G0-2** | 로그 인입 6일 중단 | `keiwi-logs-*` 최신 doc `2026-07-24T07:02:19.419Z`. `_stats/indexing` `index_total` delta **0**(8초 간격 2회). 07.20~23 일 92만건(≈10.7 docs/s) → 07.24 27만건에서 절단 | 축2의 S1/L1 규칙(복구 전에 규칙을 만들면 규칙이 즉시 firing), SEL→OpenSearch(축1 P5) | `[server]` 파이프라인 복구 |
-| **G0-3** | day-1 오발화 후보 **10건** | `up==0` 2건(vllm `172.18.0.1:8010`, smartctl `192.168.1.105:9633`) · systemd failed 4건(data01=2·data03=1·data04=1) · data04 `/` **0.8653** · data01 mem **0.9011** · XID latch 2건 · 로그중단 1건 · OpenSearch `yellow`(unassigned_shards=37) | 축2 전체 — 그대로 켜면 §15와 alerting §0-5를 첫날 자기 손으로 위반 | 사람(정리) + 에이전트(섀도 모드 배선) |
+| **G0-3** | day-1 오발화 후보 **10건** | `up==0` 2건(vllm `172.18.0.1:8010`, smartctl `192.0.2.15:9633`) · systemd failed 4건(data01=2·data03=1·data04=1) · data04 `/` **0.8653** · data01 mem **0.9011** · XID latch 2건 · 로그중단 1건 · OpenSearch `yellow`(unassigned_shards=37) | 축2 전체 — 그대로 켜면 §15와 alerting §0-5를 첫날 자기 손으로 위반 | 사람(정리) + 에이전트(섀도 모드 배선) |
 | **G0-4** | data05 `sudo` NOPASSWD 무력화 | data05 `sudo -n true` → `a password is required`(rc=1). `sudo -n -l`에 `(ALL) NOPASSWD: ALL` **다음에** `(ALL : ALL) ALL` — sudoers는 마지막 매치가 이긴다. self-ssh도 `Permission denied` | 축1의 data05 배포(`ansible_connection=local` + become 실패) → 4노드 중 3노드만 되는 반쪽 배포 | `[server]` sudoers 순서 교정 |
 
 > [!WARNING]
@@ -50,7 +50,7 @@
 **FRU [실측]** data03 `fru print 0` → Chassis/Board/Product Serial `SGH915TGVG`, Part `868705-B21`, Board Mfg Date 2019-04-09. data01 board serial `SGH725TTEA`. data05 SKU `P05172-B21`.
 
 **BMC LAN [실측: in-band `ipmitool lan print 1`]** data03·data04 모두 `IP Address Source: DHCP` / IP `0.0.0.0` / Subnet `0.0.0.0` / Gateway `0.0.0.0` / VLAN Disabled. MAC data03 `08:f1:ea:95:8b:00`, data04 `08:f1:ea:95:8c:98`. 채널 2는 `Invalid channel`. 후보 IP 8개에 `curl -sk https://IP/redfish/v1/` → 전부 443 무응답.
-**[가설]** data03 호스트 NIC MAC이 `08:f1:ea:95:8b:02`로 iLO MAC(`…8b:00`)과 베이스+2 관계 → 같은 LOM 보드. shared network port 모드로 전환하면 `192.168.1.0/24`에 올라온다. 별도로 bond0 ARP에 `10.218.18.x`(OUI `00:1a:f4`) 3개 → 동일 L2에 두 번째 L3 대역 존재 흔적(기존 관리 대역 후보, 조사 필요).
+**[가설]** data03 호스트 NIC MAC이 `08:f1:ea:95:8b:02`로 iLO MAC(`…8b:00`)과 베이스+2 관계 → 같은 LOM 보드. shared network port 모드로 전환하면 `192.0.2.0/24`에 올라온다. 별도로 bond0 ARP에 `10.218.18.x`(OUI `00:1a:f4`) 3개 → 동일 L2에 두 번째 L3 대역 존재 흔적(기존 관리 대역 후보, 조사 필요).
 
 ### 1.2 hwmon으로는 절대 못 보는 것 (= 수집을 늘려야 하는 이유)
 
@@ -163,13 +163,13 @@ roles/bmc-exporter/
     scrape_interval: 60s
     scrape_timeout: 30s
     static_configs:
-      - targets: ["192.168.1.103:9638"]
-        labels: { instance: "192.168.1.103:9638", node: "data03" }
+      - targets: ["192.0.2.13:9638"]
+        labels: { instance: "192.0.2.13:9638", node: "data03" }
       - targets: ["172.18.0.1:9638"]           # data05 호스트(도커 브리지)
-        labels: { instance: "192.168.1.105:9638", node: "data05" }
+        labels: { instance: "192.0.2.15:9638", node: "data05" }
       # data04 — 직접 도달 불가. keiwi-tunnel-data04.service에 -L 172.18.0.1:9639:localhost:9638 추가 후 해제
       # - targets: ["172.18.0.1:9639"]
-      #   labels: { instance: "192.168.1.104:9638", node: "data04" }
+      #   labels: { instance: "192.0.2.14:9638", node: "data04" }
 ```
 
 textfile 모드에서는 job 추가가 **불필요**하다(기존 node-exporter가 그대로 노출). 정식화 시점에만 위 job을 켠다.
@@ -308,7 +308,7 @@ Grafana annotation으로 SEL 사건을 메트릭 타임라인에 겹친다 → "
 
 ```yaml
   - id: data03
-    ip: 192.168.1.103
+    ip: 192.0.2.13
     # ... 기존 필드 유지 ...
     hardware:                      # 생성: playbooks/inventory-hw.yml (사람이 diff 확인 후 커밋)
       vendor: "HPE"
@@ -331,7 +331,7 @@ Grafana annotation으로 SEL 사건을 메트릭 타임라인에 겹친다 → "
 
 ### 1.12 수용 기준 (축1) — 기계 검증
 
-`P=http://192.168.1.105:9090/api/v1/query`, `q()` = `curl -s --data-urlencode "query=$1" $P | jq -r '.data.result[0].value[1] // "EMPTY"'`
+`P=http://192.0.2.15:9090/api/v1/query`, `q()` = `curl -s --data-urlencode "query=$1" $P | jq -r '.data.result[0].value[1] // "EMPTY"'`
 
 | # | 검증 | 명령 / 기대 |
 |---|---|---|
@@ -441,13 +441,13 @@ POST /api/convert/prometheus/config/v1/rules
 | `severity` | sev1/2/3 | 낮음 | **허용** |
 | `node` | data03 등 | 낮음(내부 별칭) | **허용** |
 | `job`, `gpu` | 잡·GPU 인덱스 | 낮음 | **허용** |
-| `instance` | **내부 IP** `192.168.1.10x:포트` | 중 | **제거**(node로 대체) |
+| `instance` | **내부 IP** `192.0.2.10x:포트` | 중 | **제거**(node로 대체) |
 | `modelName` | `NVIDIA A40` / `Quadro RTX 6000` | 중(하드웨어 구성 노출) | **제거** |
 | `user` | ownership-attribution v1이 붙인 **연구원 계정명**(/proc uid→pwd) | **높음** | **금지** |
 | `pid`, `cmdline`, XID 로그의 `name=VLLM::Worker` | 프로세스 정보 | **높음** | **금지** |
 | annotations `summary`/`description` | 임계와 실측값 | 중 | **허용**(수치만, 라벨 보간 금지) |
 | `values`/`valueString` | 메트릭 수치 | 중 | 허용 |
-| `generatorURL`/`dashboardURL`/`panelURL`/`silenceURL` | 내부 호스트명 또는 외부 도메인(터널 뒤) | 중 | **허용목록 호스트만**(주소는 레포에 적지 않는다 §13 — 현행은 내부 IP `192.168.1.105:3000`·`:3106`) |
+| `generatorURL`/`dashboardURL`/`panelURL`/`silenceURL` | 내부 호스트명 또는 외부 도메인(터널 뒤) | 중 | **허용목록 호스트만**(주소는 레포에 적지 않는다 §13 — 현행은 내부 IP `192.0.2.15:3000`·`:3106`) |
 
 > [!CAUTION]
 > **가장 주의할 점**: `user` 라벨과 XID 로그의 `pid`/`name`을 템플릿에 그대로 태우면 **연구원 계정명이 외부 SaaS에 영구 적재된다.** 되돌릴 수 없다. 그래서 v1의 Slack 템플릿은 **화이트리스트 방식**(alertname/severity/node/gpu/job만 출력)이며, 블랙리스트가 아니다 — 새 라벨이 생겨도 자동으로 새지 않는다. 상세는 링크로만 보낸다("콘솔에서 확인").
@@ -492,7 +492,7 @@ CI가 이 왕복(알림 → 런북 → `alerts:` 선언)을 검증한다 — 게
 |---|---|---|---|---|---|
 | A1 | `NodeDown` | `up{job="node-exporter"} == 0` | 2m | **1** | 15s 스크랩 × 8회 실패. 현재 0건 |
 | A3 | `ExporterDown` | `up{job=~"dcgm-exporter\|gpu-model-exporter\|port-exporter\|smartctl-exporter\|vllm\|bmc-exporter"} == 0` | 5m | 2 | **현재 2건**(§0 G0-3) → 사전 정리 필요 |
-| A2 | `TunnelDownData04` | data04 타깃 일괄 down **AND** `probe_success{instance="192.168.1.104"} == 1` | 2m | **1** | data04는 4개 타깃 전부 터널(172.18.0.1:9104/9404/9837/9987) 경유라 노드 down과 구분 불가 → **blackbox ICMP 선행 필수** |
+| A2 | `TunnelDownData04` | data04 타깃 일괄 down **AND** `probe_success{instance="192.0.2.14"} == 1` | 2m | **1** | data04는 4개 타깃 전부 터널(172.18.0.1:9104/9404/9837/9987) 경유라 노드 down과 구분 불가 → **blackbox ICMP 선행 필수** |
 | A4 | `VllmDown` | `probe_success{job="blackbox-http",target=~".*:8003/health\|.*:8010/health"} == 0` | 2m | **1** | blackbox 선행 |
 | A5 | `StackEndpointDown` | `probe_success{job="blackbox-http",target=~"console\|grafana\|opensearch"} == 0` | 2m | 1/2 | blackbox 선행 |
 
@@ -682,7 +682,7 @@ CI가 이 왕복(알림 → 런북 → `alerts:` 선언)을 검증한다 — 게
 ### 2.9 dead man's switch — Slack이 오히려 가장 값싸게 SPOF를 깬다
 
 Prometheus·Grafana·OpenSearch·터널·(예정)알림이 전부 data05 단일 호스트에 있다. **G0-2가 정확히 그 실패 모드다.**
-Slack egress를 1건 승인하면 **관찰자를 알림 스택 밖에 둘 수 있다**: data03(또는 data04)에 cron 1개 → `curl -sf http://192.168.1.105:9090/-/healthy` 및 Grafana `/api/health` 확인, 실패 시 **자기 자신이** Slack 웹훅 POST. Grafana 쪽에는 `Watchdog`(`vector(1)`)를 두고 관찰자가 heartbeat 부재를 감지한다.
+Slack egress를 1건 승인하면 **관찰자를 알림 스택 밖에 둘 수 있다**: data03(또는 data04)에 cron 1개 → `curl -sf http://192.0.2.15:9090/-/healthy` 및 Grafana `/api/health` 확인, 실패 시 **자기 자신이** Slack 웹훅 POST. Grafana 쪽에는 `Watchdog`(`vector(1)`)를 두고 관찰자가 heartbeat 부재를 감지한다.
 `roles/watchdog`으로 추가(기존 role 5종과 동형).
 
 > [!WARNING]
@@ -693,7 +693,7 @@ Slack egress를 1건 승인하면 **관찰자를 알림 스택 밖에 둘 수 �
 | 위치 | 기존 서술 | 실측 |
 |---|---|---|
 | §2 KEIwi 함정 | "data01/02는 수집 대상이 아니므로 절대 알림 대상이 아니다. 셀렉터는 data03/04/05로 한정" | **data01은 2026-07-24 온보딩되어 수집 중**(`up`에서 `.101`의 node·port·gpu-model 3개 모두 1). 단 드라이버 418로 DCGM 불가 → "node/port/gpu-model은 data01 포함, dcgm은 03/04/05만"으로 분기. **진짜 no-data는 data02(Windows)뿐** |
-| §9 미해결질문 | "data03 DCGM 실제 기동?" | **기동 확인**(`up{job="dcgm-exporter",instance="192.168.1.103:9400"}=1`, XID·온도 시리즈 정상) |
+| §9 미해결질문 | "data03 DCGM 실제 기동?" | **기동 확인**(`up{job="dcgm-exporter",instance="192.0.2.13:9400"}=1`, XID·온도 시리즈 정상) |
 | (신규 발견) | — | **data05는 `node_systemd_unit_state` 시리즈가 없다**(compose의 `--collector.systemd`가 컨테이너에서 동작하지 않음 — 101/103/104만 존재) → recording rule `instance:node_systemd_units_failed:count`가 data05에 대해 **영구 no-data**. 알림을 걸기 전에 이 구멍을 알고 있어야 한다(초록 오해 방지) |
 
 추가로, 기존 rule은 `state="failed"`만 세므로 **`activating (auto-restart)` 크래시루프를 원리적으로 못 잡는다** — data05의 431,899회 재시작이 그 증거다. 신규 신호 필요: 유닛 `NRestarts` 또는 `activating` 지속.
@@ -852,7 +852,7 @@ keiwi_gpu_bench_matmul_tflops / quantile_over_time(0.5, keiwi_gpu_bench_matmul_t
 
 | 노드 | 판정 | 근거 |
 |---|---|---|
-| **data03** | **최적** | 완전 유휴(가용 VRAM 97.7%/97.7%, util 0, 전력 11.1W/17.1W) · 드라이버 595.71.05 정합 · CUDA 13.2 천장(torch cu130 호환) · `.105`에서 SSH `:764` 직접 · Prometheus가 9100/9400/9836/9986/9633을 **직접 스크랩** → textfile 즉시 반영 · 2GPU SYS로 cross-socket 특성 측정 가능 |
+| **data03** | **최적** | 완전 유휴(가용 VRAM 97.7%/97.7%, util 0, 전력 11.1W/17.1W) · 드라이버 595.71.05 정합 · CUDA 13.2 천장(torch cu130 호환) · `.105`에서 SSH `:<SSH_PORT>` 직접 · Prometheus가 9100/9400/9836/9986/9633을 **직접 스크랩** → textfile 즉시 반영 · 2GPU SYS로 cross-socket 특성 측정 가능 |
 | data05 | 지금은 부적합 | GPU0에 vLLM 상주(가용 VRAM 8.66%) · G0-1 미수복 · CDI 깨짐. **단 수복 후에는 A40(PCIe4·sm8.6) vs RTX6000(PCIe3·sm7.5) 세대 비교의 다른 한쪽으로 필요** |
 | data04 | 2순위 | 유휴 편(52.3%/76.1%)이나 CUDA 12.2 천장 → **동일 바이너리 불가**. 접근도 터널 경유. 역설적으로 "표준화 안 하면 비교조차 못 한다"의 산증인 |
 | data01 | 제외 | 418.39 / 커널 4.4 / Tesla M4 3.7GiB / CUDA 10.1. 현대 스택 불가 → **legacy 예외 선언**(ADR-0020(신설 예정)) |

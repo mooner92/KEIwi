@@ -156,7 +156,7 @@
 | # | 알림 | 조건 | for | SEV | runbook / 조치 |
 |---|---|---|---|---|---|
 | A1 ✅ | **노드 down** | 라이브: `up{job="node-exporter"} < 1` (§2 NodeDown — 4노드 전체, noData=Alerting) | 5m | **1** | node-onboarding §검증·전원/네트워크·터널 확인 |
-| A2 | **SSH 터널 down (data04)** | data04 exporter 타깃 일괄 down **AND** data04 IP(192.168.1.104) **blackbox ICMP는 OK**(같은 서브넷 — 터널 밖 직접 경로) | 2m | **1** | `systemctl restart keiwi-tunnel-data04`. *blackbox 선행(T02b). ICMP OK가 A1(진짜 down)과 구분 — A1엔 inhibit 안 함* |
+| A2 | **SSH 터널 down (data04)** | data04 exporter 타깃 일괄 down **AND** data04 IP(192.0.2.14) **blackbox ICMP는 OK**(같은 서브넷 — 터널 밖 직접 경로) | 2m | **1** | `systemctl restart keiwi-tunnel-data04`. *blackbox 선행(T02b). ICMP OK가 A1(진짜 down)과 구분 — A1엔 inhibit 안 함* |
 | A3 | **exporter down(개별)** | 노드는 up인데 특정 exporter 타깃만 down | 5m | 2 | 해당 서비스 재기동. *A1/A2에 inhibit* |
 | A4 | **vLLM 중단** | blackbox `/health` 실패(어시스턴트 엔진) | 2m | **1** | vLLM 서비스 로그·재기동. 어시스턴트 무력화 |
 | A5 | **콘솔/Grafana/OpenSearch 응답 없음** | blackbox `probe_success==0` | 2m | 1(콘솔·Grafana) / 2(OS·Logstash) | 컨테이너·포트·Cloudflare 확인 |
@@ -296,7 +296,7 @@
 ## 12. 미해결 질문 (착수 전 확인 — critic Open Questions)
 - SRE **폰 OS(iOS/Android)?** — ntfy 셀프호스트 폰 도달성·egress 0 실현 판정.
 - **data04로 ICMP를 ufw가 허용**하나? — A2 blackbox ICMP 성립 조건.
-- ~~data03 DCGM 실제 기동?~~ → **해소(v2)**: 기동 확인 — `up{job="dcgm-exporter",instance="192.168.1.103:9400"}==1`, XID·온도 시리즈 정상(hardware-ops §2.10 실측).
+- ~~data03 DCGM 실제 기동?~~ → **해소(v2)**: 기동 확인 — `up{job="dcgm-exporter",instance="192.0.2.13:9400"}==1`, XID·온도 시리즈 정상(hardware-ops §2.10 실측).
 - **vLLM `/metrics` 스크랩 여부** — V1/V2 데이터 전제(#10).
 - **W1 관찰자** — 2차 노드(data03/04) vs 외부 heartbeat 예외 vs Slack egress 1건(hardware-ops §2.9), 어느 쪽으로 갈지 결정.
 - **L1 최소 이벤트 하한** — 저트래픽 category에서 3→9건 오탐 방지 절대 임계.

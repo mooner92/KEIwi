@@ -42,7 +42,7 @@ grep -nE '\$[a-zA-Z]' infra/monitoring/grafana/provisioning/alerting/*.yaml \
 
 - Grafana API: `curl -s -H "Authorization: Bearer $GRAFANA_SA_TOKEN" http://localhost:3000/api/v1/provisioning/alert-rules` — 토큰은 `/data/monitoring/.env`(§13, 레포 밖).
 - 어시스턴트: `curl -s -X POST http://localhost:3105/api/assistant -H 'content-type: application/json' -d '{"fleetNode":"data04","question":"..."}'` — 라이브, 인증 없음, 동시 1(초과 429) [실측 `route.ts:10-11`].
-- 노드 SSH(read-only): data03 `192.168.1.103 -p 764` · data04 `192.168.1.104 -p 764` — 둘 다 `sudo -n` OK. **data05만 실패** [실측]. 계정명은 레포에 적지 않는다(§13) — `KEIWI_NODE_USER`/`KEIWI_USER_DATA0N` env.
+- 노드 SSH(read-only): data03 `192.0.2.13 -p <SSH_PORT>` · data04 `192.0.2.14 -p <SSH_PORT>` — 둘 다 `sudo -n` OK. **data05만 실패** [실측]. 계정명은 레포에 적지 않는다(§13) — `KEIWI_NODE_USER`/`KEIWI_USER_DATA0N` env.
 
 ---
 
@@ -73,7 +73,7 @@ sed -i 's/{{ \$labels\./{{ $$labels./g' infra/monitoring/grafana/provisioning/al
 
 ```yaml
 # DiskUsageHigh (dev 행 165 교체) — 사건 재현 시 기대 출력:
-#   "192.168.1.104 / 사용률 95.2% (임계 90% · 15m 지속)"
+#   "192.0.2.14 / 사용률 95.2% (임계 90% · 15m 지속)"
 summary: '{{ $$labels.instance | stripPort }} {{ $$labels.mountpoint }} 사용률 {{ printf "%.1f" $$values.A.Value }}% (임계 90% · 15m 지속)'
 
 # GpuTempHigh (행 204 — "85°C 초과" 오기도 함께 종결)
@@ -173,7 +173,7 @@ text: '{{ template "keiwi.text" . }}'
 
 - 현재 알림에는 런북 링크뿐, 그마저 낡은 문서(fleet-hardening 축3가 교체 중 — 재정의 금지).
 - 콘솔 착지점 [실측]: `/incidents?service=&node=&q=` **수신 + 자동 분석 1회**(`incidents/page.tsx:17-25`, `assistant-panel.tsx:71-79`) — 최적 타깃. `/overview?node=` 수신. `/logs`는 searchParams 전무.
-- 빈 곳 [실측]: ① `/incidents`가 시간창(`from`)을 URL로 안 받음(`ErrorContext.from`은 API에 존재) ② node 파라미터가 `data04` 형태를 기대하나 Grafana 템플릿은 `192.168.1.104:9100`만 만들 수 있음(라벨→노드명 매핑 함수 없음).
+- 빈 곳 [실측]: ① `/incidents`가 시간창(`from`)을 URL로 안 받음(`ErrorContext.from`은 API에 존재) ② node 파라미터가 `data04` 형태를 기대하나 Grafana 템플릿은 `192.0.2.14:9100`만 만들 수 있음(라벨→노드명 매핑 함수 없음).
 
 ### 2.2 설계
 
@@ -186,8 +186,8 @@ text: '{{ template "keiwi.text" . }}'
 annotations:
   __dashboardUid__: 'keiwi-system-v3'          # ❌ 미채택 — Grafana가 __panelId__ 동반을 강제 → 기동 실패
   __panelId__: '<디스크 패널 ID>'               # ❌ 미채택 — 패널 ID가 대시보드 개편마다 바뀐다
-  drilldown_url: 'http://192.168.1.105:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
-  console_url: 'http://192.168.1.105:3106/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
+  drilldown_url: 'http://192.0.2.15:3000/d/keiwi-system-v3?orgId=1&var-instance={{ $$labels.instance }}&var-node={{ $$labels.instance }}&var-host={{ $$labels.instance }}&from=now-6h&to=now'
+  console_url: 'http://192.0.2.15:3106/incidents?alert=DiskUsageHigh&node={{ $$labels.instance }}&mount={{ $$labels.mountpoint }}&from=now-6h'
 # GPU 계열(GpuTempHigh·GpuXidErrorNew): __dashboardUid__: keiwi-gpu-v3
 # LogIngestStalled: __dashboardUid__: keiwi-logs-v3 (노드 무관 — var-* 없이)
 ```
@@ -200,7 +200,7 @@ annotations:
 #### D2-2. 콘솔 소보수 (`apps/console`)
 
 1. `/incidents`: `alert`·`mount`·`from` searchParams 수용 — `alert`→프리셋 질문 테이블(예: DiskUsageHigh → "최근 6시간 {node} {mount} 디스크 사용 급증의 원인 후보를 로그에서 찾아줘"), `from`→`ErrorContext.from` 배선(`assistant-panel.tsx:20-24`에 이미 자리 있음).
-2. **node 정규화 유틸**: `data04` | `192.168.1.104` | `192.168.1.104:9100` 모두 수용 → fleetNode id로. 콘솔 `types/fleet.ts`에 노드↔IP 매핑이 있으면 재사용, 없으면 5-ent리 맵 추가 [검증 필요 — 구현 시 확인].
+2. **node 정규화 유틸**: `data04` | `192.0.2.14` | `192.0.2.14:9100` 모두 수용 → fleetNode id로. 콘솔 `types/fleet.ts`에 노드↔IP 매핑이 있으면 재사용, 없으면 5-ent리 맵 추가 [검증 필요 — 구현 시 확인].
 3. `/logs` searchParams 주입(`logs-workbench.tsx:114-115`의 useState 초기값으로) — **선택**(P2). `/incidents`가 주 착지점이라 없어도 E2 게이트는 통과 가능.
 
 ### 2.3 수용 기준 (AC)
@@ -208,8 +208,8 @@ annotations:
 | AC | 검증 | 기대 |
 |---|---|---|
 | **AC-E2-1** ✏️교정 | `grep -c '^\s*console_url:' alert-rules.yaml` + `grep -c '^\s*drilldown_url:'` | 각 14(W1) — 규칙 수와 일치. LogIngestStalled 등 노드 무관 규칙은 console_url에 node 파라미터 없음 허용.<br>**`__dashboardUid__`는 검증 대상에서 뺀다**: 실적용에서 Grafana가 `__panelId__` 동반을 강제해 기동 실패 위험이 있어 **쓰지 않기로 했다**[2026-08-04 실전] — `drilldown_url`이 그 역할을 대체한다. 또한 원래 검증식(`grep -c '__dashboardUid__'`)은 **주석 14줄을 세어 14를 반환**해 실제 키가 0건인데도 통과하는 **거짓 PASS**였다(자기참조 결함 — 함정을 설명하는 주석 자신이 히트). 그래서 위 두 grep은 **행 앞 키 형태(`^\s*키:`)** 로 고정한다 |
-| **AC-E2-2** `[server]` | drilldown_url 실클릭 (사건 재현 파라미터: `var-instance=192.168.1.104:9100`) | system-v3가 data04로 필터된 상태로 열림 (스크린샷). 실패 시 D2-1 폴백 경로 발동 기록 |
-| **AC-E2-3** | Playwright: `/incidents?alert=DiskUsageHigh&node=192.168.1.104:9100&mount=/&from=now-6h` | 200 + 노드가 data04로 정규화 표시 + 자동 분석 1회 발화(요청 1건 관측) |
+| **AC-E2-2** `[server]` | drilldown_url 실클릭 (사건 재현 파라미터: `var-instance=192.0.2.14:9100`) | system-v3가 data04로 필터된 상태로 열림 (스크린샷). 실패 시 D2-1 폴백 경로 발동 기록 |
+| **AC-E2-3** | Playwright: `/incidents?alert=DiskUsageHigh&node=192.0.2.14:9100&mount=/&from=now-6h` | 200 + 노드가 data04로 정규화 표시 + 자동 분석 1회 발화(요청 1건 관측) |
 | **AC-E2-4** | 같은 Playwright에서 assistant 요청 body 검사 | `from` 반영 확인 |
 | **AC-E2-5** | runbook_url 무결성 | fleet-hardening 축3 게이트 재사용(교차 참조 — 이 스펙은 재정의하지 않음) |
 

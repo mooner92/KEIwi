@@ -225,9 +225,9 @@ sudo du -xsh "/data/home/$U" "/home/$U".old-*
 
 ```bash
 U=user1
-NODE=192.168.1.104
+NODE=192.0.2.14
 # ⑤ SSH 키 인증 — StrictModes 때문에 권한이 틀리면 여기서 깨진다
-ssh -p 764 "$U@$NODE" 'echo SSH_OK'
+ssh -p <SSH_PORT> "$U@$NODE" 'echo SSH_OK'
 # ⑥ (data05) 유닛 재기동
 sudo systemctl start "jupyter-$U" 2>/dev/null || true
 systemctl is-active "jupyter-$U" || true

@@ -21,7 +21,7 @@
 | **명령 근거성** | `command`는 그 런북 **본문 코드블록에 실재**해야 한다(게이트 A7). 화이트리스트는 문서의 사본이지 별도 진실이 아니다 |
 | `last_verified` | `actions`가 비어 있지 않으면 **필수**(게이트 A10). 180일 초과면 WARN |
 | 경로 | 알림의 `runbook_url`은 `https://github.com/mooner92/KEIwi/blob/main/docs/runbooks/<id>.md` |
-| **`<…>` 자리표시자** | **따옴표 안에 둔다** — `ssh -p 764 "<user>@<ip>"`. 벗기면 bash가 `<`를 리다이렉션으로 파싱해 게이트 R10(`bash -n`)이 실패한다 |
+| **`<…>` 자리표시자** | **따옴표 안에 둔다** — `ssh -p <SSH_PORT> "<user>@<ip>"`. 벗기면 bash가 `<`를 리다이렉션으로 파싱해 게이트 R10(`bash -n`)이 실패한다 |
 | ` ```bash ` 블록 | **블록마다 독립적으로** `bash -n`을 통과해야 한다(블록 간 변수 이어받기 금지) |
 | `docs/README.md` | 런북 표에 한 줄 추가(게이트 R9) |
 

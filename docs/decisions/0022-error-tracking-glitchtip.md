@@ -51,7 +51,7 @@
 |---|---|---|
 | 나가는 것 | 에러 이벤트 **전체** — 스택트레이스·소스 스니펫·`abs_path`·요청 URL·헤더·breadcrumbs·모듈 목록·hostname·OS/커널 | **아무것도** — data05 안에 머문다 |
 | KEI 내부 파일경로 | 나간다(`/home/mooner92/keiwi-design/apps/console/src/lib/…`) | 안 나간다 |
-| 내부 IP | breadcrumbs·cause 체인으로 나간다(`connect ECONNREFUSED 192.168.1.105:9090`) | 안 나간다 |
+| 내부 IP | breadcrumbs·cause 체인으로 나간다(`connect ECONNREFUSED 192.0.2.15:9090`) | 안 나간다 |
 | 되돌릴 수 있는가 | **아니오** — 개별 이벤트 삭제 불가. "민감정보가 많이 들어갔으면 **프로젝트를 삭제·재생성하라**"가 공식 안내 | 해당 없음 |
 | 헌장 §I-1(온프렘 only) | **정면 충돌** → egress 예외 승인이 필요 | **충족** |
 

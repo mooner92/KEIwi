@@ -12,13 +12,13 @@
 
 | IP | 서버 | OS | 역할 |
 |---|---|---|---|
-| 192.168.1.101 | 1 | Ubuntu | target |
-| 192.168.1.102 | 2 | Windows | target |
-| 192.168.1.103 | 3 | Ubuntu | target |
-| 192.168.1.104 | 4 | Ubuntu | target |
-| 192.168.1.105 | 5 | Ubuntu | **개발(Claude Code) + 관제 스택 호스트** (GPU 최상) |
+| 192.0.2.11 | 1 | Ubuntu | target |
+| 192.0.2.12 | 2 | Windows | target |
+| 192.0.2.13 | 3 | Ubuntu | target |
+| 192.0.2.14 | 4 | Ubuntu | target |
+| 192.0.2.15 | 5 | Ubuntu | **개발(Claude Code) + 관제 스택 호스트** (GPU 최상) |
 
-- 다섯 노드는 단일 서브넷 `192.168.1.0/24` 안에 있다.
+- 다섯 노드는 단일 서브넷 `192.0.2.0/24` 안에 있다.
 - GPU 유무·스펙, 노드별 수집 대상은 `docs/inventory.(md|yaml)`에 기입하며, **이 파일이 service discovery와 온보딩의 단일 기준**이다. 노드 추가·변경은 이 파일을 고치는 것으로 시작한다.
 
 ---

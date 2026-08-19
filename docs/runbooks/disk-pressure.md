@@ -90,7 +90,7 @@ curl -sG localhost:9090/api/v1/query --data-urlencode 'query=delta(node_filesyst
 
 ```bash
 # ③ 그 노드에서 실제 범인 찾기 (읽기 전용)
-ssh -p 764 "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 764
+ssh -p <SSH_PORT> "<user>@<node-ip>"        # 계정은 노드별(레포에 적지 않는다) · 포트는 전부 <SSH_PORT>
 df -h
 sudo du -xsh /home /var/lib/docker /var/log /tmp 2>/dev/null | sort -rh | head
 ```

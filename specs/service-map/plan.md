@@ -18,7 +18,7 @@ Next 16 App Router · 서버 전용 BFF(`'use client'` 금지 lib) · force-dyna
 ## 데이터 소스 → 매핑
 1. **서비스/노드** — OpenSearch `_search size:0` terms agg `service`(filter `fleet_node=N`, 최근 24h, 노이즈 제외). 행별 레벨 요약(error/warn 수)도 같은 쿼리로. → `lib/service-catalog.ts`(신규 순수 lib, opensearch 재사용).
 2. **GPU 모델** — Prometheus `gpu_model_info`/`gpu_model_vram_bytes`(라벨 model·gpu·port·framework·**node**). node 라벨은 ADR-0017 §3 배포 후 노드별; 그 전엔 data05만. → `lib/prometheus.ts`에 `queryGpuModels()` 추가.
-3. **알려진 엔드포인트 포트** — `inventory.exporters`(node:9100/dcgm:9400) + gpu_model port 라벨 + 정적 known-endpoints(ssh:764, grafana:3000, vllm:8003/8010, ollama:11434 — [[keiwi-cloudflare-endpoints]] 근거, `config/known-endpoints.ts`). v1은 "알려진 것만" 명시.
+3. **알려진 엔드포인트 포트** — `inventory.exporters`(node:9100/dcgm:9400) + gpu_model port 라벨 + 정적 known-endpoints(ssh:<SSH_PORT>, grafana:3000, vllm:8003/8010, ollama:11434 — [[keiwi-cloudflare-endpoints]] 근거, `config/known-endpoints.ts`). v1은 "알려진 것만" 명시.
 
 ## 컴포넌트 / IA
 - **IA 결정(권장)**: 별도 라우트 대신 **Overview 노드 드릴다운에 "서비스" 탭 추가** — 유기적 리팩토링(노드 클릭 → 시스템/GPU/모델/**서비스**). 단, Grafana 탭들과 달리 "서비스"는 콘솔 네이티브 표. (대안: 독립 `/service-map`. spec openQuestion — 사용자 합의 후 확정.)

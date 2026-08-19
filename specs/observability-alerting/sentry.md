@@ -168,7 +168,7 @@ POST/GET https://o<orgId>.ingest.sentry.io/api/<projectId>/cron/<monitor_slug>/<
 **(3) PII — 가설이 아니라 실데이터다.** `keiwi-logs-2026.07.29`에서 그대로 뽑은 문서:
 
 ```
-message: "Accepted password for user5 from 192.168.100.108 port 6425 ssh2"
+message: "Accepted password for user5 from 192.0.2.108 port 6425 ssh2"
 process.command_line: "\"sshd: user5 [priv]\""
 process.pid: 2475390
 process.thread.capabilities.effective: [CAP_CHOWN, CAP_DAC_OVERRIDE, ... 41개]
@@ -282,7 +282,7 @@ Next.js/Node SDK가 에러 이벤트 1건에 담는 것을 필드 단위로 판�
 | `server_name` | Node SDK가 `os.hostname()` | **`data05lx`** | 중 | **고정 별칭으로 덮어쓴다**(`keiwi-console`) |
 | `contexts.os`·`runtime`·`device` | 전송 | 커널 `6.8.0-117`·Node 버전·CPU·메모리 | 중 — 정찰 정보 | **os·device 제거**, runtime만 허용 |
 | `modules` | Node SDK가 전송 | 설치된 npm 패키지 전체 + 버전 | 중 — 취약 버전 노출 | **제거** |
-| **`breadcrumbs`** | 전송(http/fetch 자동) | **`http://192.168.1.105:9090/api/v1/query?query=up{job="dcgm-exporter"}`**, OpenSearch 질의 URL, vLLM 엔드포인트 | **높음** — 내부 IP·PromQL·질의 전부 | **http breadcrumb 비활성 또는 URL 마스킹** |
+| **`breadcrumbs`** | 전송(http/fetch 자동) | **`http://192.0.2.15:9090/api/v1/query?query=up{job="dcgm-exporter"}`**, OpenSearch 질의 URL, vLLM 엔드포인트 | **높음** — 내부 IP·PromQL·질의 전부 | **http breadcrumb 비활성 또는 URL 마스킹** |
 | `tags`·`extra` | 우리가 넣은 것만 | — | — | 화이트리스트만 |
 | `sdk` | 전송 | SDK 이름·버전 | 낮음 | 허용 |
 | **소스맵 / 소스 파일** | `next build` 시 **자동 업로드** | 원본 소스 | **최상** | **v1 업로드 OFF**(§6.4) |

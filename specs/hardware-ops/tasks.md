@@ -34,7 +34,7 @@
   - [x] **data05 smartctl down** — **exporter는 무죄.** 6일째 `active`, `*:9633` 전체 바인드, 호스트에선 3주소 모두 200. Prometheus 컨테이너에서만 `context deadline exceeded` = **ufw가 docker 브리지→9633 유입을 드랍**(9836·9986은 허용돼 up — 9633만 규칙 누락). 적용 1줄: `sudo ufw allow from 172.18.0.0/16 to any port 9633 proto tcp`
   - [x] **vllm `:8010` down** — **근본 원인(T0-4) 해소 2026-08-06.** 재부팅 후 `vllm-qwen25-coder-32b` 정상 기동(GPU0, 8003 서빙), auto-restart 루프 소멸. `vllm-ocr-8010`은 **disabled·정지 상태 유지**(MineSweeper OCR — 필요 시 수동 `systemctl start`, GPU1 유휴).
   - [ ] **systemd failed — data03·04 `networkd-wait-online`** — 원인 실측: `eno2`가 no-carrier인데 configured → 전 인터페이스 대기 타임아웃. **`--any` drop-in을 node-hygiene role에 코드화 완료**(`node_hygiene_fix_wait_online`), 적용 대기. ⚠️ 2026-08-06 재부팅에서 **data05도 동일 failed 관측** — 적용 대상 3노드로 확대.
-  - [x] **systemd failed — data01 `rc-local`** — ⚠️ **건드리지 마라.** rc.local이 설정하는 `192.168.1.51`이 현재 bond0의 **primary IP로 라이브**(:764 응답, .101이 오히려 secondary). 업타임 1.22년이라 부팅 시 실제 IP 소스를 검증할 수 없음 — disable 시 재부팅 후 접속 불능 위험. failed 상태는 known-issue로 문서화(2021-04부터, 5년 무해).
+  - [x] **systemd failed — data01 `rc-local`** — ⚠️ **건드리지 마라.** rc.local이 설정하는 `192.0.2.51`이 현재 bond0의 **primary IP로 라이브**(:<SSH_PORT> 응답, .101이 오히려 secondary). 업타임 1.22년이라 부팅 시 실제 IP 소스를 검증할 수 없음 — disable 시 재부팅 후 접속 불능 위험. failed 상태는 known-issue로 문서화(2021-04부터, 5년 무해).
   - [ ] **systemd failed — data01 `unattended-upgrades`** — 16.04 EOL이라 apt 소스가 죽어 서비스 무의미. disable 무방(낮은 우선순위).
   - [~] **data04 `/` 86%** — 시스템측 정리 실행(journal 848M→200M 상한 + apt 캐시 591M) → **~1GB 회수에 그침**. 본질은 `/home` 272G(user2 134G · user5 74G · user1 23G · user3 22G) = **연구자 데이터라 관리자가 못 지움 → 통보 대상**. 후보: `/opt/conda/pkgs` 캐시 21G(`conda clean -p`, **공용이라 사용자 승인 필요**) · `/tmp` 5.1G(내용 확인 필요). 알림은 % 대신 `predict_linear`로 전환(실측: 24h 후 57GB 여유 = 당장 안전).
   - [ ] **data01 메모리 90%** — 원인 특정: **user6의 Jupyter 커널 1개가 RSS 291GB(73.6%)**, 2025년부터 상주. 추가 커널 3개(16G·14G·3.8G). swap 41G 사용 중 = 시스템 압박. **자동 kill 금지(§11) — 연구자 통보 필요.** 유휴/좀비 GPU·메모리 넛지(백로그 #9)의 실증 사례 1호.
@@ -138,7 +138,7 @@
 ## P7 — out-of-band 승격 (L) — **별도 ADR + 사람의 작업창. P1~P6과 절대 묶지 않는다**
 
 > [!CAUTION]
-> iLO shared network port 전환이나 전용 포트 결선은 잘못하면 호스트 NIC1 트래픽과 얽히고 최악의 경우 **원격 접근을 잃는다.** 기관망이라 IP 배정은 협의 사항이다(gw `192.168.1.1`의 MAC `00:08:e3`은 우리 장비가 아니고, ARP에 타 장비 다수 + `10.218.18.x` 대역 흔적). §11/§12에 따라 에이전트는 절대 손대지 않는다. BMC 크레덴셜이 생기는 순간 §13 관리 부담도 함께 생긴다.
+> iLO shared network port 전환이나 전용 포트 결선은 잘못하면 호스트 NIC1 트래픽과 얽히고 최악의 경우 **원격 접근을 잃는다.** 기관망이라 IP 배정은 협의 사항이다(gw `192.0.2.1`의 MAC `00:08:e3`은 우리 장비가 아니고, ARP에 타 장비 다수 + `10.218.18.x` 대역 흔적). §11/§12에 따라 에이전트는 절대 손대지 않는다. BMC 크레덴셜이 생기는 순간 §13 관리 부담도 함께 생긴다.
 
 - [ ] **T7-1** (S) Q8 조사 — `10.218.18.0/24`(ARP OUI `00:1a:f4` 3건)가 기존 관리 대역인지. 읽기 전용 조사만
 - [ ] **T7-2** (M) 관리망 설계 문서 + IP 배정 협의안. **선행: T7-1**

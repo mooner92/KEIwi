@@ -68,7 +68,7 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 | **data01** `.101` | node · gpu-model · port (**직접**) | ✅ (2026-07-24~) | Ubuntu 16.04 xenial · Tesla M4 ×1 **드라이버 418 → DCGM 불가**. filebeat는 8.x apt 불가라 **7.17 벤더링**([`filebeat-xenial`](./infra/logging/filebeat-xenial/README.md)) — Ansible `[logging]` 그룹 **밖**(수동 관리) |
 | **data02** `.102` | ❌ | ❌ | Windows. `windows_exporter`·winlogbeat role 부재 — 백로그 |
 | **data03** `.103` | node · DCGM · gpu-model · port · smartctl (**직접**) | ✅ | Quadro RTX 6000 ×2 (2026-07-03 온보딩) |
-| **data04** `.104` | node · DCGM · gpu-model · port (**SSH 터널** `:764`) | ✅ | Quadro RTX 6000 ×2. smartctl은 터널 미배선(포트 충돌 — `prometheus.yml`에 주석으로 대기) |
+| **data04** `.104` | node · DCGM · gpu-model · port (**SSH 터널** `:<SSH_PORT>`) | ✅ | Quadro RTX 6000 ×2. smartctl은 터널 미배선(포트 충돌 — `prometheus.yml`에 주석으로 대기) |
 | **data05** `.105` | node · DCGM · port · smartctl · **glitchtip** | ✅ | A40 ×2 · 관제 스택 호스트 + 개발. smartctl은 ufw 브리지 규칙 추가로 복구(2026-07-31). 드라이버 mismatch는 **2026-08-06 재부팅으로 해소**(595.84 정합 — [런북](./docs/runbooks/nvidia-driver-mismatch.md)) |
 
 **아직 한 건도 수집되지 않는 것:** BMC/iLO(팬·PSU·인렛 온도)·하드웨어 이벤트 로그(SEL)·Windows(data02). 플릿은 HPE ProLiant DL380 4대이고 BMC가 4노드 전부에 있다 — 실측 근거와 도입 설계는 [`specs/hardware-ops/`](./specs/hardware-ops/README.md)(게이트 통과 후 착수).
@@ -82,7 +82,7 @@ KEI 연구 서버 플릿(`data01~05`)을 **하나의 콘솔에서 모니터링·
 ```mermaid
 flowchart LR
   N["data01·03·04·05<br/>node · DCGM · gpu-model · port · smartctl"]
-  N -->|"직접 스크랩 data01·03·05<br/>SSH 터널 :764 data04"| P[("Prometheus<br/>16.6k 시리즈")]
+  N -->|"직접 스크랩 data01·03·05<br/>SSH 터널 :<SSH_PORT> data04"| P[("Prometheus<br/>16.6k 시리즈")]
   N -->|"Filebeat journald :5044"| L["Logstash<br/>정규화 + service→category"]
   L --> OS[("OpenSearch<br/>keiwi-logs-* · ISM 365d")]
   P --> G["Grafana 13 — 단일 운영 콘솔"]
@@ -237,7 +237,7 @@ node scripts/assistant-func-test.mjs                              # 신호별로
 4. **라이브 스택 직접 수정 금지** — 개발은 격리(§12). `/KEIwi`에서의 git 작업 포함.
 5. **시크릿은 레포 밖** — 키·비번·`.env.local` 커밋 금지(§13). 인벤토리·Ansible에도 평문 비번 없음(키 인증 + 노드별 `sudoers.d`).
 6. **Spec이 진실원천 · 의존성=ADR · 수용기준은 기계검증**(§7·§8·§9).
-7. **온프레미스 · egress 0** — 검색(내부 OpenSearch)·생성(사내 GPU vLLM)이 모두 망 안. 콘솔·Grafana는 Cloudflare Access 뒤, SSH는 `:764`.
+7. **온프레미스 · egress 0** — 검색(내부 OpenSearch)·생성(사내 GPU vLLM)이 모두 망 안. 콘솔·Grafana는 Cloudflare Access 뒤, SSH는 `:<SSH_PORT>`.
 
 ---
 

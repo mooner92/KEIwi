@@ -273,7 +273,7 @@ GlitchTip에 **Slack 전용 통합은 없다.** 대신 `RecipientType.GENERAL_WE
 
 | 필드 | sentry.md 판정 | **이 스펙의 판정** | 왜 |
 |---|---|---|---|
-| **`exception` cause 체인** | 언급 없음 | **IP 마스킹 필수** `/\b\d{1,3}(\.\d{1,3}){3}(:\d+)?\b/g → <ip>` | `linkedErrorsIntegration`이 **기본 on**. undici `fetch failed`의 cause가 `connect ECONNREFUSED 192.168.1.105:9090`이다 → **우리가 가장 보고 싶은 에러가 곧 내부 IP 반출 경로다.** 자체호스팅도 Slack `culprit`으로 새어 완화되지 않는다 |
+| **`exception` cause 체인** | 언급 없음 | **IP 마스킹 필수** `/\b\d{1,3}(\.\d{1,3}){3}(:\d+)?\b/g → <ip>` | `linkedErrorsIntegration`이 **기본 on**. undici `fetch failed`의 cause가 `connect ECONNREFUSED 192.0.2.15:9090`이다 → **우리가 가장 보고 싶은 에러가 곧 내부 IP 반출 경로다.** 자체호스팅도 Slack `culprit`으로 새어 완화되지 않는다 |
 | `enableLogs` | `false`(Sentry Logs 기각이라 무의미) | **`false` — 더 위험해서 끈다** | GlitchTip은 `log`·`otel_log`를 **지원**한다 → 켜면 정말 저장된다 |
 | `enableMetrics` | `false`(§I-3) | **`false` — 게다가 폐기된다** | `trace_metric` ∈ `IgnoredItemType` → 보내도 버려진다 |
 | `sendClientReports` | 언급 없음 | **`false`** | `client_report` ∈ `IgnoredItemType` |
@@ -373,7 +373,7 @@ data05가 죽으면 Logstash·Prometheus·Grafana·**GlitchTip이 함께** 죽�
 | 동작 | data03 systemd timer가 5분마다 GlitchTip `/_health/`(경로는 GV-2에서 확인) + Grafana `/api/health` 확인 → **3회 연속 실패 시 data03이 직접 `hooks.slack.com`에 1줄** |
 | egress | **새 클래스 0.** 이미 승인된 Slack egress 예외(ADR-0018) 범위 안 |
 | 미커버 | "data03 동시 사망" → Grafana `NodeDown`(라이브)이 잡는다 ⇒ **2-of-N** |
-| 마찰 | 노드 계정·`:764`·NOPASSWD 적용 완료 상태[실측]라 접근 마찰 0 |
+| 마찰 | 노드 계정·`:<SSH_PORT>`·NOPASSWD 적용 완료 상태[실측]라 접근 마찰 0 |
 | 소속 | hardware-ops **T4-12**의 `roles/watchdog`에 항목 추가(신규 role 아님) |
 
 **사외 1비트 외부 관찰자는 별건으로 남긴다.** "GlitchTip을 골랐으니 필요 없다"로 넘기지 않는다 — 기관 네트워크 단절은 위 어느 장치도 덮지 못한다(§10 Q3).
