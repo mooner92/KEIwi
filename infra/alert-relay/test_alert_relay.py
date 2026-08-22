@@ -190,7 +190,7 @@ class RelayHarness(object):
     """relay를 실제 소켓 위에 띄우고 mock 2대를 붙인다."""
 
     def __init__(self, assistant=None, collector=None, enrich=True,
-                 store=None, dedup_window=None, db_path=None):
+                 store=None, dedup_window=None, db_path=None, cooldown_sec=None):
         self.slack = MockSlack()
         self.assistant = assistant if assistant is not None else MockAssistant()
         self.tmp = tempfile.TemporaryDirectory()
@@ -211,6 +211,8 @@ class RelayHarness(object):
         }
         if dedup_window is not None:
             env["RELAY_DEDUP_WINDOW_SEC"] = str(dedup_window)
+        if cooldown_sec is not None:
+            env["RELAY_COOLDOWN_SEC"] = str(cooldown_sec)
         self.cfg = ar.Config(env)
         self.app = ar.App(self.cfg, store=store)
         self.app.enricher.start()
@@ -545,7 +547,12 @@ class TestThreading(unittest.TestCase):
         first_requests = len(harness.assistant.requests)
         _, body = harness.post(payload)
         self.assertEqual(body["enriched"], 0)
-        self.assertEqual(body["posted"], 1, "재통지는 최상위 게시 자체는 한다(원장 창 밖)")
+        # ✏️교정[2026-08-16 · spec alert-correlation C1]: 종전 계약은 "재통지도 최상위 게시는
+        # 한다"였다. 재발화 강등이 들어오면서 **의도적으로** 바뀐다 — 같은 사건의 재통지는
+        # 새 메시지가 아니라 원 스레드 답글이다. 이 테스트의 원래 취지(재보강 안 함)는 그대로다.
+        self.assertEqual(body["posted"], 0, "재통지는 최상위에 다시 뜨지 않는다(강등)")
+        self.assertEqual(body["demoted"], 1)
+        self.assertEqual(len(harness.slack.top_level()), 1, "최상위는 최초 1건뿐")
         self.assertTrue(harness.drain())
         self.assertEqual(len(harness.assistant.requests), first_requests)
 
@@ -561,6 +568,93 @@ class TestThreading(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════════════
 # AC-E3-4 · AC-E3-7 — 비동기 보강
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRepeatDemotion(unittest.TestCase):
+    """재발화 강등 — spec alert-correlation C1 · AC-1·4·5.
+
+    모든 케이스가 ``dedup_window=0`` 으로 돈다. 멱등 원장(배달 중복)이 켜져 있으면 두 번째
+    POST가 거기서 잘려 **강등 코드에 도달조차 하지 않는다** — 그러면 이 테스트는 강등이
+    아니라 배달 중복 억제를 검사하게 된다(둘은 다른 것이다, spec §1).
+    """
+
+    def _fire(self, harness, times):
+        payload = load_fixture("webhook-diskusagehigh-firing.json")
+        bodies = []
+        for _ in range(times):
+            _, body = harness.post(payload)
+            bodies.append(body)
+            self.assertTrue(harness.drain())
+        return bodies
+
+    def test_ac1_repeats_collapse_into_one_thread(self):
+        """5회 발화 → 최상위 1건 + 답글 4건, 'N회째' 표기."""
+        h = RelayHarness(dedup_window=0, cooldown_sec=1800)
+        self.addCleanup(h.close)
+        bodies = self._fire(h, 5)
+
+        self.assertEqual(len(h.slack.top_level()), 1, "채널에 새 메시지는 최초 1건뿐")
+        replies = [p for p in h.slack.replies() if "재발화" in p["text"]]
+        self.assertEqual(len(replies), 4)
+        self.assertEqual([b.get("demoted", 0) for b in bodies], [0, 1, 1, 1, 1])
+        # 몇 번째인지가 답글의 존재 이유다 — 5회째와 1회째는 다른 정보다.
+        self.assertIn("2회째", replies[0]["text"])
+        self.assertIn("5회째", replies[-1]["text"])
+        # 답글은 전부 최초 스레드에 붙는다.
+        first_ts = bodies[0]["ts"]
+        self.assertTrue(all(r["thread_ts"] == first_ts for r in replies))
+
+    def test_ac4_critical_never_demoted(self):
+        """치명 알림은 억제창을 무시하고 항상 최상위(spec C4-4)."""
+        h = RelayHarness(dedup_window=0, cooldown_sec=1800)
+        self.addCleanup(h.close)
+        payload = load_fixture("webhook-diskusagehigh-firing.json")
+        for alert in payload["alerts"]:
+            alert.setdefault("labels", {})["severity"] = "critical"
+        payload.setdefault("commonLabels", {})["severity"] = "critical"
+        for _ in range(3):
+            _, body = h.post(payload)
+            self.assertEqual(body.get("demoted", 0), 0)
+            self.assertTrue(h.drain())
+        self.assertEqual(len(h.slack.top_level()), 3, "치명은 접지 않는다")
+
+    def test_cooldown_expiry_resurfaces_to_top_level(self):
+        """억제창 밖 재발화는 다시 최상위로 — 장기 사건이 스레드에 묻히지 않는다."""
+        h = RelayHarness(dedup_window=0, cooldown_sec=1800)
+        self.addCleanup(h.close)
+        self._fire(h, 1)
+        with h.app.store._connect() as conn:  # noqa: SLF001 — 창 밖을 만들려면 과거 시각이 필요하다
+            conn.execute("UPDATE threads SET last_seen='2026-01-01T00:00:00Z'")
+        self._fire(h, 1)
+        self.assertEqual(len(h.slack.top_level()), 2)
+
+    def test_disabled_when_cooldown_zero(self):
+        """RELAY_COOLDOWN_SEC=0 → 종전 동작(항상 최상위). 되돌릴 스위치가 있어야 한다."""
+        h = RelayHarness(dedup_window=0, cooldown_sec=0)
+        self.addCleanup(h.close)
+        self._fire(h, 3)
+        self.assertEqual(len(h.slack.top_level()), 3)
+
+    def test_ac5_store_failure_still_delivers(self):
+        """DB가 죽어도 알림은 나간다 — 강등은 **못 해도** 유실은 없다(유실 0 불변식)."""
+        h = RelayHarness(dedup_window=0, cooldown_sec=1800, store=ExplodingStore())
+        self.addCleanup(h.close)
+        self._fire(h, 2)
+        self.assertEqual(len(h.slack.top_level()), 2, "판정 불가 → 최상위 게시(fail-open)")
+
+    def test_mixed_group_is_not_collapsed(self):
+        """새 알림이 섞인 그룹은 접지 않는다 — 접으면 새 문제가 은폐된다(spec C4)."""
+        h = RelayHarness(dedup_window=0, cooldown_sec=1800)
+        self.addCleanup(h.close)
+        self._fire(h, 1)
+        mixed = load_fixture("webhook-diskusagehigh-firing.json")
+        extra = json.loads(json.dumps(mixed["alerts"][0]))
+        extra["fingerprint"] = "ffffffffffff9999"
+        extra["startsAt"] = "2026-08-16T09:00:00Z"
+        mixed["alerts"].append(extra)
+        _, body = h.post(mixed)
+        self.assertEqual(body.get("demoted", 0), 0)
+        self.assertEqual(len(h.slack.top_level()), 2)
 
 
 class TestEnrichment(unittest.TestCase):

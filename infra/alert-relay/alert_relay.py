@@ -432,6 +432,16 @@ def render_top_level(payload):
     return (head + "\n" + "\n".join(body)).strip()
 
 
+def render_repeat_reply(payload, count, first_at):
+    """재발화 답글 — 한 줄이면 충분하다.
+
+    최상위 메시지에 이미 무슨 알림인지 다 적혀 있다. 답글이 반복할 이유가 없고,
+    사람이 여기서 얻어야 할 새 정보는 **"몇 번째냐 · 언제부터냐"** 둘뿐이다.
+    """
+    when = kst_label(first_at) if first_at else "?"
+    return "🔁 재발화 %d회째 — 최초 %s KST (같은 사건, 새 알림 아님)" % (count, when)
+
+
 def render_resolved(contexts):
     """해결 답글 — 같은 fingerprint의 원 스레드에 붙는다(spec §3.2-4)."""
     lines = ["✅ 해결"]
@@ -753,6 +763,11 @@ class Config(object):
         # **재통지**(repeat_interval 4h/12h)는 통과시키는 값이어야 한다 — 그 사이면 아무 값이나
         # 맞지만, 기본 300초는 group_interval(5m) 하한과 같아 "한 그룹의 재전송"까지 덮는다.
         self.dedup_window = float(env.get("RELAY_DEDUP_WINDOW_SEC", "300"))
+        # ⚠️ 위와 **다른 것**이다. dedup_window 는 "같은 배달이 두 번 오는 것"(웹훅 재전송)을
+        # 막고, cooldown_sec 는 "같은 사건이 계속 재통지되는 것"을 스레드로 접는다.
+        # 이름이 비슷해 혼동하기 쉬워 나란히 둔다(spec alert-correlation §1).
+        # 0 이하면 강등을 끈다(= 종전 동작).
+        self.cooldown_sec = float(env.get("RELAY_COOLDOWN_SEC", "1800"))
         # 링크로 내보낼 수 있는 호스트(쉼표 구분). 비우면 keiwi_redaction 기본값(내부 엔드포인트).
         # ⚠️ 여기 없는 호스트의 링크는 **삭제**된다 — 콘솔·Grafana 주소를 바꾸면 여기도 바꿔라
         #    (지워질 때마다 WARNING 로그가 남는다).
@@ -822,6 +837,12 @@ class ThreadStore(object):
                     " started_at TEXT,"
                     " last_seen TEXT NOT NULL)"
                 )
+                # 재발화 횟수. 기존 DB에도 붙여야 하므로 ALTER 를 시도하고 중복은 흡수한다
+                # (sqlite 에는 ADD COLUMN IF NOT EXISTS 가 없다).
+                try:
+                    conn.execute("ALTER TABLE threads ADD COLUMN repeat_count INTEGER NOT NULL DEFAULT 0")
+                except sqlite3.Error:
+                    pass  # 이미 있다
         except (sqlite3.Error, OSError) as exc:
             self._degrade("초기화", exc)
 
@@ -860,22 +881,28 @@ class ThreadStore(object):
             self._memory.pop(fingerprint, None)
             self._unpersisted.discard(fingerprint)
 
-    def remember(self, fingerprint, channel, ts, alertname, started_at):
-        """저장한다. **성공 여부를 bool로 돌려주고 던지지 않는다.**"""
+    def remember(self, fingerprint, channel, ts, alertname, started_at, repeat_count=0):
+        """저장한다. **성공 여부를 bool로 돌려주고 던지지 않는다.**
+
+        ``repeat_count`` 는 재발화 강등(spec alert-correlation C1)이 "N회째"를 보여주기
+        위해 유지한다 — 5회째 재발과 1회째는 사람에게 다른 정보다.
+        """
         now = datetime.now(timezone.utc).isoformat()
         self._remember_memory({
             "fingerprint": fingerprint, "channel": channel, "ts": ts,
             "alertname": alertname, "started_at": started_at, "last_seen": now,
+            "repeat_count": repeat_count,
         })
         try:
             with self._connect() as conn:
                 conn.execute(
-                    "INSERT INTO threads(fingerprint, channel, ts, alertname, started_at, last_seen)"
-                    " VALUES(?,?,?,?,?,?)"
+                    "INSERT INTO threads(fingerprint, channel, ts, alertname, started_at, last_seen,"
+                    " repeat_count) VALUES(?,?,?,?,?,?,?)"
                     " ON CONFLICT(fingerprint) DO UPDATE SET"
                     " channel=excluded.channel, ts=excluded.ts, alertname=excluded.alertname,"
-                    " started_at=excluded.started_at, last_seen=excluded.last_seen",
-                    (fingerprint, channel, ts, alertname, started_at, now),
+                    " started_at=excluded.started_at, last_seen=excluded.last_seen,"
+                    " repeat_count=excluded.repeat_count",
+                    (fingerprint, channel, ts, alertname, started_at, now, repeat_count),
                 )
         except (sqlite3.Error, OSError) as exc:
             with self._lock:
@@ -897,8 +924,8 @@ class ThreadStore(object):
         try:
             with self._connect() as conn:
                 row = conn.execute(
-                    "SELECT fingerprint, channel, ts, alertname, started_at, last_seen"
-                    " FROM threads WHERE fingerprint=?",
+                    "SELECT fingerprint, channel, ts, alertname, started_at, last_seen,"
+                    " COALESCE(repeat_count, 0) FROM threads WHERE fingerprint=?",
                     (fingerprint,),
                 ).fetchone()
         except (sqlite3.Error, OSError) as exc:
@@ -915,6 +942,7 @@ class ThreadStore(object):
                 "alertname": row[3],
                 "started_at": row[4],
                 "last_seen": row[5],
+                "repeat_count": row[6],
             }
         with self._lock:
             if disk_answered and fingerprint not in self._unpersisted:
@@ -1283,6 +1311,7 @@ class App(object):
         self.webhooks = 0
         self.rejected = 0
         self.duplicates = 0
+        self.demoted = 0
         self.errors = 0
         self._purged_day = None
 
@@ -1393,7 +1422,45 @@ class App(object):
             # **해결을 조용히 삼키지 않는다** — 최상위로라도 알린다.
             LOG.info("해결 웹훅이지만 스레드 없음 — 최상위 게시로 폴백")
 
-        # ② 발화(또는 스레드 없는 해결) — 렌더된 title/message 그대로 게시.
+        # ②-a 재발화 강등 판정 — **게시 전에** 한다(spec alert-correlation C1).
+        #
+        # 무엇을 강등하나: Grafana 가 같은 사건을 repeat_interval 마다 다시 보내는 것.
+        # 같은 사건인지는 startsAt 동일로 판정한다(재통지 ≠ 새 발생).
+        # 강등하면 채널 최상위에 새 메시지를 만들지 않고 **원 스레드에 답글**을 단다.
+        #
+        # 조건을 모두 만족할 때만 강등한다 — 하나라도 어긋나면 평소대로 새 메시지다.
+        # 이 보수성이 규약이다: **잘못 접는 것이 시끄러운 것보다 위험하다**(spec C4).
+        #   · 그룹의 firing 이 전부 지문을 갖고
+        #   · 전부 같은 사건의 재통지이며(startsAt 동일)
+        #   · 전부 같은 스레드에 속하고(ts 동일 — 섞인 그룹은 접지 않는다)
+        #   · 전부 억제창 안이며(창 밖이면 다시 최상위로 띄워 존재를 상기시킨다)
+        #   · critical 이 하나도 없다(치명 알림은 언제나 최상위 — spec C4-4)
+        demote = self._demotion_target(firing)
+        if demote is not None:
+            reply_ts = self.slack.post(build_slack_payload(
+                channel, render_repeat_reply(payload, demote["count"], demote["first_at"]),
+                thread_ts=demote["ts"], allow_fallback=True))
+            if not reply_ts:
+                return None  # 답글 실패 → 5xx 로 재시도 유도(유실 방지, 기존 규약과 동일)
+            self.last_post_at = datetime.now(timezone.utc)
+            # 답글이지 게시가 아니다 — 해결 답글(replies)과 같은 회계를 쓴다.
+            # posted 를 1로 세면 "채널에 새 메시지가 떴다"는 뜻이 되어 회계가 거짓말을 한다.
+            result["replies"] = result.get("replies", 0) + 1
+            result["ts"] = demote["ts"]
+            result["demoted"] = 1
+            self.demoted += 1
+            mark(result)
+            for ctx in firing:
+                if ctx["fingerprint"]:
+                    self.store.remember(
+                        ctx["fingerprint"], channel, demote["ts"], ctx["alertname"],
+                        ctx["starts_at"], repeat_count=demote["count"],
+                    )
+            LOG.info("재발화 강등 — 스레드 답글 %d회째 alert=%s",
+                     demote["count"], firing[0]["alertname"] if firing else "?")
+            return result
+
+        # ②-b 발화(또는 스레드 없는 해결) — 렌더된 title/message 그대로 게시.
         ts = self.slack.post(build_slack_payload(
             channel, render_top_level(payload), allow_fallback=True))
         if not ts:
@@ -1413,8 +1480,12 @@ class App(object):
             row = self.store.lookup(ctx["fingerprint"])
             if row and row.get("started_at") and row["started_at"] == ctx["starts_at"]:
                 repeats += 1
+            # 최초 최상위 게시가 **1회째**다. 그래야 첫 강등 답글이 "2회째"가 되어
+            # 사람이 세는 방식과 맞는다(테스트가 오프바이원을 잡았다).
+            # 억제창이 만료돼 다시 최상위로 뜨면 새 스레드이므로 카운트도 1로 되돌린다.
             self.store.remember(
-                ctx["fingerprint"], channel, ts, ctx["alertname"], ctx["starts_at"]
+                ctx["fingerprint"], channel, ts, ctx["alertname"], ctx["starts_at"],
+                repeat_count=1,
             )
 
         # ③ 비동기 보강. 재통지(repeat_interval)는 보강하지 않는다 —
@@ -1428,6 +1499,46 @@ class App(object):
         elif repeats:
             LOG.info("재통지(startsAt 동일) — 보강 생략 alert=%s", firing[0]["alertname"] if firing else "?")
         return result
+
+    def _demotion_target(self, firing):
+        """재발화 강등 대상이면 {ts, count, first_at} 을, 아니면 None.
+
+        **순수 판정이다** — 게시도 저장도 하지 않는다. 조건은 호출부 주석에 있다.
+        어느 하나라도 확신이 서지 않으면 None(=평소대로 최상위 게시)을 돌려준다.
+        """
+        if not firing or self.cfg.cooldown_sec <= 0:
+            return None
+        now = datetime.now(timezone.utc)
+        ts = first_at = None
+        count = 0
+        for ctx in firing:
+            if not ctx["fingerprint"] or not ctx["starts_at"]:
+                return None
+            if (ctx["severity"] or "").lower() == "critical":
+                return None  # 치명은 언제나 최상위(spec C4-4)
+            row = self.store.lookup(ctx["fingerprint"])
+            if not row or not row.get("ts"):
+                return None  # 처음 보는 알림
+            if row.get("started_at") != ctx["starts_at"]:
+                return None  # 새 발생이지 재통지가 아니다
+            if ts is None:
+                ts = row["ts"]
+            elif ts != row["ts"]:
+                return None  # 서로 다른 스레드가 섞인 그룹 — 접지 않는다
+            try:
+                last = datetime.fromisoformat(row["last_seen"])
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                return None  # 시각을 못 읽으면 강등하지 않는다
+            if (now - last).total_seconds() > self.cfg.cooldown_sec:
+                return None  # 억제창 밖 — 다시 최상위로 띄운다
+            count = max(count, int(row.get("repeat_count") or 0))
+            if first_at is None:
+                first_at = row.get("started_at")
+        if ts is None:
+            return None
+        return {"ts": ts, "count": count + 1, "first_at": first_at}
 
     def _maybe_purge(self):
         today = datetime.now(timezone.utc).date()
@@ -1461,6 +1572,7 @@ class App(object):
             "webhooks": self.webhooks,
             "rejected": self.rejected,
             "duplicates": self.duplicates,
+            "demoted": self.demoted,
             "errors": self.errors,
             "ledger": self.ledger.size(),
             "started_at": self.started_at.isoformat(),
